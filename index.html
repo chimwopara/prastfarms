@@ -6,6 +6,8 @@
     <title>Prast Farms Receipt Generator</title>
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic" crossorigin>
@@ -53,9 +55,12 @@
         </button>
 
         <!-- Receipt Display Area -->
-        <div id="receiptOutput" class="hidden bg-gray-100 rounded-lg p-6 border border-gray-200">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Investment Confirmation</h2>
+        <div id="receiptOutput" class="hidden bg-gray-100 rounded-lg p-6 border border-gray-200 space-y-4">
+            <h2 class="text-lg font-semibold text-gray-900">Investment Confirmation</h2>
             <p id="receiptText" class="text-gray-700 whitespace-pre-wrap leading-relaxed"></p>
+            <a id="downloadPdfBtn" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors" download="prast-farms-receipt.pdf">
+                Download PDF
+            </a>
         </div>
         
         <!-- Error Message Box -->
@@ -79,12 +84,16 @@
         const passwordInput = document.getElementById('password');
         const receiptOutputDiv = document.getElementById('receiptOutput');
         const receiptTextP = document.getElementById('receiptText');
+        const downloadPdfBtn = document.getElementById('downloadPdfBtn');
         const errorMessageDiv = document.getElementById('errorMessage');
         const errorTextSpan = document.getElementById('errorText');
         const shareMessageDiv = document.getElementById('shareMessage');
 
         // The correct password
         const CORRECT_PASSWORD = '$stella';
+        
+        // jsPDF is loaded from CDN, so we can access it via window.jspdf
+        const { jsPDF } = window.jspdf;
 
         // Add a click event listener to the "Generate Receipt" button
         generateBtn.addEventListener('click', () => {
@@ -97,7 +106,6 @@
             errorMessageDiv.classList.add('hidden');
             shareMessageDiv.classList.add('hidden');
             receiptOutputDiv.classList.add('hidden');
-
 
             // Check if all fields are filled
             if (!investorName || !roiDate || !password) {
@@ -115,34 +123,40 @@
             
             // Format the date for display
             const date = new Date(roiDate);
-            // To account for timezone differences, we add the timezone offset
             const userTimezoneOffset = date.getTimezoneOffset() * 60000;
             const correctedDate = new Date(date.getTime() + userTimezoneOffset);
-
             const options = { year: 'numeric', month: 'long', day: 'numeric' };
             const formattedDate = correctedDate.toLocaleDateString('en-US', options);
 
-            // Create the receipt text using the template literal
+            // Create the receipt text
             const receiptContent = `Good morning ${investorName},\n\nThank you for investing with Prast Farms. Your return on investment will be ready on the ${formattedDate} before the due date; furthermore.\n\nThank you for your patronage.`;
 
             // Set the text content of the paragraph
             receiptTextP.textContent = receiptContent;
 
+            // --- PDF Generation ---
+            const doc = new jsPDF();
+            // Add text to the PDF, handling line breaks
+            doc.text(receiptContent, 10, 10, { maxWidth: 180 });
+            // Generate a Blob URL for the PDF
+            const pdfBlob = doc.output('blob');
+            const pdfUrl = URL.createObjectURL(pdfBlob);
+            // Set the download button's link to the PDF
+            downloadPdfBtn.href = pdfUrl;
+            downloadPdfBtn.download = `PrastFarms_Receipt_${investorName.replace(/\s/g, '_')}.pdf`;
+
             // Make the receipt output div visible
             receiptOutputDiv.classList.remove('hidden');
 
             // --- Share functionality ---
-            // Check if the Web Share API is supported by the browser
             if (navigator.share) {
                 navigator.share({
                     title: 'Prast Farms Investment Receipt',
                     text: receiptContent,
-                    url: document.location.href // Share the page's URL
                 })
                 .then(() => console.log('Receipt shared successfully.'))
-                .catch((error) => console.error('Error sharing receipt:', error)); // Log error if user cancels or it fails
+                .catch((error) => console.error('Error sharing receipt:', error));
             } else {
-                // If not supported, show a message to the user
                 shareMessageDiv.classList.remove('hidden');
             }
         });
