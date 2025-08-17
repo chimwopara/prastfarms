@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Renew Investment - Prast Farms</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .loader {
+            border: 4px solid #f3f3f3; border-top: 4px solid #3498db;
+            border-radius: 50%; width: 40px; height: 40px;
+            animation: spin 1s linear infinite; margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 sm:p-6 flex items-center justify-center">
+
+    <div id="appContainer" class="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-lg p-8">
+        <!-- Header -->
+        <header class="flex flex-col items-center pb-6 border-b">
+            <img src="logo.png" alt="Prast Farms Logo" class="h-24 w-24 object-contain" onerror="this.onerror=null;this.src='https://placehold.co/96x96/22c55e/ffffff?text=PF';">
+            <h1 class="text-3xl font-bold text-gray-800 mt-4">Investment Renewal</h1>
+        </header>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="text-center py-12">
+            <div class="loader"></div>
+            <p class="text-gray-600 mt-4">Loading customer information...</p>
+        </div>
+        
+        <!-- Main Content -->
+        <main id="mainContent" class="hidden">
+            <form id="renewalForm" class="mt-6 space-y-6">
+                <!-- Customer Info Display -->
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <h2 id="customerName" class="text-2xl font-bold text-gray-800"></h2>
+                    <p id="customerType" class="text-gray-600"></p>
+                </div>
+
+                <!-- Editable Fields -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-base font-medium text-gray-700 mb-1">New Investment Date</label>
+                        <div class="flex items-center space-x-2 mt-1">
+                            <input type="text" id="investDateDay" required class="w-1/4 p-3 bg-white border border-gray-300 rounded-lg shadow-sm text-center" placeholder="DD" maxlength="2" inputmode="numeric">
+                            <span class="text-gray-500">/</span>
+                            <input type="text" id="investDateMonth" required class="w-1/4 p-3 bg-white border border-gray-300 rounded-lg shadow-sm text-center" placeholder="MM" maxlength="2" inputmode="numeric">
+                            <span class="text-gray-500">/</span>
+                            <input type="text" id="investDateYear" required class="w-1/2 p-3 bg-white border border-gray-300 rounded-lg shadow-sm text-center" placeholder="YYYY" maxlength="4" inputmode="numeric">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-base font-medium text-gray-700 mb-1">New Due Date</label>
+                         <div class="flex items-center space-x-2 mt-1">
+                            <input type="text" id="dueDateDay" required class="w-1/4 p-3 bg-white border border-gray-300 rounded-lg shadow-sm text-center" placeholder="DD" maxlength="2" inputmode="numeric">
+                            <span class="text-gray-500">/</span>
+                            <input type="text" id="dueDateMonth" required class="w-1/4 p-3 bg-white border border-gray-300 rounded-lg shadow-sm text-center" placeholder="MM" maxlength="2" inputmode="numeric">
+                            <span class="text-gray-500">/</span>
+                            <input type="text" id="dueDateYear" required class="w-1/2 p-3 bg-white border border-gray-300 rounded-lg shadow-sm text-center" placeholder="YYYY" maxlength="4" inputmode="numeric">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="investSum" class="block text-base font-medium text-gray-700 mb-1">New Investment Sum (₦)</label>
+                        <input type="number" id="investSum" required class="mt-1 block w-full p-3 bg-white border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., 500000">
+                    </div>
+                    <div>
+                        <label for="dueSum" class="block text-base font-medium text-gray-700 mb-1">New Due Sum (₦)</label>
+                        <input type="number" id="dueSum" required class="mt-1 block w-full p-3 bg-white border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., 550000">
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="pt-6 flex flex-col sm:flex-row gap-4">
+                    <button type="button" id="renewBtn" class="w-full flex-1 justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-green-600 hover:bg-green-700">
+                        Renew with Same Terms
+                    </button>
+                    <button type="submit" id="editRenewBtn" class="w-full flex-1 justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-blue-600 hover:bg-blue-700">
+                        Update and Renew
+                    </button>
+                </div>
+            </form>
+        </main>
+        <!-- Status/Error Messages -->
+        <div id="statusMessage" class="hidden p-4 mt-6 rounded-lg text-center"></div>
+    </div>
+
+    <script>
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby901f9aG5P7dfL2aHYIRLEdOpZ4JSifJT-Kp3VoKBpa6FylRwId5bHia4ioKEO-bno/exec";
+        
+        // --- DOM Elements ---
+        const loadingState = document.getElementById('loadingState');
+        const mainContent = document.getElementById('mainContent');
+        const customerNameEl = document.getElementById('customerName');
+        const customerTypeEl = document.getElementById('customerType');
+        const renewalForm = document.getElementById('renewalForm');
+        const renewBtn = document.getElementById('renewBtn');
+        const statusMessage = document.getElementById('statusMessage');
+
+        let originalRecord = null;
+
+        // --- On Page Load: Get ID and Fetch Data ---
+        window.addEventListener('load', () => {
+            const params = new URLSearchParams(window.location.search);
+            const recordId = params.get('id');
+
+            if (!recordId) {
+                showStatus('No customer ID provided. Please use the link from your email.', true);
+                loadingState.classList.add('hidden');
+                return;
+            }
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'getRecordById', payload: { recordId } })
+            })
+            .then(res => res.json())
+            .then(response => {
+                if (response.status === 'success') {
+                    originalRecord = response.data;
+                    populateForm(originalRecord);
+                    loadingState.classList.add('hidden');
+                    mainContent.classList.remove('hidden');
+                } else {
+                    throw new Error(response.message);
+                }
+            })
+            .catch(error => showStatus(`Error fetching data: ${error.message}`, true));
+        });
+
+        // --- Populate form with fetched data ---
+        function populateForm(record) {
+            customerNameEl.textContent = `${record.FirstName} ${record.LastName}`;
+            customerTypeEl.textContent = record.Type;
+            
+            // Set today as the new investment date
+            const today = new Date();
+            document.getElementById('investDateDay').value = String(today.getDate()).padStart(2, '0');
+            document.getElementById('investDateMonth').value = String(today.getMonth() + 1).padStart(2, '0');
+            document.getElementById('investDateYear').value = today.getFullYear();
+
+            // Set due date to one year from today
+            const nextYear = new Date();
+            nextYear.setFullYear(today.getFullYear() + 1);
+            document.getElementById('dueDateDay').value = String(nextYear.getDate()).padStart(2, '0');
+            document.getElementById('dueDateMonth').value = String(nextYear.getMonth() + 1).padStart(2, '0');
+            document.getElementById('dueDateYear').value = nextYear.getFullYear();
+
+            // Populate sums
+            document.getElementById('investSum').value = record.InvestSum;
+            document.getElementById('dueSum').value = record.DueSum;
+        }
+
+        // --- "Renew with Same Terms" Button ---
+        renewBtn.addEventListener('click', () => {
+            // Repopulate form to reset any user edits
+            populateForm(originalRecord);
+            // Submit the form
+            renewalForm.dispatchEvent(new Event('submit', { cancelable: true }));
+        });
+
+        // --- "Update and Renew" Form Submission ---
+        renewalForm.addEventListener('submit', e => {
+            e.preventDefault();
+            const button = e.submitter;
+            button.disabled = true;
+            button.textContent = 'Processing...';
+
+            function getFormattedDate(dayId, monthId, yearId) {
+                const day = document.getElementById(dayId).value.padStart(2, '0');
+                const month = document.getElementById(monthId).value.padStart(2, '0');
+                const year = document.getElementById(yearId).value;
+                if (!day || !month || !year || year.length < 4) return null;
+                return `${year}-${month}-${day}`;
+            }
+
+            const renewedData = {
+                recordId: originalRecord.Row, // Send the original row number back
+                investDate: getFormattedDate('investDateDay', 'investDateMonth', 'investDateYear'),
+                dueDate: getFormattedDate('dueDateDay', 'dueDateMonth', 'dueDateYear'),
+                investSum: document.getElementById('investSum').value,
+                dueSum: document.getElementById('dueSum').value,
+            };
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'renewRecord', payload: renewedData })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('appContainer').innerHTML = `<div class="text-center py-12"><h2 class="text-3xl font-bold text-green-600">Success!</h2><p class="mt-4 text-gray-700">The investment for ${originalRecord.FirstName} has been successfully renewed.</p></div>`;
+                } else {
+                    throw new Error(data.message);
+                }
+            })
+            .catch(error => showStatus(`Error: ${error.message}`, true))
+            .finally(() => {
+                button.disabled = false;
+                // Reset text based on which button was clicked
+                if(button.id === 'renewBtn') button.textContent = 'Renew with Same Terms';
+                else button.textContent = 'Update and Renew';
+            });
+        });
+
+        // --- Show Status Message ---
+        function showStatus(message, isError = false) {
+            statusMessage.textContent = message;
+            statusMessage.className = `p-4 mt-6 rounded-lg text-center text-white ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+            statusMessage.classList.remove('hidden');
+        }
+
+    </script>
+</body>
+</html>

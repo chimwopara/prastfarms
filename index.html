@@ -12,119 +12,113 @@
             border-bottom: 2px solid #22c55e;
             color: #16a34a;
         }
-        /* Simple spinner for loading state */
         .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
+            border: 4px solid #f3f3f3; border-top: 4px solid #3498db;
+            border-radius: 50%; width: 40px; height: 40px;
+            animation: spin 1s linear infinite; margin: 20px auto;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* Autocomplete styles */
+        .autocomplete-items {
+            position: absolute; border: 1px solid #d1d5db; border-top: none; z-index: 99;
+            top: 100%; left: 0; right: 0; background-color: white;
         }
+        .autocomplete-items div {
+            padding: 10px; cursor: pointer; border-bottom: 1px solid #ddd;
+        }
+        .autocomplete-items div:hover { background-color: #e9e9e9; }
+        .autocomplete-active { background-color: DodgerBlue !important; color: #ffffff; }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-4 sm:p-6">
+<body class="bg-gray-100 min-h-screen p-4 sm:p-6 flex items-center justify-center">
 
     <div class="w-full max-w-4xl mx-auto bg-white rounded-2xl shadow-lg">
-        <!-- Header -->
-        <header class="flex flex-col items-center p-6 border-b">
-            <img src="logo.png" alt="Prast Farms Logo" class="h-24 w-24 object-contain" onerror="this.onerror=null;this.src='https://placehold.co/96x96/22c55e/ffffff?text=PF';">
-            <h1 class="text-3xl font-bold text-gray-800 mt-4">Business Tracker</h1>
-        </header>
-
-        <!-- Tabs -->
-        <div class="flex border-b">
-            <button id="addTabBtn" class="tab-button flex-1 py-4 text-lg font-semibold text-gray-600 hover:bg-gray-50 active">Add New Record</button>
-            <button id="viewTabBtn" class="tab-button flex-1 py-4 text-lg font-semibold text-gray-600 hover:bg-gray-50">View & Search Records</button>
+        <!-- Password Wall -->
+        <div id="passwordWall" class="p-8 sm:p-12">
+            <div class="flex flex-col items-center">
+                <img src="logo.png" alt="Prast Farms Logo" class="h-24 w-24 object-contain" onerror="this.onerror=null;this.src='https://placehold.co/96x96/22c55e/ffffff?text=PF';">
+                <h1 class="text-3xl font-bold text-gray-800 mt-4">Business Tracker</h1>
+                <p class="text-gray-600 mt-2">Please enter the password to continue.</p>
+            </div>
+            <div class="mt-8 space-y-4">
+                 <input type="password" id="password" class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center text-lg">
+                 <button id="unlockBtn" class="w-full py-3 px-4 rounded-lg text-white bg-blue-600 hover:bg-blue-700 font-semibold text-lg">Unlock</button>
+            </div>
         </div>
 
-        <main class="p-6 sm:p-8">
-            <!-- Add New Record Section -->
-            <section id="addRecordSection">
-                <form id="addRecordForm" class="space-y-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label for="type" class="block text-base font-medium text-gray-700 mb-1">Type</label>
-                            <select id="type" class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
-                                <option value="Farm Investment">Farm Investment</option>
-                                <option value="Real Estate">Real Estate</option>
-                            </select>
-                        </div>
-                         <div>
-                            <label for="firstName" class="block text-base font-medium text-gray-700 mb-1">First Name</label>
-                            <input type="text" id="firstName" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., Jane">
-                        </div>
-                        <div>
-                            <label for="lastName" class="block text-base font-medium text-gray-700 mb-1">Last Name</label>
-                            <input type="text" id="lastName" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., Doe">
-                        </div>
-                        <div>
-                            <label class="block text-base font-medium text-gray-700 mb-1">Investment Date (Payment Date)</label>
-                            <div class="flex items-center space-x-2 mt-1">
-                                <input type="text" id="investDateDay" required class="w-1/4 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="DD" maxlength="2" inputmode="numeric">
-                                <span class="text-gray-500">/</span>
-                                <input type="text" id="investDateMonth" required class="w-1/4 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="MM" maxlength="2" inputmode="numeric">
-                                <span class="text-gray-500">/</span>
-                                <input type="text" id="investDateYear" required class="w-1/2 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="YYYY" maxlength="4" inputmode="numeric">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-base font-medium text-gray-700 mb-1">Due Date (Return Date)</label>
-                             <div class="flex items-center space-x-2 mt-1">
-                                <input type="text" id="dueDateDay" required class="w-1/4 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="DD" maxlength="2" inputmode="numeric">
-                                <span class="text-gray-500">/</span>
-                                <input type="text" id="dueDateMonth" required class="w-1/4 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="MM" maxlength="2" inputmode="numeric">
-                                <span class="text-gray-500">/</span>
-                                <input type="text" id="dueDateYear" required class="w-1/2 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="YYYY" maxlength="4" inputmode="numeric">
-                            </div>
-                        </div>
-                        <div>
-                            <label for="investSum" class="block text-base font-medium text-gray-700 mb-1">Investment Sum (₦)</label>
-                            <input type="number" id="investSum" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., 500000">
-                        </div>
-                        <div>
-                            <label for="dueSum" class="block text-base font-medium text-gray-700 mb-1">Due Sum (₦)</label>
-                            <input type="number" id="dueSum" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., 550000">
-                        </div>
-                        <div>
-                            <label class="block text-base font-medium text-gray-700 mb-1">Renewal Date (Optional)</label>
-                             <div class="flex items-center space-x-2 mt-1">
-                                <input type="text" id="renewDateDay" class="w-1/4 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="DD" maxlength="2" inputmode="numeric">
-                                <span class="text-gray-500">/</span>
-                                <input type="text" id="renewDateMonth" class="w-1/4 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="MM" maxlength="2" inputmode="numeric">
-                                <span class="text-gray-500">/</span>
-                                <input type="text" id="renewDateYear" class="w-1/2 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="YYYY" maxlength="4" inputmode="numeric">
-                            </div>
-                        </div>
-                        <div>
-                            <label for="totalYears" class="block text-base font-medium text-gray-700 mb-1">Total Years of Renewal</label>
-                            <input type="number" id="totalYears" value="0" class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., 2">
-                        </div>
-                    </div>
-                    <div class="pt-4">
-                        <button type="submit" class="w-full flex justify-center py-4 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                            Save Record
-                        </button>
-                    </div>
-                </form>
-            </section>
+        <!-- Main App Content (hidden by default) -->
+        <div id="appContent" class="hidden">
+            <!-- Header -->
+            <header class="flex flex-col items-center p-6 border-b">
+                <img src="logo.png" alt="Prast Farms Logo" class="h-24 w-24 object-contain" onerror="this.onerror=null;this.src='https://placehold.co/96x96/22c55e/ffffff?text=PF';">
+                <h1 class="text-3xl font-bold text-gray-800 mt-4">Business Tracker</h1>
+            </header>
 
-            <!-- View & Search Section -->
-            <section id="viewRecordSection" class="hidden">
-                <!-- Password Gate -->
-                <div id="passwordGate" class="space-y-4">
-                     <label for="password" class="block text-base font-medium text-gray-700">Enter Password to View Records</label>
-                     <input type="password" id="password" class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm">
-                     <button id="unlockBtn" class="w-full py-3 px-4 rounded-lg text-white bg-blue-600 hover:bg-blue-700">Unlock</button>
-                </div>
+            <!-- Tabs -->
+            <div class="flex border-b">
+                <button id="addTabBtn" class="tab-button flex-1 py-4 text-lg font-semibold text-gray-600 hover:bg-gray-50 active">Add New Record</button>
+                <button id="viewTabBtn" class="tab-button flex-1 py-4 text-lg font-semibold text-gray-600 hover:bg-gray-50">View & Search Records</button>
+            </div>
 
-                <!-- Data Display -->
-                <div id="dataDisplay" class="hidden">
+            <main class="p-6 sm:p-8">
+                <!-- Add New Record Section -->
+                <section id="addRecordSection">
+                    <form id="addRecordForm" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="type" class="block text-base font-medium text-gray-700 mb-1">Type</label>
+                                <select id="type" class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                                    <option value="Farm Investment">Farm Investment</option>
+                                    <option value="Real Estate">Real Estate</option>
+                                </select>
+                            </div>
+                             <div class="relative">
+                                <label for="firstName" class="block text-base font-medium text-gray-700 mb-1">First Name</label>
+                                <input type="text" id="firstName" required autocomplete="off" class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., Jane">
+                            </div>
+                            <div class="relative">
+                                <label for="lastName" class="block text-base font-medium text-gray-700 mb-1">Last Name</label>
+                                <input type="text" id="lastName" required autocomplete="off" class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., Doe">
+                            </div>
+                            <div>
+                                <label class="block text-base font-medium text-gray-700 mb-1">Investment Date</label>
+                                <div class="flex items-center space-x-2 mt-1">
+                                    <input type="text" id="investDateDay" required class="w-1/4 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="DD" maxlength="2" inputmode="numeric">
+                                    <span class="text-gray-500">/</span>
+                                    <input type="text" id="investDateMonth" required class="w-1/4 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="MM" maxlength="2" inputmode="numeric">
+                                    <span class="text-gray-500">/</span>
+                                    <input type="text" id="investDateYear" required class="w-1/2 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="YYYY" maxlength="4" inputmode="numeric">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-base font-medium text-gray-700 mb-1">Due Date</label>
+                                 <div class="flex items-center space-x-2 mt-1">
+                                    <input type="text" id="dueDateDay" required class="w-1/4 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="DD" maxlength="2" inputmode="numeric">
+                                    <span class="text-gray-500">/</span>
+                                    <input type="text" id="dueDateMonth" required class="w-1/4 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="MM" maxlength="2" inputmode="numeric">
+                                    <span class="text-gray-500">/</span>
+                                    <input type="text" id="dueDateYear" required class="w-1/2 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="YYYY" maxlength="4" inputmode="numeric">
+                                </div>
+                            </div>
+                            <div>
+                                <label for="investSum" class="block text-base font-medium text-gray-700 mb-1">Investment Sum (₦)</label>
+                                <input type="number" id="investSum" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., 500000">
+                            </div>
+                            <div>
+                                <label for="dueSum" class="block text-base font-medium text-gray-700 mb-1">Due Sum (₦)</label>
+                                <input type="number" id="dueSum" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., 550000">
+                            </div>
+                        </div>
+                        <div class="pt-4">
+                            <button type="submit" class="w-full flex justify-center py-4 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                Save Record
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- View & Search Section -->
+                <section id="viewRecordSection" class="hidden">
                     <div class="flex flex-col sm:flex-row gap-4 mb-6">
                         <input type="text" id="searchInput" class="flex-grow p-3 border border-gray-300 rounded-lg" placeholder="Search by name, date, sum, etc...">
                         <select id="sortFilter" class="p-3 border border-gray-300 rounded-lg">
@@ -136,37 +130,34 @@
                     <div id="recordList" class="space-y-4">
                         <!-- Records will be loaded here -->
                     </div>
-                </div>
-            </section>
-        </main>
-
+                </section>
+            </main>
+        </div>
         <!-- Status/Error Messages -->
         <div id="statusMessage" class="hidden p-4 m-8 rounded-lg text-center"></div>
     </div>
 
     <script>
-        // =================================================================
-        // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE
-        // =================================================================
-        const SCRIPT_URL = "AKfycby901f9aG5P7dfL2aHYIRLEdOpZ4JSifJT-Kp3VoKBpa6FylRwId5bHia4ioKEO-bno";
-        // =================================================================
+        // Use the App ID you provided
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby901f9aG5P7dfL2aHYIRLEdOpZ4JSifJT-Kp3VoKBpa6FylRwId5bHia4ioKEO-bno/exec";
 
         // --- DOM Elements ---
+        const passwordWall = document.getElementById('passwordWall');
+        const appContent = document.getElementById('appContent');
+        const unlockBtn = document.getElementById('unlockBtn');
+        const passwordInput = document.getElementById('password');
         const addTabBtn = document.getElementById('addTabBtn');
         const viewTabBtn = document.getElementById('viewTabBtn');
         const addRecordSection = document.getElementById('addRecordSection');
         const viewRecordSection = document.getElementById('viewRecordSection');
         const addRecordForm = document.getElementById('addRecordForm');
         const statusMessage = document.getElementById('statusMessage');
-        const passwordGate = document.getElementById('passwordGate');
-        const dataDisplay = document.getElementById('dataDisplay');
-        const unlockBtn = document.getElementById('unlockBtn');
-        const passwordInput = document.getElementById('password');
         const recordList = document.getElementById('recordList');
         const searchInput = document.getElementById('searchInput');
         const sortFilter = document.getElementById('sortFilter');
         
-        let allRecords = []; // To store fetched records locally
+        let allRecords = []; // To store fetched records
+        let clientNames = []; // To store unique client names for autocomplete
 
         // --- Tab Switching ---
         addTabBtn.addEventListener('click', () => {
@@ -181,25 +172,53 @@
             addRecordSection.classList.add('hidden');
             viewTabBtn.classList.add('active');
             addTabBtn.classList.remove('active');
+            // Refresh records when switching to this tab
+            renderRecords(allRecords);
         });
         
-        // --- Auto-focus for date inputs ---
-        function setupDateInputs(dayId, monthId, yearId) {
-            const dayInput = document.getElementById(dayId);
-            const monthInput = document.getElementById(monthId);
-            const yearInput = document.getElementById(yearId);
-
-            dayInput.addEventListener('input', () => {
-                if (dayInput.value.length === 2) monthInput.focus();
-            });
-            monthInput.addEventListener('input', () => {
-                if (monthInput.value.length === 2) yearInput.focus();
+        // --- Auto-focus for date inputs and other fields ---
+        function setupAutoProgress() {
+            const fields = [
+                'firstName', 'lastName', 
+                'investDateDay', 'investDateMonth', 'investDateYear',
+                'dueDateDay', 'dueDateMonth', 'dueDateYear',
+                'investSum', 'dueSum'
+            ];
+            fields.forEach((id, index) => {
+                const el = document.getElementById(id);
+                el.addEventListener('keyup', (e) => {
+                    if ((el.maxLength > 0 && el.value.length === el.maxLength) || e.key === 'Enter') {
+                        e.preventDefault();
+                        const nextField = document.getElementById(fields[index + 1]);
+                        if (nextField) nextField.focus();
+                    }
+                });
             });
         }
-        setupDateInputs('investDateDay', 'investDateMonth', 'investDateYear');
-        setupDateInputs('dueDateDay', 'dueDateMonth', 'dueDateYear');
-        setupDateInputs('renewDateDay', 'renewDateMonth', 'renewDateYear');
+        setupAutoProgress();
 
+        // --- Auto-set Due Date ---
+        function setupAutoDueDate() {
+            const ids = ['investDateDay', 'investDateMonth', 'investDateYear'];
+            ids.forEach(id => {
+                document.getElementById(id).addEventListener('change', () => {
+                    const day = document.getElementById('investDateDay').value;
+                    const month = document.getElementById('investDateMonth').value;
+                    const year = document.getElementById('investDateYear').value;
+
+                    if (day.length === 2 && month.length === 2 && year.length === 4) {
+                        const investDate = new Date(`${year}-${month}-${day}`);
+                        if (!isNaN(investDate.getTime())) {
+                            investDate.setFullYear(investDate.getFullYear() + 1);
+                            document.getElementById('dueDateDay').value = String(investDate.getDate()).padStart(2, '0');
+                            document.getElementById('dueDateMonth').value = String(investDate.getMonth() + 1).padStart(2, '0');
+                            document.getElementById('dueDateYear').value = investDate.getFullYear();
+                        }
+                    }
+                });
+            });
+        }
+        setupAutoDueDate();
 
         // --- Show Status Message ---
         function showStatus(message, isError = false) {
@@ -212,24 +231,18 @@
         // --- Add Record Form Submission ---
         addRecordForm.addEventListener('submit', e => {
             e.preventDefault();
-            
-            // Helper to get and format date from DD, MM, YYYY inputs
             function getFormattedDate(dayId, monthId, yearId) {
                 const day = document.getElementById(dayId).value.padStart(2, '0');
                 const month = document.getElementById(monthId).value.padStart(2, '0');
                 const year = document.getElementById(yearId).value;
-                if (!day || !month || !year || year.length < 4) {
-                    // Return empty for optional dates, or null for required to indicate error
-                    return (day === '00' && month === '00' && year === '') ? "" : null;
-                }
+                if (!day || !month || !year || year.length < 4) return null;
                 return `${year}-${month}-${day}`;
             }
 
             const investDate = getFormattedDate('investDateDay', 'investDateMonth', 'investDateYear');
             const dueDate = getFormattedDate('dueDateDay', 'dueDateMonth', 'dueDateYear');
-            
             if (!investDate || !dueDate) {
-                showStatus('Please enter valid Investment and Due dates (DD/MM/YYYY).', true);
+                showStatus('Please enter valid dates (DD/MM/YYYY).', true);
                 return;
             }
 
@@ -241,43 +254,40 @@
                 type: document.getElementById('type').value,
                 firstName: document.getElementById('firstName').value,
                 lastName: document.getElementById('lastName').value,
-                investDate: investDate,
-                dueDate: dueDate,
+                investDate, dueDate,
                 investSum: document.getElementById('investSum').value,
                 dueSum: document.getElementById('dueSum').value,
-                renewDate: getFormattedDate('renewDateDay', 'renewDateMonth', 'renewDateYear'),
-                totalYears: document.getElementById('totalYears').value,
             };
 
             fetch(SCRIPT_URL, {
                 method: 'POST',
-                body: JSON.stringify({ action: 'addRecord', payload: formData })
+                body: JSON.stringify({ action: 'addRecord', payload: formData, password: passwordInput.value })
             })
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
                     showStatus('Record added successfully!');
                     addRecordForm.reset();
-                } else {
-                    throw new Error(data.message);
-                }
+                    // Add new record to local list and refresh view
+                    allRecords.unshift(data.newRecord);
+                    clientNames = [...new Set(allRecords.map(r => `${r.FirstName} ${r.LastName}`))];
+                } else { throw new Error(data.message); }
             })
             .catch(error => showStatus(`Error: ${error.message}`, true))
-            .finally(() => {
-                button.disabled = false;
-                button.textContent = 'Save Record';
-            });
+            .finally(() => { button.disabled = false; button.textContent = 'Save Record'; });
         });
 
-        // --- Unlock Records ---
-        unlockBtn.addEventListener('click', () => {
+        // --- Unlock App & Fetch Initial Data ---
+        function unlockApp() {
             const password = passwordInput.value;
             if (!password) {
                 showStatus('Please enter a password.', true);
                 return;
             }
             
-            recordList.innerHTML = '<div class="loader"></div>';
+            const unlockButton = document.getElementById('unlockBtn');
+            unlockButton.textContent = "Unlocking...";
+            unlockButton.disabled = true;
 
             fetch(SCRIPT_URL, {
                 method: 'POST',
@@ -286,16 +296,23 @@
             .then(res => res.json())
             .then(response => {
                 if (response.status === 'success') {
-                    passwordGate.classList.add('hidden');
-                    dataDisplay.classList.remove('hidden');
-                    allRecords = response.data.reverse(); // Show most recent first
-                    renderRecords(allRecords);
-                } else {
-                    throw new Error(response.message);
-                }
+                    passwordWall.classList.add('hidden');
+                    appContent.classList.remove('hidden');
+                    allRecords = response.data.reverse();
+                    clientNames = [...new Set(allRecords.map(r => `${r.FirstName} ${r.LastName}`))];
+                    setupAutocomplete(document.getElementById("firstName"), clientNames.map(n => n.split(' ')[0]));
+                    setupAutocomplete(document.getElementById("lastName"), clientNames.map(n => n.split(' ')[1]));
+                } else { throw new Error(response.message); }
             })
-            .catch(error => showStatus(`Error: ${error.message}`, true));
-        });
+            .catch(error => {
+                showStatus(`Error: ${error.message}`, true);
+                unlockButton.textContent = "Unlock";
+                unlockButton.disabled = false;
+            });
+        }
+        unlockBtn.addEventListener('click', unlockApp);
+        passwordInput.addEventListener('keyup', (e) => { if(e.key === 'Enter') unlockApp(); });
+
 
         // --- Render Records ---
         function renderRecords(records) {
@@ -304,15 +321,11 @@
                 recordList.innerHTML = '<p class="text-center text-gray-500">No records found.</p>';
                 return;
             }
-
             records.forEach(record => {
                 const recordDiv = document.createElement('div');
                 recordDiv.className = 'p-4 border rounded-lg bg-gray-50';
-                
-                // Format dates for display
                 const investDate = record.InvestDate ? new Date(record.InvestDate).toLocaleDateString() : 'N/A';
                 const dueDate = record.DueDate ? new Date(record.DueDate).toLocaleDateString() : 'N/A';
-
                 recordDiv.innerHTML = `
                     <div class="flex justify-between items-center">
                         <h3 class="font-bold text-lg">${record.FirstName} ${record.LastName}</h3>
@@ -323,39 +336,65 @@
                         <p><strong>Due Date:</strong> ${dueDate}</p>
                         <p><strong>Invest Sum:</strong> ₦${record.InvestSum}</p>
                         <p><strong>Due Sum:</strong> ₦${record.DueSum}</p>
-                    </div>
-                `;
+                        <p><strong>Renewals:</strong> ${record.TotalYears || 0}</p>
+                    </div>`;
                 recordList.appendChild(recordDiv);
             });
         }
         
-        // --- Search and Sort Functionality ---
+        // --- Search and Sort ---
         function filterAndSortRecords() {
             let filtered = [...allRecords];
             const searchTerm = searchInput.value.toLowerCase();
-
             if (searchTerm) {
-                filtered = filtered.filter(record => {
-                    return Object.values(record).some(value => 
-                        String(value).toLowerCase().includes(searchTerm)
-                    );
-                });
+                filtered = filtered.filter(r => Object.values(r).some(v => String(v).toLowerCase().includes(searchTerm)));
             }
-
             const sortBy = sortFilter.value;
-            if (sortBy === 'asc') {
-                filtered.sort((a, b) => a.FirstName.localeCompare(b.FirstName));
-            } else if (sortBy === 'desc') {
-                filtered.sort((a, b) => b.FirstName.localeCompare(a.FirstName));
-            }
-            // 'recent' is the default, no need to sort again.
-
+            if (sortBy === 'asc') filtered.sort((a, b) => a.FirstName.localeCompare(b.FirstName));
+            else if (sortBy === 'desc') filtered.sort((a, b) => b.FirstName.localeCompare(a.FirstName));
             renderRecords(filtered);
         }
-
         searchInput.addEventListener('input', filterAndSortRecords);
         sortFilter.addEventListener('change', filterAndSortRecords);
 
+        // --- Autocomplete Function ---
+        function setupAutocomplete(inp, arr) {
+            let currentFocus;
+            inp.addEventListener("input", function(e) {
+                let a, b, i, val = this.value;
+                closeAllLists();
+                if (!val) { return false;}
+                currentFocus = -1;
+                a = document.createElement("DIV");
+                a.setAttribute("id", this.id + "autocomplete-list");
+                a.setAttribute("class", "autocomplete-items");
+                this.parentNode.appendChild(a);
+                for (i = 0; i < arr.length; i++) {
+                    if (arr[i].substr(0, val.length).toUpperCase() == val.toUpperCase()) {
+                        b = document.createElement("DIV");
+                        b.innerHTML = "<strong>" + arr[i].substr(0, val.length) + "</strong>";
+                        b.innerHTML += arr[i].substr(val.length);
+                        b.innerHTML += "<input type='hidden' value='" + arr[i] + "'>";
+                        b.addEventListener("click", function(e) {
+                            inp.value = this.getElementsByTagName("input")[0].value;
+                            closeAllLists();
+                        });
+                        a.appendChild(b);
+                    }
+                }
+            });
+            function closeAllLists(elmnt) {
+                var x = document.getElementsByClassName("autocomplete-items");
+                for (var i = 0; i < x.length; i++) {
+                    if (elmnt != x[i] && elmnt != inp) {
+                        x[i].parentNode.removeChild(x[i]);
+                    }
+                }
+            }
+            document.addEventListener("click", function (e) {
+                closeAllLists(e.target);
+            });
+        }
     </script>
 
 </body>
