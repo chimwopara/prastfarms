@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prast Farms Receipt Generator</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Use Inter font family */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-md mx-auto bg-white rounded-xl shadow-lg p-8 space-y-6">
+        
+        <!-- Header with Logo -->
+        <div class="flex flex-col items-center space-y-4">
+            <img 
+                src="logo.png" 
+                alt="Prast Farms Logo" 
+                class="h-20 w-20 object-contain"
+                onerror="this.onerror=null;this.src='https://placehold.co/80x80/22c55e/ffffff?text=PF';">
+            <h1 class="text-2xl font-bold text-gray-800">Receipt Generator</h1>
+        </div>
+
+        <!-- Input Form -->
+        <div class="space-y-4">
+            <div>
+                <label for="investorName" class="block text-sm font-medium text-gray-700">Investor's Full Name</label>
+                <input type="text" id="investorName" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm" placeholder="Enter investor's full name">
+            </div>
+            <div>
+                <label for="roiDate" class="block text-sm font-medium text-gray-700">Return on Investment Date</label>
+                <input type="date" id="roiDate" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm">
+            </div>
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                <input type="password" id="password" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm" placeholder="Enter password">
+            </div>
+        </div>
+
+        <!-- Generate Button -->
+        <button id="generateBtn" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+            Generate & Share Receipt
+        </button>
+
+        <!-- Receipt Display Area -->
+        <div id="receiptOutput" class="hidden bg-gray-100 rounded-lg p-6 border border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Investment Confirmation</h2>
+            <p id="receiptText" class="text-gray-700 whitespace-pre-wrap leading-relaxed"></p>
+        </div>
+        
+        <!-- Error Message Box -->
+        <div id="errorMessage" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative" role="alert">
+            <strong class="font-bold">Oops!</strong>
+            <span id="errorText" class="block sm:inline"></span>
+        </div>
+
+        <!-- Share Status Message Box -->
+        <div id="shareMessage" class="hidden bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded-lg relative" role="alert">
+            <span class="block sm:inline">Sharing not supported on this browser. Please copy the text manually.</span>
+        </div>
+
+    </div>
+
+    <script>
+        // Get references to the HTML elements
+        const generateBtn = document.getElementById('generateBtn');
+        const investorNameInput = document.getElementById('investorName');
+        const roiDateInput = document.getElementById('roiDate');
+        const passwordInput = document.getElementById('password');
+        const receiptOutputDiv = document.getElementById('receiptOutput');
+        const receiptTextP = document.getElementById('receiptText');
+        const errorMessageDiv = document.getElementById('errorMessage');
+        const errorTextSpan = document.getElementById('errorText');
+        const shareMessageDiv = document.getElementById('shareMessage');
+
+        // The correct password
+        const CORRECT_PASSWORD = '$stella';
+
+        // Add a click event listener to the "Generate Receipt" button
+        generateBtn.addEventListener('click', () => {
+            // Get the values from the input fields
+            const investorName = investorNameInput.value.trim();
+            const roiDate = roiDateInput.value;
+            const password = passwordInput.value;
+
+            // Hide messages from previous attempts
+            errorMessageDiv.classList.add('hidden');
+            shareMessageDiv.classList.add('hidden');
+            receiptOutputDiv.classList.add('hidden');
+
+
+            // Check if all fields are filled
+            if (!investorName || !roiDate || !password) {
+                errorTextSpan.textContent = 'Please fill out all fields to generate the receipt.';
+                errorMessageDiv.classList.remove('hidden');
+                return; // Stop the function
+            }
+            
+            // Check if the password is correct
+            if (password !== CORRECT_PASSWORD) {
+                errorTextSpan.textContent = 'Incorrect password. Please try again.';
+                errorMessageDiv.classList.remove('hidden');
+                return; // Stop the function
+            }
+            
+            // Format the date for display
+            const date = new Date(roiDate);
+            // To account for timezone differences, we add the timezone offset
+            const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+            const correctedDate = new Date(date.getTime() + userTimezoneOffset);
+
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            const formattedDate = correctedDate.toLocaleDateString('en-US', options);
+
+            // Create the receipt text using the template literal
+            const receiptContent = `Good morning ${investorName},\n\nThank you for investing with Prast Farms. Your return on investment will be ready on the ${formattedDate} before the due date; furthermore.\n\nThank you for your patronage.`;
+
+            // Set the text content of the paragraph
+            receiptTextP.textContent = receiptContent;
+
+            // Make the receipt output div visible
+            receiptOutputDiv.classList.remove('hidden');
+
+            // --- Share functionality ---
+            // Check if the Web Share API is supported by the browser
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Prast Farms Investment Receipt',
+                    text: receiptContent,
+                    url: document.location.href // Share the page's URL
+                })
+                .then(() => console.log('Receipt shared successfully.'))
+                .catch((error) => console.error('Error sharing receipt:', error)); // Log error if user cancels or it fails
+            } else {
+                // If not supported, show a message to the user
+                shareMessageDiv.classList.remove('hidden');
+            }
+        });
+    </script>
+
+</body>
+</html>
