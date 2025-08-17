@@ -303,7 +303,10 @@
                     showStatus('Record added successfully!');
                     addRecordForm.reset();
                     allRecords.unshift(data.data.newRecord);
-                    clientNames = [...new Set(allRecords.map(r => `${r.FirstName} ${r.LastName}`))];
+                    
+                    // Update client names safely
+                    const validRecords = allRecords.filter(r => r && r.FirstName && r.LastName);
+                    clientNames = [...new Set(validRecords.map(r => `${r.FirstName} ${r.LastName}`))];
                     
                     // Prepare for sharing
                     lastEntryData = formData;
@@ -381,9 +384,16 @@
                     // FIXED: Data is already in object format, no need to map
                     allRecords = response.data.reverse();
 
-                    clientNames = [...new Set(allRecords.map(r => `${r.FirstName} ${r.LastName}`))];
-                    setupAutocomplete(document.getElementById("firstName"), clientNames.map(n => n.split(' ')[0]));
-                    setupAutocomplete(document.getElementById("lastName"), clientNames.map(n => n.split(' ')[1]));
+                    // Filter out invalid records and generate client names safely
+                    const validRecords = allRecords.filter(r => r && r.FirstName && r.LastName);
+                    clientNames = [...new Set(validRecords.map(r => `${r.FirstName} ${r.LastName}`))];
+                    
+                    // Set up autocomplete with safe data
+                    const firstNames = [...new Set(validRecords.map(r => r.FirstName).filter(name => name))];
+                    const lastNames = [...new Set(validRecords.map(r => r.LastName).filter(name => name))];
+                    
+                    setupAutocomplete(document.getElementById("firstName"), firstNames);
+                    setupAutocomplete(document.getElementById("lastName"), lastNames);
                     
                     viewTabBtn.click();
                 } else { throw new Error(response.message); }
@@ -401,25 +411,33 @@
         // --- Render Records ---
         function renderRecords(records) {
             recordList.innerHTML = '';
-            if (records.length === 0) {
+            if (!records || records.length === 0) {
                 recordList.innerHTML = '<p class="text-center text-gray-500">No records found.</p>';
                 return;
             }
             records.forEach(record => {
+                // Add null checks for safety
+                if (!record || !record.FirstName || !record.LastName) {
+                    return; // Skip invalid records
+                }
+                
                 const recordDiv = document.createElement('div');
                 recordDiv.className = 'p-4 border rounded-lg bg-gray-50';
                 const investDate = record.InvestDate ? new Date(record.InvestDate).toLocaleDateString() : 'N/A';
                 const dueDate = record.DueDate ? new Date(record.DueDate).toLocaleDateString() : 'N/A';
+                const investSum = record.InvestSum ? Number(record.InvestSum).toLocaleString() : 'N/A';
+                const dueSum = record.DueSum ? Number(record.DueSum).toLocaleString() : 'N/A';
+                
                 recordDiv.innerHTML = `
                     <div class="flex justify-between items-center">
                         <h3 class="font-bold text-lg">${record.FirstName} ${record.LastName}</h3>
-                        <span class="px-2 py-1 text-xs font-semibold rounded-full ${record.Type === 'Farm Investment' ? 'bg-green-200 text-green-800' : 'bg-blue-200 text-blue-800'}">${record.Type}</span>
+                        <span class="px-2 py-1 text-xs font-semibold rounded-full ${record.Type === 'Farm Investment' ? 'bg-green-200 text-green-800' : 'bg-blue-200 text-blue-800'}">${record.Type || 'Unknown'}</span>
                     </div>
                     <div class="mt-2 text-gray-600 grid grid-cols-2 gap-2 text-sm">
                         <p><strong>Invest Date:</strong> ${investDate}</p>
                         <p><strong>Due Date:</strong> ${dueDate}</p>
-                        <p><strong>Invest Sum:</strong> ₦${record.InvestSum}</p>
-                        <p><strong>Due Sum:</strong> ₦${record.DueSum}</p>
+                        <p><strong>Invest Sum:</strong> ₦${investSum}</p>
+                        <p><strong>Due Sum:</strong> ₦${dueSum}</p>
                         <p><strong>Renewals:</strong> ${record.TotalYears || 0}</p>
                     </div>`;
                 recordList.appendChild(recordDiv);
@@ -431,11 +449,28 @@
             let filtered = [...allRecords];
             const searchTerm = searchInput.value.toLowerCase();
             if (searchTerm) {
-                filtered = filtered.filter(r => Object.values(r).some(v => String(v).toLowerCase().includes(searchTerm)));
+                filtered = filtered.filter(record => {
+                    if (!record) return false; // Skip null/undefined records
+                    return Object.values(record).some(value => {
+                        if (value === null || value === undefined) return false;
+                        return String(value).toLowerCase().includes(searchTerm);
+                    });
+                });
             }
             const sortBy = sortFilter.value;
-            if (sortBy === 'asc') filtered.sort((a, b) => a.FirstName.localeCompare(b.FirstName));
-            else if (sortBy === 'desc') filtered.sort((a, b) => b.FirstName.localeCompare(a.FirstName));
+            if (sortBy === 'asc') {
+                filtered.sort((a, b) => {
+                    const nameA = a && a.FirstName ? a.FirstName : '';
+                    const nameB = b && b.FirstName ? b.FirstName : '';
+                    return nameA.localeCompare(nameB);
+                });
+            } else if (sortBy === 'desc') {
+                filtered.sort((a, b) => {
+                    const nameA = a && a.FirstName ? a.FirstName : '';
+                    const nameB = b && b.FirstName ? b.FirstName : '';
+                    return nameB.localeCompare(nameA);
+                });
+            }
             renderRecords(filtered);
         }
         searchInput.addEventListener('input', filterAndSortRecords);
@@ -443,6 +478,8 @@
 
         // --- Autocomplete Function ---
         function setupAutocomplete(inp, arr) {
+            if (!inp || !arr || arr.length === 0) return; // Safety check
+            
             let currentFocus;
             inp.addEventListener("input", function(e) {
                 let a, b, i, val = this.value;
@@ -454,7 +491,7 @@
                 a.setAttribute("class", "autocomplete-items");
                 this.parentNode.appendChild(a);
                 for (i = 0; i < arr.length; i++) {
-                    if (arr[i].substr(0, val.length).toUpperCase() == val.toUpperCase()) {
+                    if (arr[i] && arr[i].substr(0, val.length).toUpperCase() == val.toUpperCase()) {
                         b = document.createElement("DIV");
                         b.innerHTML = "<strong>" + arr[i].substr(0, val.length) + "</strong>";
                         b.innerHTML += arr[i].substr(val.length);
