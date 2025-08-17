@@ -3,163 +3,302 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prast Farms Receipt Generator</title>
-    <!-- Tailwind CSS for styling -->
+    <title>Prast Farms Business Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- jsPDF for PDF generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <!-- Google Fonts: Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Use Inter font family */
-        body {
-            font-family: 'Inter', sans-serif;
+        body { font-family: 'Inter', sans-serif; }
+        .tab-button.active {
+            border-bottom: 2px solid #22c55e;
+            color: #16a34a;
+        }
+        /* Simple spinner for loading state */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
-<body class="bg-gray-50 flex items-center justify-center min-h-screen p-4">
+<body class="bg-gray-100 min-h-screen p-4 sm:p-6">
 
-    <div class="w-full max-w-md mx-auto bg-white rounded-xl shadow-lg p-8 space-y-6">
-        
-        <!-- Header with Logo -->
-        <div class="flex flex-col items-center space-y-4">
-            <img 
-                src="logo.png" 
-                alt="Prast Farms Logo" 
-                class="h-20 w-20 object-contain"
-                onerror="this.onerror=null;this.src='https://placehold.co/80x80/22c55e/ffffff?text=PF';">
-            <h1 class="text-2xl font-bold text-gray-800">Receipt Generator</h1>
+    <div class="w-full max-w-4xl mx-auto bg-white rounded-2xl shadow-lg">
+        <!-- Header -->
+        <header class="flex flex-col items-center p-6 border-b">
+            <img src="logo.png" alt="Prast Farms Logo" class="h-24 w-24 object-contain" onerror="this.onerror=null;this.src='https://placehold.co/96x96/22c55e/ffffff?text=PF';">
+            <h1 class="text-3xl font-bold text-gray-800 mt-4">Business Tracker</h1>
+        </header>
+
+        <!-- Tabs -->
+        <div class="flex border-b">
+            <button id="addTabBtn" class="tab-button flex-1 py-4 text-lg font-semibold text-gray-600 hover:bg-gray-50 active">Add New Record</button>
+            <button id="viewTabBtn" class="tab-button flex-1 py-4 text-lg font-semibold text-gray-600 hover:bg-gray-50">View & Search Records</button>
         </div>
 
-        <!-- Input Form -->
-        <div class="space-y-4">
-            <div>
-                <label for="investorName" class="block text-sm font-medium text-gray-700">Investor's Full Name</label>
-                <input type="text" id="investorName" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm" placeholder="Enter investor's full name">
-            </div>
-            <div>
-                <label for="roiDate" class="block text-sm font-medium text-gray-700">Return on Investment Date</label>
-                <input type="date" id="roiDate" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm">
-            </div>
-            <div>
-                <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-                <input type="password" id="password" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm" placeholder="Enter password">
-            </div>
-        </div>
+        <main class="p-6 sm:p-8">
+            <!-- Add New Record Section -->
+            <section id="addRecordSection">
+                <form id="addRecordForm" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="type" class="block text-base font-medium text-gray-700 mb-1">Type</label>
+                            <select id="type" class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                                <option value="Farm Investment">Farm Investment</option>
+                                <option value="Real Estate">Real Estate</option>
+                            </select>
+                        </div>
+                         <div>
+                            <label for="firstName" class="block text-base font-medium text-gray-700 mb-1">First Name</label>
+                            <input type="text" id="firstName" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., Jane">
+                        </div>
+                        <div>
+                            <label for="lastName" class="block text-base font-medium text-gray-700 mb-1">Last Name</label>
+                            <input type="text" id="lastName" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., Doe">
+                        </div>
+                        <div>
+                            <label for="investDate" class="block text-base font-medium text-gray-700 mb-1">Investment Date (Payment Date)</label>
+                            <input type="date" id="investDate" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm">
+                        </div>
+                        <div>
+                            <label for="dueDate" class="block text-base font-medium text-gray-700 mb-1">Due Date (Return Date)</label>
+                            <input type="date" id="dueDate" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm">
+                        </div>
+                        <div>
+                            <label for="investSum" class="block text-base font-medium text-gray-700 mb-1">Investment Sum ($)</label>
+                            <input type="number" id="investSum" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., 5000">
+                        </div>
+                        <div>
+                            <label for="dueSum" class="block text-base font-medium text-gray-700 mb-1">Due Sum ($)</label>
+                            <input type="number" id="dueSum" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., 5500">
+                        </div>
+                        <div>
+                            <label for="renewDate" class="block text-base font-medium text-gray-700 mb-1">Renewal Date (Optional)</label>
+                            <input type="date" id="renewDate" class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm">
+                        </div>
+                        <div>
+                            <label for="totalYears" class="block text-base font-medium text-gray-700 mb-1">Total Years of Renewal</label>
+                            <input type="number" id="totalYears" value="0" class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., 2">
+                        </div>
+                    </div>
+                    <div class="pt-4">
+                        <button type="submit" class="w-full flex justify-center py-4 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                            Save Record
+                        </button>
+                    </div>
+                </form>
+            </section>
 
-        <!-- Generate Button -->
-        <button id="generateBtn" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
-            Generate & Share Receipt
-        </button>
+            <!-- View & Search Section -->
+            <section id="viewRecordSection" class="hidden">
+                <!-- Password Gate -->
+                <div id="passwordGate" class="space-y-4">
+                     <label for="password" class="block text-base font-medium text-gray-700">Enter Password to View Records</label>
+                     <input type="password" id="password" class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm">
+                     <button id="unlockBtn" class="w-full py-3 px-4 rounded-lg text-white bg-blue-600 hover:bg-blue-700">Unlock</button>
+                </div>
 
-        <!-- Receipt Display Area -->
-        <div id="receiptOutput" class="hidden bg-gray-100 rounded-lg p-6 border border-gray-200 space-y-4">
-            <h2 class="text-lg font-semibold text-gray-900">Investment Confirmation</h2>
-            <p id="receiptText" class="text-gray-700 whitespace-pre-wrap leading-relaxed"></p>
-            <a id="downloadPdfBtn" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors" download="prast-farms-receipt.pdf">
-                Download PDF
-            </a>
-        </div>
-        
-        <!-- Error Message Box -->
-        <div id="errorMessage" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative" role="alert">
-            <strong class="font-bold">Oops!</strong>
-            <span id="errorText" class="block sm:inline"></span>
-        </div>
+                <!-- Data Display -->
+                <div id="dataDisplay" class="hidden">
+                    <div class="flex flex-col sm:flex-row gap-4 mb-6">
+                        <input type="text" id="searchInput" class="flex-grow p-3 border border-gray-300 rounded-lg" placeholder="Search by name, date, sum, etc...">
+                        <select id="sortFilter" class="p-3 border border-gray-300 rounded-lg">
+                            <option value="recent">Sort by Most Recent</option>
+                            <option value="asc">Sort A-Z (by First Name)</option>
+                            <option value="desc">Sort Z-A (by First Name)</option>
+                        </select>
+                    </div>
+                    <div id="recordList" class="space-y-4">
+                        <!-- Records will be loaded here -->
+                    </div>
+                </div>
+            </section>
+        </main>
 
-        <!-- Share Status Message Box -->
-        <div id="shareMessage" class="hidden bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded-lg relative" role="alert">
-            <span class="block sm:inline">Sharing not supported on this browser. Please copy the text manually.</span>
-        </div>
-
+        <!-- Status/Error Messages -->
+        <div id="statusMessage" class="hidden p-4 m-8 rounded-lg text-center"></div>
     </div>
 
     <script>
-        // Get references to the HTML elements
-        const generateBtn = document.getElementById('generateBtn');
-        const investorNameInput = document.getElementById('investorName');
-        const roiDateInput = document.getElementById('roiDate');
+        // =================================================================
+        // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE
+        // =================================================================
+        const SCRIPT_URL = "AKfycby901f9aG5P7dfL2aHYIRLEdOpZ4JSifJT-Kp3VoKBpa6FylRwId5bHia4ioKEO-bno";
+        // =================================================================
+
+        // --- DOM Elements ---
+        const addTabBtn = document.getElementById('addTabBtn');
+        const viewTabBtn = document.getElementById('viewTabBtn');
+        const addRecordSection = document.getElementById('addRecordSection');
+        const viewRecordSection = document.getElementById('viewRecordSection');
+        const addRecordForm = document.getElementById('addRecordForm');
+        const statusMessage = document.getElementById('statusMessage');
+        const passwordGate = document.getElementById('passwordGate');
+        const dataDisplay = document.getElementById('dataDisplay');
+        const unlockBtn = document.getElementById('unlockBtn');
         const passwordInput = document.getElementById('password');
-        const receiptOutputDiv = document.getElementById('receiptOutput');
-        const receiptTextP = document.getElementById('receiptText');
-        const downloadPdfBtn = document.getElementById('downloadPdfBtn');
-        const errorMessageDiv = document.getElementById('errorMessage');
-        const errorTextSpan = document.getElementById('errorText');
-        const shareMessageDiv = document.getElementById('shareMessage');
-
-        // The correct password
-        const CORRECT_PASSWORD = '$stella';
+        const recordList = document.getElementById('recordList');
+        const searchInput = document.getElementById('searchInput');
+        const sortFilter = document.getElementById('sortFilter');
         
-        // jsPDF is loaded from CDN, so we can access it via window.jspdf
-        const { jsPDF } = window.jspdf;
+        let allRecords = []; // To store fetched records locally
 
-        // Add a click event listener to the "Generate Receipt" button
-        generateBtn.addEventListener('click', () => {
-            // Get the values from the input fields
-            const investorName = investorNameInput.value.trim();
-            const roiDate = roiDateInput.value;
-            const password = passwordInput.value;
-
-            // Hide messages from previous attempts
-            errorMessageDiv.classList.add('hidden');
-            shareMessageDiv.classList.add('hidden');
-            receiptOutputDiv.classList.add('hidden');
-
-            // Check if all fields are filled
-            if (!investorName || !roiDate || !password) {
-                errorTextSpan.textContent = 'Please fill out all fields to generate the receipt.';
-                errorMessageDiv.classList.remove('hidden');
-                return; // Stop the function
-            }
-            
-            // Check if the password is correct
-            if (password !== CORRECT_PASSWORD) {
-                errorTextSpan.textContent = 'Incorrect password. Please try again.';
-                errorMessageDiv.classList.remove('hidden');
-                return; // Stop the function
-            }
-            
-            // Format the date for display
-            const date = new Date(roiDate);
-            const userTimezoneOffset = date.getTimezoneOffset() * 60000;
-            const correctedDate = new Date(date.getTime() + userTimezoneOffset);
-            const options = { year: 'numeric', month: 'long', day: 'numeric' };
-            const formattedDate = correctedDate.toLocaleDateString('en-US', options);
-
-            // Create the receipt text
-            const receiptContent = `Good morning ${investorName},\n\nThank you for investing with Prast Farms. Your return on investment will be ready on the ${formattedDate} before the due date; furthermore.\n\nThank you for your patronage.`;
-
-            // Set the text content of the paragraph
-            receiptTextP.textContent = receiptContent;
-
-            // --- PDF Generation ---
-            const doc = new jsPDF();
-            // Add text to the PDF, handling line breaks
-            doc.text(receiptContent, 10, 10, { maxWidth: 180 });
-            // Generate a Blob URL for the PDF
-            const pdfBlob = doc.output('blob');
-            const pdfUrl = URL.createObjectURL(pdfBlob);
-            // Set the download button's link to the PDF
-            downloadPdfBtn.href = pdfUrl;
-            downloadPdfBtn.download = `PrastFarms_Receipt_${investorName.replace(/\s/g, '_')}.pdf`;
-
-            // Make the receipt output div visible
-            receiptOutputDiv.classList.remove('hidden');
-
-            // --- Share functionality ---
-            if (navigator.share) {
-                navigator.share({
-                    title: 'Prast Farms Investment Receipt',
-                    text: receiptContent,
-                })
-                .then(() => console.log('Receipt shared successfully.'))
-                .catch((error) => console.error('Error sharing receipt:', error));
-            } else {
-                shareMessageDiv.classList.remove('hidden');
-            }
+        // --- Tab Switching ---
+        addTabBtn.addEventListener('click', () => {
+            addRecordSection.classList.remove('hidden');
+            viewRecordSection.classList.add('hidden');
+            addTabBtn.classList.add('active');
+            viewTabBtn.classList.remove('active');
         });
+
+        viewTabBtn.addEventListener('click', () => {
+            viewRecordSection.classList.remove('hidden');
+            addRecordSection.classList.add('hidden');
+            viewTabBtn.classList.add('active');
+            addTabBtn.classList.remove('active');
+        });
+
+        // --- Show Status Message ---
+        function showStatus(message, isError = false) {
+            statusMessage.textContent = message;
+            statusMessage.className = `p-4 m-8 rounded-lg text-center text-white ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+            statusMessage.classList.remove('hidden');
+            setTimeout(() => statusMessage.classList.add('hidden'), 4000);
+        }
+
+        // --- Add Record Form Submission ---
+        addRecordForm.addEventListener('submit', e => {
+            e.preventDefault();
+            const button = e.target.querySelector('button');
+            button.disabled = true;
+            button.textContent = 'Saving...';
+
+            const formData = {
+                type: document.getElementById('type').value,
+                firstName: document.getElementById('firstName').value,
+                lastName: document.getElementById('lastName').value,
+                investDate: document.getElementById('investDate').value,
+                dueDate: document.getElementById('dueDate').value,
+                investSum: document.getElementById('investSum').value,
+                dueSum: document.getElementById('dueSum').value,
+                renewDate: document.getElementById('renewDate').value,
+                totalYears: document.getElementById('totalYears').value,
+            };
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'addRecord', payload: formData })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showStatus('Record added successfully!');
+                    addRecordForm.reset();
+                } else {
+                    throw new Error(data.message);
+                }
+            })
+            .catch(error => showStatus(`Error: ${error.message}`, true))
+            .finally(() => {
+                button.disabled = false;
+                button.textContent = 'Save Record';
+            });
+        });
+
+        // --- Unlock Records ---
+        unlockBtn.addEventListener('click', () => {
+            const password = passwordInput.value;
+            if (!password) {
+                showStatus('Please enter a password.', true);
+                return;
+            }
+            
+            recordList.innerHTML = '<div class="loader"></div>';
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'getRecords', payload: { password } })
+            })
+            .then(res => res.json())
+            .then(response => {
+                if (response.status === 'success') {
+                    passwordGate.classList.add('hidden');
+                    dataDisplay.classList.remove('hidden');
+                    allRecords = response.data.reverse(); // Show most recent first
+                    renderRecords(allRecords);
+                } else {
+                    throw new Error(response.message);
+                }
+            })
+            .catch(error => showStatus(`Error: ${error.message}`, true));
+        });
+
+        // --- Render Records ---
+        function renderRecords(records) {
+            recordList.innerHTML = '';
+            if (records.length === 0) {
+                recordList.innerHTML = '<p class="text-center text-gray-500">No records found.</p>';
+                return;
+            }
+
+            records.forEach(record => {
+                const recordDiv = document.createElement('div');
+                recordDiv.className = 'p-4 border rounded-lg bg-gray-50';
+                
+                // Format dates for display
+                const investDate = record.InvestDate ? new Date(record.InvestDate).toLocaleDateString() : 'N/A';
+                const dueDate = record.DueDate ? new Date(record.DueDate).toLocaleDateString() : 'N/A';
+
+                recordDiv.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-lg">${record.FirstName} ${record.LastName}</h3>
+                        <span class="px-2 py-1 text-xs font-semibold rounded-full ${record.Type === 'Farm Investment' ? 'bg-green-200 text-green-800' : 'bg-blue-200 text-blue-800'}">${record.Type}</span>
+                    </div>
+                    <div class="mt-2 text-gray-600 grid grid-cols-2 gap-2 text-sm">
+                        <p><strong>Invest Date:</strong> ${investDate}</p>
+                        <p><strong>Due Date:</strong> ${dueDate}</p>
+                        <p><strong>Invest Sum:</strong> $${record.InvestSum}</p>
+                        <p><strong>Due Sum:</strong> $${record.DueSum}</p>
+                    </div>
+                `;
+                recordList.appendChild(recordDiv);
+            });
+        }
+        
+        // --- Search and Sort Functionality ---
+        function filterAndSortRecords() {
+            let filtered = [...allRecords];
+            const searchTerm = searchInput.value.toLowerCase();
+
+            if (searchTerm) {
+                filtered = filtered.filter(record => {
+                    return Object.values(record).some(value => 
+                        String(value).toLowerCase().includes(searchTerm)
+                    );
+                });
+            }
+
+            const sortBy = sortFilter.value;
+            if (sortBy === 'asc') {
+                filtered.sort((a, b) => a.FirstName.localeCompare(b.FirstName));
+            } else if (sortBy === 'desc') {
+                filtered.sort((a, b) => b.FirstName.localeCompare(a.FirstName));
+            }
+            // 'recent' is the default, no need to sort again.
+
+            renderRecords(filtered);
+        }
+
+        searchInput.addEventListener('input', filterAndSortRecords);
+        sortFilter.addEventListener('change', filterAndSortRecords);
+
     </script>
 
 </body>
