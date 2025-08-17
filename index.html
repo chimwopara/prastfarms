@@ -378,7 +378,8 @@
                     passwordWall.classList.add('hidden');
                     appContent.classList.remove('hidden');
                     
-                    allRecords = response.data.reverse(); // Data is already in object format
+                    // FIXED: Data is already in object format, no need to map
+                    allRecords = response.data.reverse();
 
                     clientNames = [...new Set(allRecords.map(r => `${r.FirstName} ${r.LastName}`))];
                     setupAutocomplete(document.getElementById("firstName"), clientNames.map(n => n.split(' ')[0]));
