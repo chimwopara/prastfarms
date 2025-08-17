@@ -6,6 +6,7 @@
     <title>Prast Tracker</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -29,6 +30,15 @@
         }
         .autocomplete-items div:hover { background-color: #e9e9e9; }
         .autocomplete-active { background-color: DodgerBlue !important; color: #ffffff; }
+        /* Styles for the receipt template, positioned off-screen */
+        #receipt-template {
+            position: absolute;
+            left: -9999px;
+            width: 400px;
+            background: white;
+            padding: 20px;
+            font-family: 'Inter', sans-serif;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen p-4 sm:p-6 flex items-center justify-center">
@@ -110,9 +120,12 @@
                                 <input type="number" id="dueSum" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., 550000">
                             </div>
                         </div>
-                        <div class="pt-4">
+                        <div id="formActions" class="pt-4 flex gap-4">
                             <button type="submit" class="w-full flex justify-center py-4 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                                 Save Record
+                            </button>
+                            <button type="button" id="shareBtn" class="hidden w-full flex justify-center py-4 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+                                Share Receipt
                             </button>
                         </div>
                     </form>
@@ -137,6 +150,24 @@
         <!-- Status/Error Messages -->
         <div id="statusMessage" class="hidden p-4 m-8 rounded-lg text-center"></div>
     </div>
+    
+    <!-- Receipt Template (Off-screen) -->
+    <div id="receipt-template">
+        <div class="text-center mb-4">
+            <img id="receipt-logo" src="logo.png" class="h-20 w-20 mx-auto" crossorigin="anonymous" onerror="this.onerror=null;this.src='https://placehold.co/80x80/22c55e/ffffff?text=PF';">
+            <h2 class="text-2xl font-bold mt-2">Prast Farms</h2>
+        </div>
+        <div class="space-y-2 text-sm">
+            <p><strong>Client:</strong> <span id="receipt-name"></span></p>
+            <p><strong>Type:</strong> <span id="receipt-type"></span></p>
+            <p><strong>Investment Date:</strong> <span id="receipt-investDate"></span></p>
+            <p><strong>Due Date:</strong> <span id="receipt-dueDate"></span></p>
+            <p><strong>Investment Sum:</strong> <span id="receipt-investSum"></span></p>
+            <p><strong>Due Sum:</strong> <span id="receipt-dueSum"></span></p>
+        </div>
+        <p class="text-center mt-6 text-gray-700">Thank you for investing with Prast Farms</p>
+    </div>
+
 
     <script>
         // Use the App ID you provided
@@ -156,9 +187,11 @@
         const recordList = document.getElementById('recordList');
         const searchInput = document.getElementById('searchInput');
         const sortFilter = document.getElementById('sortFilter');
+        const shareBtn = document.getElementById('shareBtn');
         
         let allRecords = []; // To store fetched records
         let clientNames = []; // To store unique client names for autocomplete
+        let lastEntryData = null; // To store data for the share receipt function
 
         // --- Tab Switching ---
         addTabBtn.addEventListener('click', () => {
@@ -173,7 +206,6 @@
             addRecordSection.classList.add('hidden');
             viewTabBtn.classList.add('active');
             addTabBtn.classList.remove('active');
-            // Refresh records when switching to this tab
             renderRecords(allRecords);
         });
         
@@ -232,6 +264,7 @@
         // --- Add Record Form Submission ---
         addRecordForm.addEventListener('submit', e => {
             e.preventDefault();
+            shareBtn.classList.add('hidden'); // Hide share button on new submission
             function getFormattedDate(dayId, monthId, yearId) {
                 const day = document.getElementById(dayId).value.padStart(2, '0');
                 const month = document.getElementById(monthId).value.padStart(2, '0');
@@ -247,7 +280,7 @@
                 return;
             }
 
-            const button = e.target.querySelector('button');
+            const button = e.target.querySelector('button[type="submit"]');
             button.disabled = true;
             button.textContent = 'Saving...';
 
@@ -269,13 +302,58 @@
                 if (data.status === 'success') {
                     showStatus('Record added successfully!');
                     addRecordForm.reset();
-                    // Add new record to local list and refresh view
                     allRecords.unshift(data.data.newRecord);
                     clientNames = [...new Set(allRecords.map(r => `${r.FirstName} ${r.LastName}`))];
+                    
+                    // Prepare for sharing
+                    lastEntryData = formData;
+                    shareBtn.classList.remove('hidden');
+
                 } else { throw new Error(data.message); }
             })
             .catch(error => showStatus(`Error: ${error.message}`, true))
             .finally(() => { button.disabled = false; button.textContent = 'Save Record'; });
+        });
+
+        // --- Share Receipt Functionality ---
+        shareBtn.addEventListener('click', async () => {
+            if (!lastEntryData) {
+                showStatus('No recent record to share.', true);
+                return;
+            }
+
+            // 1. Populate the hidden receipt template
+            document.getElementById('receipt-name').textContent = `${lastEntryData.firstName} ${lastEntryData.lastName}`;
+            document.getElementById('receipt-type').textContent = lastEntryData.type;
+            document.getElementById('receipt-investDate').textContent = new Date(lastEntryData.investDate).toLocaleDateString();
+            document.getElementById('receipt-dueDate').textContent = new Date(lastEntryData.dueDate).toLocaleDateString();
+            document.getElementById('receipt-investSum').textContent = `₦${Number(lastEntryData.investSum).toLocaleString()}`;
+            document.getElementById('receipt-dueSum').textContent = `₦${Number(lastEntryData.dueSum).toLocaleString()}`;
+
+            // 2. Generate image using html2canvas
+            const receiptElement = document.getElementById('receipt-template');
+            const canvas = await html2canvas(receiptElement, { useCORS: true });
+            const dataUrl = canvas.toDataURL('image/png');
+
+            // 3. Convert data URL to a file for sharing
+            const blob = await (await fetch(dataUrl)).blob();
+            const file = new File([blob], 'PrastFarms_Receipt.png', { type: 'image/png' });
+            
+            // 4. Use the Web Share API
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Prast Farms Investment Receipt',
+                        text: `Here is the investment receipt for ${lastEntryData.firstName}.`,
+                    });
+                } catch (error) {
+                    console.error('Sharing failed:', error);
+                    showStatus('Sharing was cancelled or failed.', true);
+                }
+            } else {
+                showStatus('Image sharing is not supported on this browser.', true);
+            }
         });
 
         // --- Unlock App & Fetch Initial Data ---
@@ -299,12 +377,17 @@
                 if (response.status === 'success') {
                     passwordWall.classList.add('hidden');
                     appContent.classList.remove('hidden');
-                    allRecords = response.data.reverse();
+                    
+                    allRecords = response.data.map(row => ({
+                        Row: row[0], Type: row[1], FirstName: row[2], LastName: row[3],
+                        InvestDate: row[4], DueDate: row[5], InvestSum: row[6], DueSum: row[7],
+                        RenewDate: row[8], TotalYears: row[9]
+                    })).reverse();
+
                     clientNames = [...new Set(allRecords.map(r => `${r.FirstName} ${r.LastName}`))];
                     setupAutocomplete(document.getElementById("firstName"), clientNames.map(n => n.split(' ')[0]));
                     setupAutocomplete(document.getElementById("lastName"), clientNames.map(n => n.split(' ')[1]));
                     
-                    // *** FIX: Automatically switch to the view tab and render records ***
                     viewTabBtn.click();
                 } else { throw new Error(response.message); }
             })
