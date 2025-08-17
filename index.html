@@ -64,24 +64,42 @@
                             <input type="text" id="lastName" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., Doe">
                         </div>
                         <div>
-                            <label for="investDate" class="block text-base font-medium text-gray-700 mb-1">Investment Date (Payment Date)</label>
-                            <input type="date" id="investDate" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm">
+                            <label class="block text-base font-medium text-gray-700 mb-1">Investment Date (Payment Date)</label>
+                            <div class="flex items-center space-x-2 mt-1">
+                                <input type="text" id="investDateDay" required class="w-1/4 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="DD" maxlength="2" inputmode="numeric">
+                                <span class="text-gray-500">/</span>
+                                <input type="text" id="investDateMonth" required class="w-1/4 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="MM" maxlength="2" inputmode="numeric">
+                                <span class="text-gray-500">/</span>
+                                <input type="text" id="investDateYear" required class="w-1/2 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="YYYY" maxlength="4" inputmode="numeric">
+                            </div>
                         </div>
                         <div>
-                            <label for="dueDate" class="block text-base font-medium text-gray-700 mb-1">Due Date (Return Date)</label>
-                            <input type="date" id="dueDate" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm">
+                            <label class="block text-base font-medium text-gray-700 mb-1">Due Date (Return Date)</label>
+                             <div class="flex items-center space-x-2 mt-1">
+                                <input type="text" id="dueDateDay" required class="w-1/4 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="DD" maxlength="2" inputmode="numeric">
+                                <span class="text-gray-500">/</span>
+                                <input type="text" id="dueDateMonth" required class="w-1/4 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="MM" maxlength="2" inputmode="numeric">
+                                <span class="text-gray-500">/</span>
+                                <input type="text" id="dueDateYear" required class="w-1/2 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="YYYY" maxlength="4" inputmode="numeric">
+                            </div>
                         </div>
                         <div>
-                            <label for="investSum" class="block text-base font-medium text-gray-700 mb-1">Investment Sum ($)</label>
-                            <input type="number" id="investSum" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., 5000">
+                            <label for="investSum" class="block text-base font-medium text-gray-700 mb-1">Investment Sum (₦)</label>
+                            <input type="number" id="investSum" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., 500000">
                         </div>
                         <div>
-                            <label for="dueSum" class="block text-base font-medium text-gray-700 mb-1">Due Sum ($)</label>
-                            <input type="number" id="dueSum" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., 5500">
+                            <label for="dueSum" class="block text-base font-medium text-gray-700 mb-1">Due Sum (₦)</label>
+                            <input type="number" id="dueSum" required class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., 550000">
                         </div>
                         <div>
-                            <label for="renewDate" class="block text-base font-medium text-gray-700 mb-1">Renewal Date (Optional)</label>
-                            <input type="date" id="renewDate" class="mt-1 block w-full p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm">
+                            <label class="block text-base font-medium text-gray-700 mb-1">Renewal Date (Optional)</label>
+                             <div class="flex items-center space-x-2 mt-1">
+                                <input type="text" id="renewDateDay" class="w-1/4 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="DD" maxlength="2" inputmode="numeric">
+                                <span class="text-gray-500">/</span>
+                                <input type="text" id="renewDateMonth" class="w-1/4 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="MM" maxlength="2" inputmode="numeric">
+                                <span class="text-gray-500">/</span>
+                                <input type="text" id="renewDateYear" class="w-1/2 p-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm text-center" placeholder="YYYY" maxlength="4" inputmode="numeric">
+                            </div>
                         </div>
                         <div>
                             <label for="totalYears" class="block text-base font-medium text-gray-700 mb-1">Total Years of Renewal</label>
@@ -164,6 +182,24 @@
             viewTabBtn.classList.add('active');
             addTabBtn.classList.remove('active');
         });
+        
+        // --- Auto-focus for date inputs ---
+        function setupDateInputs(dayId, monthId, yearId) {
+            const dayInput = document.getElementById(dayId);
+            const monthInput = document.getElementById(monthId);
+            const yearInput = document.getElementById(yearId);
+
+            dayInput.addEventListener('input', () => {
+                if (dayInput.value.length === 2) monthInput.focus();
+            });
+            monthInput.addEventListener('input', () => {
+                if (monthInput.value.length === 2) yearInput.focus();
+            });
+        }
+        setupDateInputs('investDateDay', 'investDateMonth', 'investDateYear');
+        setupDateInputs('dueDateDay', 'dueDateMonth', 'dueDateYear');
+        setupDateInputs('renewDateDay', 'renewDateMonth', 'renewDateYear');
+
 
         // --- Show Status Message ---
         function showStatus(message, isError = false) {
@@ -176,6 +212,27 @@
         // --- Add Record Form Submission ---
         addRecordForm.addEventListener('submit', e => {
             e.preventDefault();
+            
+            // Helper to get and format date from DD, MM, YYYY inputs
+            function getFormattedDate(dayId, monthId, yearId) {
+                const day = document.getElementById(dayId).value.padStart(2, '0');
+                const month = document.getElementById(monthId).value.padStart(2, '0');
+                const year = document.getElementById(yearId).value;
+                if (!day || !month || !year || year.length < 4) {
+                    // Return empty for optional dates, or null for required to indicate error
+                    return (day === '00' && month === '00' && year === '') ? "" : null;
+                }
+                return `${year}-${month}-${day}`;
+            }
+
+            const investDate = getFormattedDate('investDateDay', 'investDateMonth', 'investDateYear');
+            const dueDate = getFormattedDate('dueDateDay', 'dueDateMonth', 'dueDateYear');
+            
+            if (!investDate || !dueDate) {
+                showStatus('Please enter valid Investment and Due dates (DD/MM/YYYY).', true);
+                return;
+            }
+
             const button = e.target.querySelector('button');
             button.disabled = true;
             button.textContent = 'Saving...';
@@ -184,11 +241,11 @@
                 type: document.getElementById('type').value,
                 firstName: document.getElementById('firstName').value,
                 lastName: document.getElementById('lastName').value,
-                investDate: document.getElementById('investDate').value,
-                dueDate: document.getElementById('dueDate').value,
+                investDate: investDate,
+                dueDate: dueDate,
                 investSum: document.getElementById('investSum').value,
                 dueSum: document.getElementById('dueSum').value,
-                renewDate: document.getElementById('renewDate').value,
+                renewDate: getFormattedDate('renewDateDay', 'renewDateMonth', 'renewDateYear'),
                 totalYears: document.getElementById('totalYears').value,
             };
 
@@ -264,8 +321,8 @@
                     <div class="mt-2 text-gray-600 grid grid-cols-2 gap-2 text-sm">
                         <p><strong>Invest Date:</strong> ${investDate}</p>
                         <p><strong>Due Date:</strong> ${dueDate}</p>
-                        <p><strong>Invest Sum:</strong> $${record.InvestSum}</p>
-                        <p><strong>Due Sum:</strong> $${record.DueSum}</p>
+                        <p><strong>Invest Sum:</strong> ₦${record.InvestSum}</p>
+                        <p><strong>Due Sum:</strong> ₦${record.DueSum}</p>
                     </div>
                 `;
                 recordList.appendChild(recordDiv);
