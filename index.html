@@ -71,6 +71,8 @@
                 <button id="viewTabBtn" class="tab-button flex-1 py-4 text-lg font-semibold text-gray-600 hover:bg-gray-50">View & Search Records</button>
             </div>
 
+            <!-- Test button removed -->
+
             <main class="p-6 sm:p-8">
                 <!-- Add New Record Section -->
                 <section id="addRecordSection">
@@ -136,10 +138,11 @@
                     <div class="flex flex-col sm:flex-row gap-4 mb-6">
                         <input type="text" id="searchInput" class="flex-grow p-3 border border-gray-300 rounded-lg" placeholder="Search by name, date, sum, etc...">
                         <select id="sortFilter" class="p-3 border border-gray-300 rounded-lg">
-                            <option value="recent">Sort by Most Recent</option>
-                            <option value="asc">Sort A-Z (by First Name)</option>
-                            <option value="desc">Sort Z-A (by First Name)</option>
-                        </select>
+    <option value="soonest">Sort by Soonest Due</option>
+    <option value="recent">Sort by Most Recent</option>
+    <option value="asc">Sort A-Z (by First Name)</option>
+    <option value="desc">Sort Z-A (by First Name)</option>
+</select>
                     </div>
                     <div id="recordList" class="space-y-4">
                         <!-- Records will be loaded here -->
@@ -407,7 +410,17 @@
         unlockBtn.addEventListener('click', unlockApp);
         passwordInput.addEventListener('keyup', (e) => { if(e.key === 'Enter') unlockApp(); });
 
-
+document.getElementById('testFetch').addEventListener('click', () => {
+    fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'getRecords', payload: { password: passwordInput.value } })
+    })
+    .then(res => res.json())
+    .then(response => {
+        console.log('TEST FETCH RESULT:', response);
+        alert('Check console for results');
+    });
+});
         // --- Render Records ---
         function renderRecords(records) {
             recordList.innerHTML = '';
@@ -446,33 +459,51 @@
         
         // --- Search and Sort Functionality ---
         function filterAndSortRecords() {
-            let filtered = [...allRecords];
-            const searchTerm = searchInput.value.toLowerCase();
-            if (searchTerm) {
-                filtered = filtered.filter(record => {
-                    if (!record) return false; // Skip null/undefined records
-                    return Object.values(record).some(value => {
-                        if (value === null || value === undefined) return false;
-                        return String(value).toLowerCase().includes(searchTerm);
-                    });
-                });
-            }
-            const sortBy = sortFilter.value;
-            if (sortBy === 'asc') {
-                filtered.sort((a, b) => {
-                    const nameA = a && a.FirstName ? a.FirstName : '';
-                    const nameB = b && b.FirstName ? b.FirstName : '';
-                    return nameA.localeCompare(nameB);
-                });
-            } else if (sortBy === 'desc') {
-                filtered.sort((a, b) => {
-                    const nameA = a && a.FirstName ? a.FirstName : '';
-                    const nameB = b && b.FirstName ? b.FirstName : '';
-                    return nameB.localeCompare(nameA);
-                });
-            }
-            renderRecords(filtered);
-        }
+    let filtered = [...allRecords];
+    const searchTerm = searchInput.value.toLowerCase();
+    
+    if (searchTerm) {
+        filtered = filtered.filter(record => {
+            if (!record) return false;
+            return Object.values(record).some(value => {
+                if (value === null || value === undefined) return false;
+                return String(value).toLowerCase().includes(searchTerm);
+            });
+        });
+    }
+    
+    const sortBy = sortFilter.value;
+    
+    // New sorting logic
+    if (sortBy === 'soonest') {
+        filtered.sort((a, b) => {
+            const dateA = a.DueDate ? new Date(a.DueDate) : new Date('9999-12-31');
+            const dateB = b.DueDate ? new Date(b.DueDate) : new Date('9999-12-31');
+            return dateA - dateB; // Soonest first
+        });
+    } else if (sortBy === 'recent') {
+        filtered.sort((a, b) => {
+            const dateA = a.InvestDate ? new Date(a.InvestDate) : new Date(0);
+            const dateB = b.InvestDate ? new Date(b.InvestDate) : new Date(0);
+            return dateB - dateA; // Most recent first
+        });
+    } else if (sortBy === 'asc') {
+        filtered.sort((a, b) => {
+            const nameA = a?.FirstName?.toLowerCase() || '';
+            const nameB = b?.FirstName?.toLowerCase() || '';
+            return nameA.localeCompare(nameB);
+        });
+    } else if (sortBy === 'desc') {
+        filtered.sort((a, b) => {
+            const nameA = a?.FirstName?.toLowerCase() || '';
+            const nameB = b?.FirstName?.toLowerCase() || '';
+            return nameB.localeCompare(nameA);
+        });
+    }
+    
+    renderRecords(filtered);
+}
+
         searchInput.addEventListener('input', filterAndSortRecords);
         sortFilter.addEventListener('change', filterAndSortRecords);
 

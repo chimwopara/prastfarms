@@ -21,8 +21,8 @@
     <div id="appContainer" class="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-lg p-8">
         <!-- Header -->
         <header class="flex flex-col items-center pb-6 border-b">
-            <img src="logo.png" alt="Prast Farms Logo" class="h-24 w-24 object-contain" onerror="this.onerror=null;this.src='https://placehold.co/96x96/22c55e/ffffff?text=PF';">
-            <h1 class="text-3xl font-bold text-gray-800 mt-4">Investment Renewal</h1>
+            <img id="companyLogo" src="logo.png" alt="Company Logo" class="h-24 w-24 object-contain" onerror="this.onerror=null;this.src='https://placehold.co/96x96/22c55e/ffffff?text=PF';">
+            <h1 id="pageTitle" class="text-3xl font-bold text-gray-800 mt-4">Investment Renewal</h1>
         </header>
 
         <!-- Loading State -->
@@ -43,7 +43,7 @@
                 <!-- Editable Fields -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label class="block text-base font-medium text-gray-700 mb-1">New Investment Date</label>
+                        <label class="block text-base font-medium text-gray-700 mb-1" id="newDateLabel">New Investment Date</label>
                         <div class="flex items-center space-x-2 mt-1">
                             <input type="text" id="investDateDay" required class="w-1/4 p-3 bg-white border border-gray-300 rounded-lg shadow-sm text-center" placeholder="DD" maxlength="2" inputmode="numeric">
                             <span class="text-gray-500">/</span>
@@ -63,11 +63,11 @@
                         </div>
                     </div>
                     <div>
-                        <label for="investSum" class="block text-base font-medium text-gray-700 mb-1">New Investment Sum (₦)</label>
+                        <label for="investSum" class="block text-base font-medium text-gray-700 mb-1" id="investSumLabel">New Investment Sum (₦)</label>
                         <input type="number" id="investSum" required class="mt-1 block w-full p-3 bg-white border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., 500000">
                     </div>
                     <div>
-                        <label for="dueSum" class="block text-base font-medium text-gray-700 mb-1">New Due Sum (₦)</label>
+                        <label for="dueSum" class="block text-base font-medium text-gray-700 mb-1" id="dueSumLabel">New Due Sum (₦)</label>
                         <input type="number" id="dueSum" required class="mt-1 block w-full p-3 bg-white border border-gray-300 rounded-lg shadow-sm" placeholder="e.g., 550000">
                     </div>
                 </div>
@@ -101,6 +101,34 @@
 
         let originalRecord = null;
 
+        // --- Update UI Based on Investment Type ---
+        function updateUIForType(investmentType) {
+            const isRealEstate = investmentType === 'Real Estate';
+            const companyLogo = document.getElementById('companyLogo');
+            const pageTitle = document.getElementById('pageTitle');
+            const newDateLabel = document.getElementById('newDateLabel');
+            const investSumLabel = document.getElementById('investSumLabel');
+            const dueSumLabel = document.getElementById('dueSumLabel');
+            
+            if (isRealEstate) {
+                companyLogo.src = 'logo2.png';
+                companyLogo.alt = 'Prast Estates Logo';
+                pageTitle.textContent = 'Rent Renewal';
+                newDateLabel.textContent = 'New Rent Date';
+                investSumLabel.textContent = 'New Rent Sum (₦)';
+                dueSumLabel.textContent = 'New Total Rent (₦)';
+                document.title = 'Renew Rent - Prast Estates';
+            } else {
+                companyLogo.src = 'logo.png';
+                companyLogo.alt = 'Prast Farms Logo';
+                pageTitle.textContent = 'Investment Renewal';
+                newDateLabel.textContent = 'New Investment Date';
+                investSumLabel.textContent = 'New Investment Sum (₦)';
+                dueSumLabel.textContent = 'New Due Sum (₦)';
+                document.title = 'Renew Investment - Prast Farms';
+            }
+        }
+
         // --- On Page Load: Get ID and Fetch Data ---
         window.addEventListener('load', () => {
             const params = new URLSearchParams(window.location.search);
@@ -120,6 +148,7 @@
             .then(response => {
                 if (response.status === 'success') {
                     originalRecord = response.data;
+                    updateUIForType(originalRecord.Type);
                     populateForm(originalRecord);
                     loadingState.classList.add('hidden');
                     mainContent.classList.remove('hidden');
@@ -191,7 +220,11 @@
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
-                    document.getElementById('appContainer').innerHTML = `<div class="text-center py-12"><h2 class="text-3xl font-bold text-green-600">Success!</h2><p class="mt-4 text-gray-700">The investment for ${originalRecord.FirstName} has been successfully renewed.</p></div>`;
+                    const isRealEstate = originalRecord.Type === 'Real Estate';
+                    const actionText = isRealEstate ? 'rent' : 'investment';
+                    const companyName = isRealEstate ? 'Prast Estates' : 'Prast Farms';
+                    
+                    document.getElementById('appContainer').innerHTML = `<div class="text-center py-12"><h2 class="text-3xl font-bold text-green-600">Success!</h2><p class="mt-4 text-gray-700">The ${actionText} for ${originalRecord.FirstName} has been successfully renewed with ${companyName}.</p></div>`;
                 } else {
                     throw new Error(data.message);
                 }
