@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prast Farms Business Tracker</title>
+    <title>Prast Tracker</title>
+    <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -37,7 +38,7 @@
         <div id="passwordWall" class="p-8 sm:p-12">
             <div class="flex flex-col items-center">
                 <img src="logo.png" alt="Prast Farms Logo" class="h-24 w-24 object-contain" onerror="this.onerror=null;this.src='https://placehold.co/96x96/22c55e/ffffff?text=PF';">
-                <h1 class="text-3xl font-bold text-gray-800 mt-4">Business Tracker</h1>
+                <h1 class="text-3xl font-bold text-gray-800 mt-4">Prast Tracker</h1>
                 <p class="text-gray-600 mt-2">Please enter the password to continue.</p>
             </div>
             <div class="mt-8 space-y-4">
@@ -51,7 +52,7 @@
             <!-- Header -->
             <header class="flex flex-col items-center p-6 border-b">
                 <img src="logo.png" alt="Prast Farms Logo" class="h-24 w-24 object-contain" onerror="this.onerror=null;this.src='https://placehold.co/96x96/22c55e/ffffff?text=PF';">
-                <h1 class="text-3xl font-bold text-gray-800 mt-4">Business Tracker</h1>
+                <h1 class="text-3xl font-bold text-gray-800 mt-4">Prast Tracker</h1>
             </header>
 
             <!-- Tabs -->
@@ -269,7 +270,7 @@
                     showStatus('Record added successfully!');
                     addRecordForm.reset();
                     // Add new record to local list and refresh view
-                    allRecords.unshift(data.newRecord);
+                    allRecords.unshift(data.data.newRecord);
                     clientNames = [...new Set(allRecords.map(r => `${r.FirstName} ${r.LastName}`))];
                 } else { throw new Error(data.message); }
             })
@@ -302,6 +303,9 @@
                     clientNames = [...new Set(allRecords.map(r => `${r.FirstName} ${r.LastName}`))];
                     setupAutocomplete(document.getElementById("firstName"), clientNames.map(n => n.split(' ')[0]));
                     setupAutocomplete(document.getElementById("lastName"), clientNames.map(n => n.split(' ')[1]));
+                    
+                    // *** FIX: Automatically switch to the view tab and render records ***
+                    viewTabBtn.click();
                 } else { throw new Error(response.message); }
             })
             .catch(error => {
@@ -342,7 +346,7 @@
             });
         }
         
-        // --- Search and Sort ---
+        // --- Search and Sort Functionality ---
         function filterAndSortRecords() {
             let filtered = [...allRecords];
             const searchTerm = searchInput.value.toLowerCase();
