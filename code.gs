@@ -2,7 +2,7 @@
 // IMPORTANT: SET THE URL WHERE YOUR WEBSITE IS HOSTED
 // Example: "https://username.github.io/prastfarms/"
 // =======================================================================
-const WEBSITE_BASE_URL = "https://your-website-url.com/"; 
+const WEBSITE_BASE_URL = "https://github.com/chimwopara/prastfarms/"; 
 // =======================================================================
 
 const SHEET_NAME = "Sheet1";
@@ -11,16 +11,18 @@ const PASSWORD = PropertiesService.getScriptProperties().getProperty('ACCESS_PAS
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
+    console.log('Received request:', data.action); // Debug log
     let response;
 
     switch (data.action) {
       case "addRecord":
-        // Password check for adding records
         if (data.password !== PASSWORD) throw new Error("Incorrect password.");
         response = addRecord(data.payload);
         break;
       case "getRecords":
+        console.log('Processing getRecords request'); // Debug log
         response = getRecords(data.payload);
+        console.log('getRecords response:', response); // Debug log
         break;
       case "getRecordById":
         response = getRecordById(data.payload);
@@ -31,8 +33,10 @@ function doPost(e) {
       default:
         throw new Error("Invalid action specified.");
     }
+    console.log('Sending success response for', data.action); // Debug log
     return ContentService.createTextOutput(JSON.stringify({ status: "success", data: response })).setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
+    console.error('Error in doPost:', error); // Debug log
     return ContentService.createTextOutput(JSON.stringify({ status: "error", message: error.message })).setMimeType(ContentService.MimeType.JSON);
   }
 }
@@ -40,23 +44,34 @@ function doPost(e) {
 function addRecord(payload) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
   const newRowData = [
-    payload.type, payload.firstName, payload.lastName,
-    payload.investDate, payload.dueDate,
-    payload.investSum, payload.dueSum,
-    '', // RenewDate is blank for new records
-    0   // TotalYears starts at 0
+    payload.type,        // Column A: type
+    payload.firstName,   // Column B: firstname  
+    payload.lastName,    // Column C: lastname
+    payload.investDate,  // Column D: investdate
+    payload.dueDate,     // Column E: duedate
+    payload.investSum,   // Column F: investsum
+    payload.dueSum,      // Column G: duesum
+    '',                  // Column H: renewdate (empty initially)
+    0                    // Column I: totalyears (0 initially)
   ];
   sheet.appendRow(newRowData);
   
-  // Return the newly created record so the front-end can update its list
   const newRecord = {
-    Row: sheet.getLastRow(), Type: payload.type, FirstName: payload.firstName, LastName: payload.lastName,
-    InvestDate: payload.investDate, DueDate: payload.dueDate, InvestSum: payload.investSum,
-    DueSum: payload.dueSum, RenewDate: '', TotalYears: 0
+    Row: sheet.getLastRow(), 
+    Type: payload.type, 
+    FirstName: payload.firstName, 
+    LastName: payload.lastName,
+    InvestDate: payload.investDate, 
+    DueDate: payload.dueDate, 
+    InvestSum: payload.investSum,
+    DueSum: payload.dueSum, 
+    RenewDate: '', 
+    TotalYears: 0
   };
   return { message: "Record added successfully!", newRecord: newRecord };
 }
 
+// REPLACE THE getRecords FUNCTION WITH THIS FIXED VERSION
 function getRecords(payload) {
   if (payload.password !== PASSWORD) throw new Error("Incorrect password.");
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
@@ -64,8 +79,18 @@ function getRecords(payload) {
   const header = data.shift();
   
   const records = data.map((row, index) => {
-    let record = { Row: index + 2 }; // Add row number as a unique ID
-    header.forEach((colName, i) => record[colName] = row[i]);
+    let record = { Row: index + 2 };
+    header.forEach((colName, i) => {
+      let value = row[i];
+      
+      // Convert dates to YYYY-MM-DD format
+      if (value instanceof Date) {
+        value = Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd");
+      }
+      
+      // Map to expected frontend property names
+      record[colName] = value;
+    });
     return record;
   });
   return records;
@@ -73,11 +98,21 @@ function getRecords(payload) {
 
 function getRecordById(payload) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-    const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     const rowData = sheet.getRange(parseInt(payload.recordId), 1, 1, sheet.getLastColumn()).getValues()[0];
     
-    let record = { Row: parseInt(payload.recordId) };
-    header.forEach((colName, i) => record[colName] = rowData[i]);
+    const record = {
+      Row: parseInt(payload.recordId),
+      Type: rowData[0] || '',
+      FirstName: rowData[1] || '',
+      LastName: rowData[2] || '',
+      InvestDate: rowData[3] || '',
+      DueDate: rowData[4] || '',
+      InvestSum: rowData[5] || '',
+      DueSum: rowData[6] || '',
+      RenewDate: rowData[7] || '',
+      TotalYears: rowData[8] || 0
+    };
+    
     return record;
 }
 
@@ -85,29 +120,18 @@ function renewRecord(payload) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
     const row = parseInt(payload.recordId);
 
-    // Find the correct columns by header name
-    const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    const investDateCol = header.indexOf("InvestDate") + 1;
-    const dueDateCol = header.indexOf("DueDate") + 1;
-    const investSumCol = header.indexOf("InvestSum") + 1;
-    const dueSumCol = header.indexOf("DueSum") + 1;
-    const renewDateCol = header.indexOf("RenewDate") + 1;
-    const totalYearsCol = header.indexOf("TotalYears") + 1;
-
-    // Update the values in the sheet
-    sheet.getRange(row, investDateCol).setValue(payload.investDate);
-    sheet.getRange(row, dueDateCol).setValue(payload.dueDate);
-    sheet.getRange(row, investSumCol).setValue(payload.investSum);
-    sheet.getRange(row, dueSumCol).setValue(payload.dueSum);
-    sheet.getRange(row, renewDateCol).setValue(new Date()); // Set renew date to today
+    // Update the record with new values
+    sheet.getRange(row, 4).setValue(payload.investDate);  // Column D: investdate
+    sheet.getRange(row, 5).setValue(payload.dueDate);     // Column E: duedate
+    sheet.getRange(row, 6).setValue(payload.investSum);   // Column F: investsum
+    sheet.getRange(row, 7).setValue(payload.dueSum);      // Column G: duesum
+    sheet.getRange(row, 8).setValue(new Date());          // Column H: renewdate
     
-    // Increment the TotalYears count
-    const currentYears = sheet.getRange(row, totalYearsCol).getValue() || 0;
-    sheet.getRange(row, totalYearsCol).setValue(currentYears + 1);
+    const currentYears = sheet.getRange(row, 9).getValue() || 0;
+    sheet.getRange(row, 9).setValue(currentYears + 1);    // Column I: totalyears
 
     return "Record renewed successfully!";
 }
-
 
 function checkDueDateAndSendEmail() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
@@ -116,19 +140,20 @@ function checkDueDateAndSendEmail() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const dueDateColumnIndex = header.indexOf("DueDate");
-  const nameColumnIndex = header.indexOf("FirstName");
+  const dueDateColumnIndex = 4; // Column E (0-indexed)
+  const firstNameColumnIndex = 1; // Column B (0-indexed)
 
   let dueTodayList = [];
 
   data.forEach((row, index) => {
+    if (!row[dueDateColumnIndex]) return; // Skip empty rows
     const dueDate = new Date(row[dueDateColumnIndex]);
     dueDate.setHours(0, 0, 0, 0);
 
     if (dueDate.getTime() === today.getTime()) {
       dueTodayList.push({
-          name: row[nameColumnIndex],
-          id: index + 2 // Row number is index + 2 (1 for header, 1 for 0-based index)
+          name: row[firstNameColumnIndex],
+          id: index + 2
       });
     }
   });
@@ -137,7 +162,7 @@ function checkDueDateAndSendEmail() {
     const ownerEmail = Session.getActiveUser().getEmail();
     const secondEmail = "stellawopara77@gmail.com";
     const recipientEmails = `${ownerEmail},${secondEmail}`;
-    const subject = "Prast Farms: Investment Due Date Reminder";
+    const subject = "Prast Tracker: Investment Due Date Reminder";
     
     let body = "Hello,\n\nThis is a reminder that the following investments are due today:\n\n";
     
@@ -146,7 +171,7 @@ function checkDueDateAndSendEmail() {
         body += `- ${item.name}: Click to Renew -> ${renewalLink}\n`;
     });
 
-    body += "\n- Prast Farms Automated Tracker";
+    body += "\n- Prast Tracker Automated System";
     MailApp.sendEmail(recipientEmails, subject, body);
   }
 }

@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Prast Tracker | Staff Portal</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* --- THEME VARIABLES --- */
+        :root {
+            --primary-dark: #0f2e1a;
+            --primary-green: #299e52;
+            --accent-gold: #d4af37;
+            --glass-bg: rgba(15, 46, 26, 0.95); /* Increased opacity for security/contrast */
+            --glass-border: rgba(212, 175, 55, 0.3);
+            --input-bg: rgba(0, 0, 0, 0.4);
+        }
+
+        body { 
+            font-family: 'Montserrat', sans-serif; 
+            background-color: var(--primary-dark);
+            color: #f4f1ea;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        h1, h2, .font-serif { font-family: 'Playfair Display', serif; }
+        
+        /* --- BACKGROUND --- */
+        #canvas-container {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+            z-index: -1; background: var(--primary-dark);
+        }
+
+        /* --- GLASS PANELS --- */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+        }
+
+        /* --- FUTURISTIC INPUTS --- */
+        .input-tech {
+            background-color: var(--input-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            transition: all 0.3s ease;
+            font-size: 16px; /* Prevents iOS zoom */
+        }
+        .input-tech:focus {
+            outline: none;
+            border-color: var(--primary-green);
+            background-color: rgba(0, 0, 0, 0.6);
+            box-shadow: 0 0 15px rgba(41, 158, 82, 0.3);
+        }
+        /* Fix Date Picker Icon visibility */
+        ::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.5; cursor: pointer; }
+
+        /* --- BUTTONS --- */
+        .btn-action {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .btn-action::after {
+            content: ''; position: absolute; top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: 0.5s;
+        }
+        .btn-action:hover::after { left: 100%; }
+        .btn-action:active { transform: scale(0.98); }
+
+        .btn-gold {
+            background: linear-gradient(135deg, var(--accent-gold), #b89628);
+            color: #0f2e1a;
+            font-weight: 700;
+        }
+        
+        .btn-green {
+            background: linear-gradient(135deg, var(--primary-green), #1b6334);
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(41, 158, 82, 0.3);
+        }
+
+        /* --- TABS --- */
+        .nav-tab {
+            color: rgba(255, 255, 255, 0.4);
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s;
+        }
+        .nav-tab.active {
+            color: var(--accent-gold);
+            border-bottom: 2px solid var(--accent-gold);
+            background: linear-gradient(to top, rgba(212, 175, 55, 0.1), transparent);
+        }
+
+        /* --- SCROLLBAR --- */
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+        .custom-scroll::-webkit-scrollbar-thumb { background: var(--primary-green); border-radius: 3px; }
+
+        /* --- AUTOCOMPLETE --- */
+        .autocomplete-items {
+            position: absolute; border: 1px solid var(--glass-border); border-top: none; z-index: 99;
+            top: 100%; left: 0; right: 0; background-color: #05160c;
+        }
+        .autocomplete-items div { padding: 12px; cursor: pointer; border-bottom: 1px solid #1a3a2a; color: #ccc; }
+        .autocomplete-items div:hover { background-color: #1a3a2a; color: var(--accent-gold); }
+
+        /* --- UTILS --- */
+        .loader {
+            border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid var(--accent-gold);
+            border-radius: 50%; width: 24px; height: 24px;
+            animation: spin 1s linear infinite; display: inline-block; vertical-align: middle;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Mobile Adjustments */
+        @media (max-width: 640px) {
+            .glass-panel { border-radius: 0; border: none; height: 100vh; display: flex; flex-direction: column; }
+            #appContent { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
+            main { flex-grow: 1; overflow-y: auto; padding-bottom: 80px; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center sm:p-4">
+
+    <!-- 3D Background -->
+    <div id="canvas-container"></div>
+
+    <!-- Main Container: Fixed height on desktop to ensure layout stability, Full screen on mobile -->
+    <div class="w-full max-w-4xl mx-auto glass-panel sm:rounded-2xl relative z-10 overflow-hidden shadow-2xl h-[100vh] sm:h-[85vh] flex flex-col">
+        
+        <!-- PASSWORD WALL: Absolute, Opaque, High Z-Index to prevent bypass -->
+        <div id="passwordWall" class="absolute inset-0 z-[100] flex flex-col items-center justify-center p-6 bg-[#05160c] transition-all duration-700">
+            <div class="w-full max-w-sm text-center p-8">
+                <div class="mb-6 relative inline-block">
+                    <div class="absolute inset-0 bg-green-500 blur-xl opacity-20 rounded-full"></div>
+                    <img src="logo.png" alt="PF" class="h-24 w-24 relative z-10 mx-auto object-contain" onerror="this.onerror=null;this.src='https://placehold.co/96x96/299e52/ffffff?text=PF';">
+                </div>
+                <h1 class="text-3xl font-bold text-white mb-2 tracking-wider">STAFF ACCESS</h1>
+                <p class="text-green-400 text-xs uppercase tracking-[0.2em] mb-8">Prast Farms Secure Terminal</p>
+                
+                <div class="space-y-4">
+                     <input type="password" id="password" autocomplete="off" class="input-tech w-full p-4 rounded-lg text-center text-xl tracking-widest placeholder-gray-500" placeholder="ENTER CODE">
+                     <button id="unlockBtn" class="btn-action btn-gold w-full py-4 rounded-lg text-sm tracking-widest uppercase shadow-[0_0_20px_rgba(212,175,55,0.3)] hover:shadow-[0_0_30px_rgba(212,175,55,0.5)]">
+                         Authenticate
+                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- APP CONTENT: Hidden by default -->
+        <div id="appContent" class="hidden h-full flex flex-col flex-grow">
+            <!-- Header -->
+            <header class="flex items-center justify-between p-5 border-b border-white/10 bg-black/20">
+                <div class="flex items-center gap-3">
+                    <img src="logo.png" alt="Logo" class="h-10 w-10 object-contain" onerror="this.onerror=null;this.src='https://placehold.co/40x40/299e52/ffffff?text=P';">
+                    <div>
+                        <h1 class="text-xl font-bold text-white leading-none">TRACKER</h1>
+                        <span class="text-[10px] text-green-400 uppercase tracking-widest">System Online</span>
+                    </div>
+                </div>
+                <!-- Status Indicator -->
+                <div class="h-2 w-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#299e52]"></div>
+            </header>
+
+            <!-- Navigation -->
+            <div class="flex border-b border-white/10 bg-black/10">
+                <button id="addTabBtn" class="nav-tab flex-1 py-4 text-sm font-bold uppercase tracking-wider active">
+                    <i class="fas fa-plus-circle mr-2"></i>New Entry
+                </button>
+                <button id="viewTabBtn" class="nav-tab flex-1 py-4 text-sm font-bold uppercase tracking-wider">
+                    <i class="fas fa-database mr-2"></i>Records
+                </button>
+            </div>
+
+            <!-- Scrollable Main Area -->
+            <main class="custom-scroll p-5 sm:p-8 overflow-y-auto flex-grow">
+                
+                <!-- ADD RECORD FORM -->
+                <section id="addRecordSection">
+                    <form id="addRecordForm" class="space-y-6">
+                        
+                        <!-- Type Selection -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-xs font-bold text-green-400 mb-2 uppercase">Investment Type</label>
+                                <div class="relative">
+                                    <select id="type" class="input-tech w-full p-4 rounded-lg appearance-none">
+                                        <option class="text-black" value="Farm Investment">Farm Investment</option>
+                                        <option class="text-black" value="Real Estate">Real Estate</option>
+                                    </select>
+                                    <i class="fas fa-chevron-down absolute right-4 top-4 text-gray-500 pointer-events-none"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Names -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="relative">
+                                <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">First Name</label>
+                                <input type="text" id="firstName" required autocomplete="off" class="input-tech w-full p-4 rounded-lg" placeholder="e.g. John">
+                            </div>
+                            <div class="relative">
+                                <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Last Name</label>
+                                <input type="text" id="lastName" required autocomplete="off" class="input-tech w-full p-4 rounded-lg" placeholder="e.g. Doe">
+                            </div>
+                        </div>
+
+                        <!-- Dates -->
+                        <div class="p-4 rounded-xl border border-white/10 bg-white/5">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase"><i class="far fa-calendar-alt mr-1"></i> Start Date</label>
+                                    <div class="flex gap-2">
+                                        <input type="tel" id="investDateDay" class="input-tech w-1/4 p-3 rounded text-center" placeholder="DD" maxlength="2">
+                                        <input type="tel" id="investDateMonth" class="input-tech w-1/4 p-3 rounded text-center" placeholder="MM" maxlength="2">
+                                        <input type="tel" id="investDateYear" class="input-tech w-1/2 p-3 rounded text-center" placeholder="YYYY" maxlength="4">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-green-400 mb-2 uppercase"><i class="far fa-clock mr-1"></i> Due Date</label>
+                                    <div class="flex gap-2">
+                                        <input type="tel" id="dueDateDay" class="input-tech w-1/4 p-3 rounded text-center border-green-900/50" placeholder="DD" maxlength="2">
+                                        <input type="tel" id="dueDateMonth" class="input-tech w-1/4 p-3 rounded text-center border-green-900/50" placeholder="MM" maxlength="2">
+                                        <input type="tel" id="dueDateYear" class="input-tech w-1/2 p-3 rounded text-center border-green-900/50" placeholder="YYYY" maxlength="4">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Financials -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Invested Amount (₦)</label>
+                                <input type="number" id="investSum" required class="input-tech w-full p-4 rounded-lg font-mono text-lg" placeholder="0.00">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-yellow-500 mb-2 uppercase">Expected Return (₦)</label>
+                                <input type="number" id="dueSum" required class="input-tech w-full p-4 rounded-lg font-mono text-lg border-yellow-500/30 text-yellow-400" placeholder="0.00">
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="pt-4 flex flex-col sm:flex-row gap-4">
+                            <button type="submit" class="btn-action btn-green flex-1 py-4 rounded-lg text-sm uppercase tracking-widest shadow-lg">
+                                Save To Database
+                            </button>
+                            <button type="button" id="shareBtn" class="hidden btn-action btn-gold flex-1 py-4 rounded-lg text-sm uppercase tracking-widest shadow-lg">
+                                <i class="fas fa-share-alt mr-2"></i> Share Receipt
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <!-- Spacer for mobile scroll -->
+                    <div class="h-20 sm:hidden"></div>
+                </section>
+
+                <!-- DATABASE VIEW -->
+                <section id="viewRecordSection" class="hidden">
+                    <div class="flex flex-col gap-4 mb-6 sticky top-0 bg-[#0f2e1a] z-20 pb-4 pt-2 shadow-lg sm:static sm:bg-transparent sm:shadow-none sm:pb-0 sm:pt-0 sm:flex-row">
+                        <div class="relative flex-grow">
+                            <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
+                            <input type="text" id="searchInput" class="input-tech w-full p-3 pl-10 rounded-lg text-sm" placeholder="Search client name...">
+                        </div>
+                        <select id="sortFilter" class="input-tech p-3 rounded-lg sm:w-1/3 text-sm">
+                            <option class="text-black" value="soonest">Due: Soonest</option>
+                            <option class="text-black" value="recent">Added: Newest</option>
+                            <option class="text-black" value="asc">Name: A-Z</option>
+                        </select>
+                    </div>
+                    
+                    <div id="recordList" class="space-y-3 pb-20">
+                        <!-- Records injected via JS -->
+                    </div>
+                </section>
+
+            </main>
+        </div>
+        
+        <!-- Toast Notification -->
+        <div id="statusMessage" class="hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full text-center shadow-2xl z-50 text-sm font-bold tracking-wide min-w-[300px] backdrop-blur-md border border-white/10"></div>
+    </div>
+    
+    <!-- PRINT TEMPLATE (Hidden - Optimized for White Paper) -->
+    <div id="receipt-template" style="position:fixed; left:-9999px; width:450px; background:white; color:#1a1a1a; padding:40px; font-family:'Montserrat', sans-serif;">
+        <div style="text-align:center; margin-bottom:30px; border-bottom:2px solid #299e52; padding-bottom:20px;">
+            <img src="logo.png" style="height:80px; display:block; margin:0 auto;" crossorigin="anonymous">
+            <h2 style="font-family:'Playfair Display', serif; color:#0f2e1a; font-size:24px; margin:10px 0 5px;">PRAST FARMS</h2>
+            <p style="font-size:10px; text-transform:uppercase; letter-spacing:2px; color:#666;">Official Investment Receipt</p>
+        </div>
+        <div style="font-size:14px; line-height:2.2;">
+            <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #ccc;">
+                <span style="color:#666;">Investor:</span>
+                <span id="receipt-name" style="font-weight:700;"></span>
+            </div>
+            <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #ccc;">
+                <span style="color:#666;">Category:</span>
+                <span id="receipt-type"></span>
+            </div>
+            <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #ccc;">
+                <span style="color:#666;">Date Logged:</span>
+                <span id="receipt-investDate"></span>
+            </div>
+            <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #ccc;">
+                <span style="color:#666;">Maturity Date:</span>
+                <span id="receipt-dueDate"></span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top:15px;">
+                <span style="color:#666;">Principal Sum:</span>
+                <span id="receipt-investSum" style="font-weight:600;"></span>
+            </div>
+            <div style="display:flex; justify-content:space-between; background:#f0fdf4; padding:10px; margin-top:10px; border-radius:8px;">
+                <span style="color:#166534; font-weight:700;">Total Payout:</span>
+                <span id="receipt-dueSum" style="color:#166534; font-weight:700; font-size:16px;"></span>
+            </div>
+        </div>
+        <p style="text-align:center; margin-top:40px; font-size:11px; color:#999;">Generational Wealth Through Agriculture.</p>
+    </div>
+
+    <script>
+        // --- 1. THREE.JS BACKGROUND ---
+        const initThreeJS = () => {
+            const container = document.getElementById('canvas-container');
+            if(!container) return;
+            const scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x0f2e1a, 0.05);
+
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5; camera.position.y = 2; camera.rotation.x = -0.3;
+
+            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
+            container.appendChild(renderer.domElement);
+
+            const geometry = new THREE.PlaneGeometry(20, 20, 25, 25);
+            const material = new THREE.MeshBasicMaterial({ color: 0x299e52, wireframe: true, transparent: true, opacity: 0.15 });
+            const terrain = new THREE.Mesh(geometry, material);
+            terrain.rotation.x = -Math.PI / 2;
+            scene.add(terrain);
+
+            const particlesGeom = new THREE.BufferGeometry();
+            const particlesCount = 80; 
+            const posArray = new Float32Array(particlesCount * 3);
+            for(let i = 0; i < particlesCount * 3; i++) { posArray[i] = (Math.random() - 0.5) * 15; }
+            particlesGeom.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const particlesMat = new THREE.PointsMaterial({ size: 0.05, color: 0xd4af37, transparent: true, opacity: 0.6 });
+            const particles = new THREE.Points(particlesGeom, particlesMat);
+            scene.add(particles);
+
+            let count = 0;
+            const animate = () => {
+                requestAnimationFrame(animate);
+                const positions = terrain.geometry.attributes.position.array;
+                for (let i = 0; i < positions.length; i += 3) {
+                    positions[i+2] = Math.sin(positions[i] + count) * 0.5 + Math.sin(positions[i+1] + count) * 0.5;
+                }
+                terrain.geometry.attributes.position.needsUpdate = true;
+                particles.rotation.y += 0.001;
+                count += 0.02;
+                renderer.render(scene, camera);
+            };
+            animate();
+            
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        };
+        document.addEventListener('DOMContentLoaded', initThreeJS);
+
+        // --- 2. APP LOGIC ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby901f9aG5P7dfL2aHYIRLEdOpZ4JSifJT-Kp3VoKBpa6FylRwId5bHia4ioKEO-bno/exec";
+
+        const passwordWall = document.getElementById('passwordWall');
+        const appContent = document.getElementById('appContent');
+        const unlockBtn = document.getElementById('unlockBtn');
+        const passwordInput = document.getElementById('password');
+        const addTabBtn = document.getElementById('addTabBtn');
+        const viewTabBtn = document.getElementById('viewTabBtn');
+        const addRecordSection = document.getElementById('addRecordSection');
+        const viewRecordSection = document.getElementById('viewRecordSection');
+        const addRecordForm = document.getElementById('addRecordForm');
+        const statusMessage = document.getElementById('statusMessage');
+        const recordList = document.getElementById('recordList');
+        const searchInput = document.getElementById('searchInput');
+        const sortFilter = document.getElementById('sortFilter');
+        const shareBtn = document.getElementById('shareBtn');
+        
+        let allRecords = []; 
+        let clientNames = [];
+        let lastEntryData = null; 
+
+        // Tabs
+        addTabBtn.addEventListener('click', () => {
+            addRecordSection.classList.remove('hidden');
+            viewRecordSection.classList.add('hidden');
+            addTabBtn.classList.add('active');
+            viewTabBtn.classList.remove('active');
+        });
+
+        viewTabBtn.addEventListener('click', () => {
+            viewRecordSection.classList.remove('hidden');
+            addRecordSection.classList.add('hidden');
+            viewTabBtn.classList.add('active');
+            addTabBtn.classList.remove('active');
+            renderRecords(allRecords);
+        });
+        
+        // Auto Focus
+        function setupAutoProgress() {
+            const fields = ['firstName', 'lastName', 'investDateDay', 'investDateMonth', 'investDateYear', 'dueDateDay', 'dueDateMonth', 'dueDateYear', 'investSum', 'dueSum'];
+            fields.forEach((id, index) => {
+                const el = document.getElementById(id);
+                el.addEventListener('keyup', (e) => {
+                    if ((el.maxLength > 0 && el.value.length === el.maxLength) || e.key === 'Enter') {
+                        const nextField = document.getElementById(fields[index + 1]);
+                        if (nextField) nextField.focus();
+                    }
+                });
+            });
+        }
+        setupAutoProgress();
+
+        // Auto Date Calc
+        function setupAutoDueDate() {
+            const ids = ['investDateDay', 'investDateMonth', 'investDateYear'];
+            ids.forEach(id => {
+                document.getElementById(id).addEventListener('change', () => {
+                    const day = document.getElementById('investDateDay').value;
+                    const month = document.getElementById('investDateMonth').value;
+                    const year = document.getElementById('investDateYear').value;
+
+                    if (day.length === 2 && month.length === 2 && year.length === 4) {
+                        const investDate = new Date(`${year}-${month}-${day}`);
+                        if (!isNaN(investDate.getTime())) {
+                            investDate.setFullYear(investDate.getFullYear() + 1);
+                            document.getElementById('dueDateDay').value = String(investDate.getDate()).padStart(2, '0');
+                            document.getElementById('dueDateMonth').value = String(investDate.getMonth() + 1).padStart(2, '0');
+                            document.getElementById('dueDateYear').value = investDate.getFullYear();
+                        }
+                    }
+                });
+            });
+        }
+        setupAutoDueDate();
+
+        function showStatus(message, isError = false) {
+            statusMessage.textContent = message;
+            statusMessage.className = `fixed bottom-6 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full text-center shadow-2xl z-50 text-sm font-bold tracking-wide min-w-[300px] backdrop-blur-md border border-white/10 ${isError ? 'bg-red-900/90 text-red-100' : 'bg-green-900/90 text-green-100'}`;
+            statusMessage.classList.remove('hidden');
+            setTimeout(() => statusMessage.classList.add('hidden'), 4000);
+        }
+
+        // Add Record
+        addRecordForm.addEventListener('submit', e => {
+            e.preventDefault();
+            shareBtn.classList.add('hidden'); 
+            function getFormattedDate(dayId, monthId, yearId) {
+                const day = document.getElementById(dayId).value.padStart(2, '0');
+                const month = document.getElementById(monthId).value.padStart(2, '0');
+                const year = document.getElementById(yearId).value;
+                if (!day || !month || !year || year.length < 4) return null;
+                return `${year}-${month}-${day}`;
+            }
+
+            const investDate = getFormattedDate('investDateDay', 'investDateMonth', 'investDateYear');
+            const dueDate = getFormattedDate('dueDateDay', 'dueDateMonth', 'dueDateYear');
+            if (!investDate || !dueDate) {
+                showStatus('Check date fields.', true);
+                return;
+            }
+
+            const button = e.target.querySelector('button[type="submit"]');
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.innerHTML = '<div class="loader"></div>';
+
+            const formData = {
+                type: document.getElementById('type').value,
+                firstName: document.getElementById('firstName').value,
+                lastName: document.getElementById('lastName').value,
+                investDate, dueDate,
+                investSum: document.getElementById('investSum').value,
+                dueSum: document.getElementById('dueSum').value,
+            };
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'addRecord', payload: formData, password: passwordInput.value })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showStatus('DATABASE UPDATED');
+                    addRecordForm.reset();
+                    allRecords.unshift(data.data.newRecord);
+                    const validRecords = allRecords.filter(r => r && r.FirstName && r.LastName);
+                    clientNames = [...new Set(validRecords.map(r => `${r.FirstName} ${r.LastName}`))];
+                    lastEntryData = formData;
+                    shareBtn.classList.remove('hidden');
+                } else { throw new Error(data.message); }
+            })
+            .catch(error => showStatus(error.message, true))
+            .finally(() => { button.disabled = false; button.textContent = originalText; });
+        });
+
+        // Share Receipt
+        shareBtn.addEventListener('click', async () => {
+            if (!lastEntryData) return;
+            document.getElementById('receipt-name').textContent = `${lastEntryData.firstName} ${lastEntryData.lastName}`;
+            document.getElementById('receipt-type').textContent = lastEntryData.type;
+            document.getElementById('receipt-investDate').textContent = new Date(lastEntryData.investDate).toLocaleDateString();
+            document.getElementById('receipt-dueDate').textContent = new Date(lastEntryData.dueDate).toLocaleDateString();
+            document.getElementById('receipt-investSum').textContent = `₦${Number(lastEntryData.investSum).toLocaleString()}`;
+            document.getElementById('receipt-dueSum').textContent = `₦${Number(lastEntryData.dueSum).toLocaleString()}`;
+
+            const receiptElement = document.getElementById('receipt-template');
+            const canvas = await html2canvas(receiptElement, { useCORS: true, scale: 3 });
+            const dataUrl = canvas.toDataURL('image/png');
+            const blob = await (await fetch(dataUrl)).blob();
+            const file = new File([blob], 'PrastFarms_Receipt.png', { type: 'image/png' });
+            
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Receipt',
+                        text: `Investment receipt for ${lastEntryData.firstName}.`,
+                    });
+                } catch (error) { console.log('Share closed'); }
+            } else { showStatus('Share not supported on this device.', true); }
+        });
+
+        // Unlock
+        function unlockApp() {
+            const password = passwordInput.value;
+            if (!password) { showStatus('Enter Password', true); return; }
+            
+            unlockBtn.textContent = "VERIFYING...";
+            unlockBtn.disabled = true;
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'getRecords', payload: { password } })
+            })
+            .then(res => res.json())
+            .then(response => {
+                if (response.status === 'success') {
+                    passwordWall.style.opacity = '0';
+                    setTimeout(() => {
+                        passwordWall.classList.add('hidden');
+                        appContent.classList.remove('hidden');
+                        allRecords = response.data.reverse();
+                        
+                        const validRecords = allRecords.filter(r => r && r.FirstName && r.LastName);
+                        const firstNames = [...new Set(validRecords.map(r => r.FirstName).filter(name => name))];
+                        const lastNames = [...new Set(validRecords.map(r => r.LastName).filter(name => name))];
+                        
+                        setupAutocomplete(document.getElementById("firstName"), firstNames);
+                        setupAutocomplete(document.getElementById("lastName"), lastNames);
+                        viewTabBtn.click();
+                    }, 500);
+                } else { throw new Error(response.message); }
+            })
+            .catch(error => {
+                showStatus('ACCESS DENIED', true);
+                unlockBtn.textContent = "AUTHENTICATE";
+                unlockBtn.disabled = false;
+            });
+        }
+        unlockBtn.addEventListener('click', unlockApp);
+        passwordInput.addEventListener('keyup', (e) => { if(e.key === 'Enter') unlockApp(); });
+
+        // Render List
+        function renderRecords(records) {
+            recordList.innerHTML = '';
+            if (!records || records.length === 0) {
+                recordList.innerHTML = '<div class="text-center text-gray-500 mt-10 p-4 border border-dashed border-gray-600 rounded-lg">No records found.</div>';
+                return;
+            }
+            records.forEach(record => {
+                if (!record || !record.FirstName || !record.LastName) return; 
+                
+                const recordDiv = document.createElement('div');
+                recordDiv.className = 'p-4 rounded-xl bg-white/5 border border-white/5 hover:border-green-500/30 transition-all duration-200';
+                const investDate = record.InvestDate ? new Date(record.InvestDate).toLocaleDateString() : '-';
+                const dueDate = record.DueDate ? new Date(record.DueDate).toLocaleDateString() : '-';
+                const dueSum = record.DueSum ? Number(record.DueSum).toLocaleString() : '0';
+                const typeColor = record.Type === 'Farm Investment' ? 'text-green-400' : 'text-blue-400';
+                
+                recordDiv.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h3 class="font-bold text-white text-base">${record.FirstName} ${record.LastName}</h3>
+                            <div class="text-[10px] uppercase tracking-wider ${typeColor}">${record.Type || 'Unknown'}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-gray-400 uppercase">Payout</div>
+                            <div class="font-mono text-yellow-500 font-bold">₦${dueSum}</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-xs border-t border-white/10 pt-2 mt-2">
+                        <div class="text-gray-400">IN: <span class="text-gray-300 font-mono">${investDate}</span></div>
+                        <div class="text-gray-400 text-right">OUT: <span class="text-gray-300 font-mono">${dueDate}</span></div>
+                    </div>`;
+                recordList.appendChild(recordDiv);
+            });
+        }
+        
+        // Filter
+        function filterAndSortRecords() {
+            let filtered = [...allRecords];
+            const searchTerm = searchInput.value.toLowerCase();
+            if (searchTerm) {
+                filtered = filtered.filter(record => {
+                    if (!record) return false;
+                    return Object.values(record).some(value => String(value).toLowerCase().includes(searchTerm));
+                });
+            }
+            const sortBy = sortFilter.value;
+            if (sortBy === 'soonest') {
+                filtered.sort((a, b) => (a.DueDate ? new Date(a.DueDate) : new Date('9999-12-31')) - (b.DueDate ? new Date(b.DueDate) : new Date('9999-12-31')));
+            } else if (sortBy === 'recent') {
+                filtered.sort((a, b) => (a.InvestDate ? new Date(a.InvestDate) : new Date(0)) - (b.InvestDate ? new Date(b.InvestDate) : new Date(0)));
+            } else if (sortBy === 'asc') {
+                filtered.sort((a, b) => (a?.FirstName || '').localeCompare(b?.FirstName || ''));
+            }
+            renderRecords(filtered);
+        }
+
+        searchInput.addEventListener('input', filterAndSortRecords);
+        sortFilter.addEventListener('change', filterAndSortRecords);
+
+        // Autocomplete
+        function setupAutocomplete(inp, arr) {
+            if (!inp || !arr || arr.length === 0) return;
+            inp.addEventListener("input", function(e) {
+                let a, b, i, val = this.value;
+                closeAllLists();
+                if (!val) { return false;}
+                a = document.createElement("DIV");
+                a.setAttribute("id", this.id + "autocomplete-list");
+                a.setAttribute("class", "autocomplete-items rounded-b-lg shadow-xl");
+                this.parentNode.appendChild(a);
+                for (i = 0; i < arr.length; i++) {
+                    if (arr[i] && arr[i].substr(0, val.length).toUpperCase() == val.toUpperCase()) {
+                        b = document.createElement("DIV");
+                        b.innerHTML = "<span class='text-white font-bold'>" + arr[i].substr(0, val.length) + "</span>";
+                        b.innerHTML += "<span class='text-gray-500'>" + arr[i].substr(val.length) + "</span>";
+                        b.innerHTML += "<input type='hidden' value='" + arr[i] + "'>";
+                        b.addEventListener("click", function(e) {
+                            inp.value = this.getElementsByTagName("input")[0].value;
+                            closeAllLists();
+                        });
+                        a.appendChild(b);
+                    }
+                }
+            });
+            function closeAllLists(elmnt) {
+                var x = document.getElementsByClassName("autocomplete-items");
+                for (var i = 0; i < x.length; i++) {
+                    if (elmnt != x[i] && elmnt != inp) x[i].parentNode.removeChild(x[i]);
+                }
+            }
+            document.addEventListener("click", function (e) { closeAllLists(e.target); });
+        }
+    </script>
+</body>
+</html>
