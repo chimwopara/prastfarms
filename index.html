@@ -160,8 +160,8 @@
         .hero {
             flex-direction: row;
             align-items: center;
-            justify-content: space-between;
-            gap: 40px;
+            justify-content: center; /* Center alignment for symmetry */
+            gap: 60px; /* Increased gap for desktop balance */
         }
 
         .hero-content { flex: 1; max-width: 600px; z-index: 2; }
@@ -181,7 +181,7 @@
         .hero-img-wrapper {
             flex: 1;
             display: flex;
-            justify-content: flex-end;
+            justify-content: flex-start; /* Align image towards center */
             align-items: center;
             z-index: 2;
         }
@@ -345,59 +345,64 @@
 
             section { height: 100vh; min-height: unset; padding: 70px 20px 20px; scroll-snap-align: start; scroll-snap-stop: always; overflow: hidden; flex-shrink: 0; }
 
-            /* HERO MOBILE FIX: TEXT TOP, IMAGE BOTTOM */
+            /* HERO MOBILE FIX: IMAGE TOP, TEXT BOTTOM (RESTING BELOW) */
             .hero {
                 flex-direction: column; /* Stack vertically */
                 justify-content: center; /* Center in viewport */
-                padding-top: 60px;
+                padding-top: 40px; /* Slight space from top */
                 padding-bottom: 20px;
-                gap: 20px; /* Symmetry gap */
+                gap: 15px; /* Small symmetrical gap */
+                align-items: center; /* Center everything horizontally */
             }
-
-            .hero-content {
-                flex: 0 0 auto;
-                text-align: center;
-                order: 1; /* TEXT COMES FIRST (TOP) */
-                margin-bottom: 0; /* Remove excess margin */
-            }
-
-            .hero h1 { font-size: 2.2rem; margin-bottom: 10px; }
-            .hero p { 
-                font-size: 1rem; 
-                margin-bottom: 15px; 
-                max-width: 90%; 
-                margin-left: auto; 
-                margin-right: auto; 
-            }
-            
-            /* Center the buttons */
-            .hero-content div { justify-content: center !important; }
 
             .hero-img-wrapper {
-                flex: 1;
+                order: 1; /* IMAGE COMES FIRST (TOP) */
+                flex: 0 0 auto;
                 width: 100%;
                 margin: 0;
                 display: flex;
-                align-items: flex-start; /* Align to top of its container so it sits right under text */
+                align-items: center;
                 justify-content: center;
-                order: 2; /* IMAGE COMES SECOND (BOTTOM) */
-                overflow: hidden;
+                overflow: visible;
             }
 
             .hero-staff-img {
                 width: auto;
                 height: auto;
-                max-width: 90%;
-                max-height: 45vh; /* Ensure it fits on screen */
-                border-radius: 20px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+                max-width: 85%; /* Controlled width for symmetry */
+                max-height: 35vh; /* Don't take up too much vertical space */
+                border-radius: 30px;
+                box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+                object-fit: cover;
             }
+
+            .hero-content {
+                order: 2; /* TEXT COMES SECOND (BOTTOM) */
+                flex: 0 0 auto;
+                text-align: center;
+                margin-top: 5px; /* Resting just below the image */
+                max-width: 100%;
+            }
+
+            .hero h1 { font-size: 2.2rem; margin-bottom: 10px; line-height: 1.2; }
+            .hero p { 
+                font-size: 0.95rem; 
+                margin-bottom: 15px; 
+                max-width: 90%; 
+                margin-left: auto; 
+                margin-right: auto;
+                opacity: 0.9;
+            }
+            
+            /* Center the buttons */
+            .hero-content div { justify-content: center !important; }
+
 
             /* OTHER SECTIONS */
             .branch-grid { grid-template-columns: 1fr; overflow-y: auto; max-height: 70vh; padding-bottom: 20px; }
             
             .product-showcase { display: flex; flex-direction: column; height: 100%; justify-content: center; gap: 15px; }
-            .image-cluster { order: 1; height: 40vh; margin: 0; }
+            .image-cluster { order: 1; height: 35vh; margin: 0; }
             .showcase-text { order: 2; text-align: center; padding: 0 10px; }
             .img-main { height: 100%; width: auto; max-width: 90%; }
             .img-sub { width: 90px; height: 90px; }
@@ -405,7 +410,7 @@
             /* Academy scroll fix for mobile */
             .academy-grid {
                 overflow-y: auto;
-                max-height: 45vh;
+                max-height: 40vh;
                 padding-bottom: 20px;
             }
         }
@@ -603,7 +608,7 @@
         
         <div style="max-width: 800px; margin: 0 auto 20px auto; width: 100%;">
             <div class="video-container">
-                <iframe width="560" height="315" src="https://youtu.be/6u66Ee94-UA" title="Prast Farms Promotional Video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+                <iframe width="560" height="315" src="https://www.youtube.com/embed/6u66Ee94-UA" title="Prast Farms Academy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
             </div>
         </div>
 
