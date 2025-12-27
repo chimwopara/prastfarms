@@ -38,7 +38,7 @@
             width: 100%;
             height: 100%;
             overflow-y: scroll;
-            scroll-snap-type: y mandatory; 
+            /* No scroll snap on desktop */
         }
 
         h1, h2, h3, h4 { font-family: 'Playfair Display', serif; }
@@ -147,8 +147,6 @@
             padding: 40px 5%;
             position: relative;
             min-height: 100vh;
-            scroll-snap-align: start;
-            scroll-snap-stop: always;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -301,18 +299,19 @@
         .course-card h4 { font-size: 1.1rem; margin-bottom: 5px; font-weight: 700; }
         .course-card p { font-size: 0.9rem; opacity: 0.9; margin: 0; }
 
+        /* Bottom sections wrapper - no special behavior on desktop */
+        .bottom-sections-wrapper {
+            display: block;
+        }
 
         /* --- 8. FOOTER --- */
         footer {
             background: #050f08;
             padding: 60px 5% 20px;
             border-top: 1px solid rgba(255,255,255,0.1);
-            min-height: 100vh;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            scroll-snap-align: start;
-            scroll-snap-stop: always;
         }
 
         .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 40px; margin-bottom: 40px; }
@@ -320,30 +319,278 @@
         .footer-col a { display: block; margin-bottom: 10px; opacity: 0.7; }
         .footer-col a:hover { opacity: 1; color: var(--primary-green); }
 
-        /* --- MODALS --- */
+        /* --- MODALS - FULLSCREEN BOLD FORM EXPERIENCE --- */
         .modal-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); z-index: 2000; align-items: center; justify-content: center;
-            opacity: 0; transition: opacity 0.3s ease;
+            display: none; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%;
+            background: var(--primary-dark);
+            z-index: 2000; 
+            align-items: center; 
+            justify-content: center;
+            opacity: 0; 
+            transition: opacity 0.3s ease;
         }
         .modal-overlay.open { display: flex; opacity: 1; }
+        
         .modal-content {
-            width: 90%; max-width: 500px; padding: 40px; text-align: center; position: relative;
-            background: rgba(15, 30, 20, 0.98); border: 1px solid var(--accent-gold); max-height: 90vh; overflow-y: auto;
+            width: 100%; 
+            max-width: 100%; 
+            height: 100%;
+            padding: 0;
+            text-align: center; 
+            position: relative;
+            background: var(--primary-dark);
+            border: none;
+            border-radius: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
         }
-        .close-modal { position: absolute; top: 15px; right: 20px; font-size: 2rem; cursor: pointer; color: var(--cream); }
-        .modal-buttons { display: flex; flex-direction: column; gap: 15px; margin-top: 30px; }
-        .modal-btn { padding: 15px; border-radius: 50px; text-decoration: none; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .btn-call { background: var(--primary-green); color: white; }
-        .btn-email { border: 2px solid var(--accent-gold); color: var(--accent-gold); }
-        .form-group { text-align: left; margin-bottom: 15px; }
-        .form-group input, .form-group textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.05); color: white; }
+        
+        .close-modal { 
+            position: absolute; 
+            top: 20px; 
+            right: 25px; 
+            font-size: 2.5rem; 
+            cursor: pointer; 
+            color: var(--cream);
+            z-index: 10;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+        .close-modal:hover { opacity: 1; }
+        
+        /* Form Steps Container */
+        .form-steps-container {
+            width: 100%;
+            max-width: 600px;
+            padding: 40px 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+        }
+        
+        .form-step {
+            display: none;
+            width: 100%;
+            text-align: center;
+            animation: fadeInStep 0.4s ease;
+        }
+        
+        .form-step.active {
+            display: block;
+        }
+        
+        @keyframes fadeInStep {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Bold Question Label */
+        .form-step label {
+            display: block;
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--cream);
+            margin-bottom: 30px;
+            line-height: 1.3;
+        }
+        
+        /* Form Inputs - Minimal, underlined style */
+        .form-step input,
+        .form-step textarea {
+            width: 100%;
+            padding: 15px 5px;
+            font-size: 1.3rem;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid rgba(255,255,255,0.3);
+            color: var(--cream);
+            text-align: center;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        .form-step input:focus,
+        .form-step textarea:focus {
+            border-bottom-color: var(--primary-green);
+        }
+        
+        .form-step input::placeholder,
+        .form-step textarea::placeholder {
+            color: rgba(255,255,255,0.4);
+        }
+        
+        .form-step textarea {
+            min-height: 100px;
+            resize: none;
+        }
+        
+        /* Navigation Buttons */
+        .form-nav {
+            display: flex;
+            gap: 15px;
+            margin-top: 50px;
+            justify-content: center;
+        }
+        
+        .btn-form-nav {
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-next {
+            background: var(--primary-green);
+            color: white;
+            border: none;
+            box-shadow: 0 10px 25px rgba(41, 158, 82, 0.3);
+        }
+        
+        .btn-next:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(41, 158, 82, 0.4);
+        }
+        
+        .btn-back {
+            background: transparent;
+            color: var(--cream);
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        .btn-back:hover {
+            border-color: var(--cream);
+        }
+        
+        .btn-submit {
+            background: var(--accent-gold);
+            color: var(--primary-dark);
+            border: none;
+            box-shadow: 0 10px 25px rgba(212, 175, 55, 0.3);
+        }
+        
+        .btn-submit:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(212, 175, 55, 0.4);
+        }
+        
+        /* Progress Indicator */
+        .form-progress {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+        }
+        
+        .progress-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            transition: all 0.3s;
+        }
+        
+        .progress-dot.active {
+            background: var(--primary-green);
+            transform: scale(1.2);
+        }
+        
+        .progress-dot.completed {
+            background: var(--accent-gold);
+        }
+        
+        /* Modal Title */
+        .modal-title {
+            position: absolute;
+            top: 25px;
+            left: 30px;
+            font-family: 'Playfair Display', serif;
+            font-size: 1.2rem;
+            color: var(--accent-gold);
+            opacity: 0.8;
+        }
+        
+        /* Contact Modal - Simple buttons */
+        .contact-options {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .contact-options h3 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.5rem;
+            color: var(--cream);
+            margin-bottom: 20px;
+        }
+        
+        .modal-buttons { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+            width: 100%;
+        }
+        
+        .modal-btn { 
+            padding: 18px 30px; 
+            border-radius: 50px; 
+            text-decoration: none; 
+            font-weight: 600; 
+            font-size: 1.1rem;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 12px;
+            transition: all 0.3s;
+        }
+        
+        .btn-call { 
+            background: var(--primary-green); 
+            color: white; 
+        }
+        .btn-call:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(41, 158, 82, 0.4);
+        }
+        
+        .btn-email { 
+            border: 2px solid var(--accent-gold); 
+            color: var(--accent-gold); 
+        }
+        .btn-email:hover {
+            background: var(--accent-gold);
+            color: var(--primary-dark);
+        }
+        
+        /* Legacy form-group hide */
+        .form-group { display: none; }
 
         @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
         @keyframes bounce { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 10px); } }
 
         /* --- MOBILE RESPONSIVE (UPDATED FOR SYMMETRY) --- */
         @media (max-width: 900px) {
+            /* Enable scroll snap only on mobile */
+            body {
+                scroll-snap-type: y mandatory;
+            }
+            
             nav { width: 95%; padding: 10px 20px; border-radius: 12px; }
             .nav-links {
                 position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
@@ -499,12 +746,13 @@
                 min-height: 100vh;
                 overflow-y: auto;
                 -webkit-overflow-scrolling: touch;
+                padding-top: 70px; /* Space for nav */
             }
             
             .academy-section {
                 height: auto !important;
                 min-height: auto !important;
-                padding: 80px 20px 40px;
+                padding: 20px 20px 40px; /* Reduced top padding since wrapper has it */
                 overflow: visible !important;
                 scroll-snap-align: none !important;
             }
@@ -799,8 +1047,8 @@
                     RIVERS STATE.
                 </p>
                 <div style="margin-top: 15px;">
-                    <a href="#" onclick="openContactModal(); return false;">Contact@prastfarms.com</a>
-                    <a href="#" onclick="openContactModal(); return false;">Apply@prastfarms.com</a>
+                    <a href="#" onclick="openContactModal(); return false;"><span class="__cf_email__" data-cfemail="9ad9f5f4eefbf9eedaeae8fbe9eefcfbe8f7e9b4f9f5f7">[email&#160;protected]</span></a>
+                    <a href="#" onclick="openContactModal(); return false;"><span class="__cf_email__" data-cfemail="fdbc8d8d9184bd8d8f9c8e899b9c8f908ed39e9290">[email&#160;protected]</span></a>
                 </div>
             </div>
             <div class="footer-col">
@@ -818,83 +1066,134 @@
     </div> <!-- End of bottom-sections-wrapper -->
 
     <div id="contactModal" class="modal-overlay">
-        <div class="modal-content glass-panel">
+        <div class="modal-content">
             <span class="close-modal" onclick="closeContactModal()">&times;</span>
-            <h3 style="margin-bottom: 15px; color: var(--accent-gold);">Contact Us</h3>
-            <p style="margin-bottom: 20px;">How would you like to proceed?</p>
-            <div class="modal-buttons">
-                <a href="tel:+2348084219956" class="modal-btn btn-call">
-                    <i class="fas fa-phone-alt"></i> Call +234 808 421 9956
-                </a>
-                <a href="mailto:Contact@prastfarms.com" class="modal-btn btn-email">
-                    <i class="fas fa-envelope"></i> Email Contact@prastfarms.com
-                </a>
+            <div class="form-steps-container">
+                <h3 style="font-family: 'Playfair Display', serif; font-size: 2.5rem; color: var(--cream); margin-bottom: 20px;">Get in Touch</h3>
+                <p style="color: rgba(255,255,255,0.7); margin-bottom: 40px; font-size: 1.1rem;">How would you like to reach us?</p>
+                <div class="modal-buttons">
+                    <a href="tel:+2348084219956" class="modal-btn btn-call">
+                        <i class="fas fa-phone-alt"></i> Call +234 808 421 9956
+                    </a>
+                    <a href="mailto:Contact@prastfarms.com" class="modal-btn btn-email">
+                        <i class="fas fa-envelope"></i> Email Us
+                    </a>
+                </div>
             </div>
         </div>
     </div>
 
     <div id="applyModal" class="modal-overlay">
-        <div class="modal-content glass-panel">
+        <div class="modal-content">
             <span class="close-modal" onclick="closeApplyModal()">&times;</span>
-            <h3 style="margin-bottom: 15px; color: var(--accent-gold);">Academy Application</h3>
-            <p style="margin-bottom: 20px; font-size: 0.9rem;">Join the next cohort of Agri-Preneurs.</p>
+            <span class="modal-title">Academy Application</span>
             
-            <form id="academyForm" onsubmit="submitApplication(event)">
-                <div class="form-group">
-                    <label>Full Name</label>
-                    <input type="text" id="appName" required placeholder="Enter your full name">
-                </div>
-                <div class="form-group">
-                    <label>Date of Birth</label>
-                    <input type="date" id="appDob" required>
-                </div>
-                <div class="form-group">
-                    <label>Home Address</label>
-                    <textarea id="appAddress" rows="2" required placeholder="Enter your address"></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Phone Number</label>
-                    <input type="tel" id="appPhone" required placeholder="+234...">
+            <!-- Progress Dots -->
+            <div class="form-progress" id="applyProgress">
+                <span class="progress-dot active"></span>
+                <span class="progress-dot"></span>
+                <span class="progress-dot"></span>
+                <span class="progress-dot"></span>
+            </div>
+            
+            <div class="form-steps-container">
+                <!-- Step 1: Name -->
+                <div class="form-step active" data-step="1">
+                    <label>What's your full name?</label>
+                    <input type="text" id="appName" placeholder="Enter your name" autocomplete="name">
+                    <div class="form-nav">
+                        <button type="button" class="btn-form-nav btn-next" onclick="nextApplyStep(1)">Next →</button>
+                    </div>
                 </div>
                 
-                <button type="submit" class="modal-btn btn-call" style="width: 100%; border: none; cursor: pointer; margin-top: 20px;">
-                    Send Application
-                </button>
-            </form>
+                <!-- Step 2: Date of Birth -->
+                <div class="form-step" data-step="2">
+                    <label>When were you born?</label>
+                    <input type="date" id="appDob">
+                    <div class="form-nav">
+                        <button type="button" class="btn-form-nav btn-back" onclick="prevApplyStep(2)">← Back</button>
+                        <button type="button" class="btn-form-nav btn-next" onclick="nextApplyStep(2)">Next →</button>
+                    </div>
+                </div>
+                
+                <!-- Step 3: Address -->
+                <div class="form-step" data-step="3">
+                    <label>What's your home address?</label>
+                    <textarea id="appAddress" placeholder="Enter your full address"></textarea>
+                    <div class="form-nav">
+                        <button type="button" class="btn-form-nav btn-back" onclick="prevApplyStep(3)">← Back</button>
+                        <button type="button" class="btn-form-nav btn-next" onclick="nextApplyStep(3)">Next →</button>
+                    </div>
+                </div>
+                
+                <!-- Step 4: Phone -->
+                <div class="form-step" data-step="4">
+                    <label>What's your phone number?</label>
+                    <input type="tel" id="appPhone" placeholder="+234..." autocomplete="tel">
+                    <div class="form-nav">
+                        <button type="button" class="btn-form-nav btn-back" onclick="prevApplyStep(4)">← Back</button>
+                        <button type="button" class="btn-form-nav btn-submit" onclick="submitApplication()">Submit Application</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <div id="productActionModal" class="modal-overlay">
-        <div class="modal-content glass-panel">
+        <div class="modal-content">
             <span class="close-modal" onclick="closeProductActionModal()">&times;</span>
-            <h3 id="productActionTitle" style="margin-bottom: 15px; color: var(--accent-gold);">Action</h3>
-            <p style="margin-bottom: 20px; font-size: 0.9rem;">Please fill in your details to proceed.</p>
+            <span class="modal-title" id="productActionTitle">Request</span>
+            <input type="hidden" id="actionType">
+            <input type="hidden" id="productContext">
             
-            <form id="productActionForm" onsubmit="submitProductAction(event)">
-                <input type="hidden" id="actionType">
-                <input type="hidden" id="productContext">
-                
-                <div class="form-group">
-                    <label>Full Name</label>
-                    <input type="text" id="paName" required placeholder="Your full name">
-                </div>
-                <div class="form-group">
-                    <label>Phone Number</label>
-                    <input type="tel" id="paPhone" required placeholder="+234...">
-                </div>
-                <div class="form-group">
-                    <label>Address / Location</label>
-                    <input type="text" id="paAddress" required placeholder="Your delivery or contact address">
-                </div>
-                <div class="form-group">
-                    <label>Additional Details</label>
-                    <textarea id="paDetails" rows="3" placeholder="Tell us more about your request..."></textarea>
+            <!-- Progress Dots -->
+            <div class="form-progress" id="productProgress">
+                <span class="progress-dot active"></span>
+                <span class="progress-dot"></span>
+                <span class="progress-dot"></span>
+                <span class="progress-dot"></span>
+            </div>
+            
+            <div class="form-steps-container">
+                <!-- Step 1: Name -->
+                <div class="form-step active" data-step="1">
+                    <label>What's your full name?</label>
+                    <input type="text" id="paName" placeholder="Enter your name" autocomplete="name">
+                    <div class="form-nav">
+                        <button type="button" class="btn-form-nav btn-next" onclick="nextProductStep(1)">Next →</button>
+                    </div>
                 </div>
                 
-                <button type="submit" class="modal-btn btn-call" style="width: 100%; border: none; cursor: pointer; margin-top: 20px;">
-                    Send Request
-                </button>
-            </form>
+                <!-- Step 2: Phone -->
+                <div class="form-step" data-step="2">
+                    <label>What's your phone number?</label>
+                    <input type="tel" id="paPhone" placeholder="+234..." autocomplete="tel">
+                    <div class="form-nav">
+                        <button type="button" class="btn-form-nav btn-back" onclick="prevProductStep(2)">← Back</button>
+                        <button type="button" class="btn-form-nav btn-next" onclick="nextProductStep(2)">Next →</button>
+                    </div>
+                </div>
+                
+                <!-- Step 3: Address -->
+                <div class="form-step" data-step="3">
+                    <label>Where should we deliver or contact you?</label>
+                    <input type="text" id="paAddress" placeholder="Your address or location">
+                    <div class="form-nav">
+                        <button type="button" class="btn-form-nav btn-back" onclick="prevProductStep(3)">← Back</button>
+                        <button type="button" class="btn-form-nav btn-next" onclick="nextProductStep(3)">Next →</button>
+                    </div>
+                </div>
+                
+                <!-- Step 4: Details -->
+                <div class="form-step" data-step="4">
+                    <label>Any additional details?</label>
+                    <textarea id="paDetails" placeholder="Tell us more about your request (optional)"></textarea>
+                    <div class="form-nav">
+                        <button type="button" class="btn-form-nav btn-back" onclick="prevProductStep(4)">← Back</button>
+                        <button type="button" class="btn-form-nav btn-submit" onclick="submitProductAction()">Send Request</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -930,31 +1229,107 @@
             document.body.style.overflow = 'auto';
         }
 
-        // 4. Academy Application Logic
+        // 4. Academy Application Logic - Multi-step
+        let applyCurrentStep = 1;
+        const applyTotalSteps = 4;
+
         function openApplyModal() {
             document.getElementById('applyModal').classList.add('open');
             document.body.style.overflow = 'hidden';
+            resetApplyForm();
         }
 
         function closeApplyModal() {
             document.getElementById('applyModal').classList.remove('open');
             document.body.style.overflow = 'auto';
+            resetApplyForm();
         }
 
-        function submitApplication(e) {
-            e.preventDefault();
+        function resetApplyForm() {
+            applyCurrentStep = 1;
+            document.querySelectorAll('#applyModal .form-step').forEach((step, index) => {
+                step.classList.toggle('active', index === 0);
+            });
+            updateApplyProgress();
+            // Clear inputs
+            document.getElementById('appName').value = '';
+            document.getElementById('appDob').value = '';
+            document.getElementById('appAddress').value = '';
+            document.getElementById('appPhone').value = '';
+        }
+
+        function updateApplyProgress() {
+            const dots = document.querySelectorAll('#applyProgress .progress-dot');
+            dots.forEach((dot, index) => {
+                dot.classList.remove('active', 'completed');
+                if (index + 1 === applyCurrentStep) {
+                    dot.classList.add('active');
+                } else if (index + 1 < applyCurrentStep) {
+                    dot.classList.add('completed');
+                }
+            });
+        }
+
+        function nextApplyStep(currentStep) {
+            // Validate current step
+            const inputs = {
+                1: 'appName',
+                2: 'appDob',
+                3: 'appAddress',
+                4: 'appPhone'
+            };
+            
+            const input = document.getElementById(inputs[currentStep]);
+            if (!input.value.trim()) {
+                input.focus();
+                input.style.borderBottomColor = '#ff6b6b';
+                setTimeout(() => input.style.borderBottomColor = '', 2000);
+                return;
+            }
+            
+            if (currentStep < applyTotalSteps) {
+                document.querySelector(`#applyModal .form-step[data-step="${currentStep}"]`).classList.remove('active');
+                document.querySelector(`#applyModal .form-step[data-step="${currentStep + 1}"]`).classList.add('active');
+                applyCurrentStep = currentStep + 1;
+                updateApplyProgress();
+                
+                // Focus next input
+                const nextInput = document.querySelector(`#applyModal .form-step[data-step="${applyCurrentStep}"] input, #applyModal .form-step[data-step="${applyCurrentStep}"] textarea`);
+                if (nextInput) setTimeout(() => nextInput.focus(), 100);
+            }
+        }
+
+        function prevApplyStep(currentStep) {
+            if (currentStep > 1) {
+                document.querySelector(`#applyModal .form-step[data-step="${currentStep}"]`).classList.remove('active');
+                document.querySelector(`#applyModal .form-step[data-step="${currentStep - 1}"]`).classList.add('active');
+                applyCurrentStep = currentStep - 1;
+                updateApplyProgress();
+            }
+        }
+
+        function submitApplication() {
             const name = document.getElementById('appName').value;
             const dob = document.getElementById('appDob').value;
             const address = document.getElementById('appAddress').value;
             const phone = document.getElementById('appPhone').value;
 
+            if (!phone.trim()) {
+                document.getElementById('appPhone').focus();
+                return;
+            }
+
             const subject = `Academy Application: ${name}`;
             const body = `Name: ${name}%0D%0ADate of Birth: ${dob}%0D%0AAddress: ${address}%0D%0APhone: ${phone}%0D%0A%0D%0AI am interested in applying for the Summer Class.`;
 
             window.location.href = `mailto:Apply@prastfarms.com?subject=${subject}&body=${body}`;
+            closeApplyModal();
         }
 
-        // 5. Product Action Logic
+        // 5. Product Action Logic - Multi-step
+        let productCurrentStep = 1;
+        const productTotalSteps = 4;
+
         function openProductActionModal(action, product) {
             document.getElementById('productActionModal').classList.add('open');
             document.body.style.overflow = 'hidden';
@@ -966,15 +1341,81 @@
             if (action === 'Buy') titleEl.textContent = `Order ${product}`;
             else if (action === 'Invest') titleEl.textContent = `Invest in ${product}`;
             else if (action === 'Apply') titleEl.textContent = `Apply: ${product}`;
+            
+            resetProductForm();
         }
 
         function closeProductActionModal() {
             document.getElementById('productActionModal').classList.remove('open');
             document.body.style.overflow = 'auto';
+            resetProductForm();
         }
 
-        function submitProductAction(e) {
-            e.preventDefault();
+        function resetProductForm() {
+            productCurrentStep = 1;
+            document.querySelectorAll('#productActionModal .form-step').forEach((step, index) => {
+                step.classList.toggle('active', index === 0);
+            });
+            updateProductProgress();
+            // Clear inputs
+            document.getElementById('paName').value = '';
+            document.getElementById('paPhone').value = '';
+            document.getElementById('paAddress').value = '';
+            document.getElementById('paDetails').value = '';
+        }
+
+        function updateProductProgress() {
+            const dots = document.querySelectorAll('#productProgress .progress-dot');
+            dots.forEach((dot, index) => {
+                dot.classList.remove('active', 'completed');
+                if (index + 1 === productCurrentStep) {
+                    dot.classList.add('active');
+                } else if (index + 1 < productCurrentStep) {
+                    dot.classList.add('completed');
+                }
+            });
+        }
+
+        function nextProductStep(currentStep) {
+            // Validate current step (step 4 is optional)
+            const inputs = {
+                1: 'paName',
+                2: 'paPhone',
+                3: 'paAddress'
+            };
+            
+            if (inputs[currentStep]) {
+                const input = document.getElementById(inputs[currentStep]);
+                if (!input.value.trim()) {
+                    input.focus();
+                    input.style.borderBottomColor = '#ff6b6b';
+                    setTimeout(() => input.style.borderBottomColor = '', 2000);
+                    return;
+                }
+            }
+            
+            if (currentStep < productTotalSteps) {
+                document.querySelector(`#productActionModal .form-step[data-step="${currentStep}"]`).classList.remove('active');
+                document.querySelector(`#productActionModal .form-step[data-step="${currentStep + 1}"]`).classList.add('active');
+                productCurrentStep = currentStep + 1;
+                updateProductProgress();
+                
+                // Focus next input
+                const nextInput = document.querySelector(`#productActionModal .form-step[data-step="${productCurrentStep}"] input, #productActionModal .form-step[data-step="${productCurrentStep}"] textarea`);
+                if (nextInput) setTimeout(() => nextInput.focus(), 100);
+            }
+        }
+
+        function prevProductStep(currentStep) {
+            if (currentStep > 1) {
+                document.querySelector(`#productActionModal .form-step[data-step="${currentStep}"]`).classList.remove('active');
+                document.querySelector(`#productActionModal .form-step[data-step="${currentStep - 1}"]`).classList.add('active');
+                productCurrentStep = currentStep - 1;
+                updateProductProgress();
+            }
+        }
+
+        function submitProductAction() {
             const action = document.getElementById('actionType').value;
             const product = document.getElementById('productContext').value;
             const name = document.getElementById('paName').value;
@@ -986,13 +1427,39 @@
             const body = `Action: ${action} for ${product}%0D%0AName: ${name}%0D%0APhone: ${phone}%0D%0AAddress: ${address}%0D%0ADetails: ${details}`;
 
             window.location.href = `mailto:Contact@prastfarms.com?subject=${subject}&body=${body}`;
+            closeProductActionModal();
         }
 
+        // Close modals on overlay click
         window.addEventListener('click', function(e) {
             if (e.target.classList.contains('modal-overlay')) {
                 closeContactModal();
                 closeApplyModal();
                 closeProductActionModal();
+            }
+        });
+
+        // Handle Enter key in forms
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                // Apply modal
+                if (document.getElementById('applyModal').classList.contains('open')) {
+                    e.preventDefault();
+                    if (applyCurrentStep < applyTotalSteps) {
+                        nextApplyStep(applyCurrentStep);
+                    } else {
+                        submitApplication();
+                    }
+                }
+                // Product modal
+                if (document.getElementById('productActionModal').classList.contains('open')) {
+                    e.preventDefault();
+                    if (productCurrentStep < productTotalSteps) {
+                        nextProductStep(productCurrentStep);
+                    } else {
+                        submitProductAction();
+                    }
+                }
             }
         });
 
