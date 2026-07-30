@@ -146,11 +146,18 @@
         }
         .viz text { fill: var(--viz-ink-dim); font-size: 10px; }
         .calCell {
-            aspect-ratio: 1; border-radius: 7px; display:flex; flex-direction:column;
-            align-items:center; justify-content:center; cursor:default;
-            border:1px solid transparent; position:relative;
+            aspect-ratio: 1 / 1.12; border-radius: 7px; display:flex; flex-direction:column;
+            align-items:center; justify-content:center; gap:3px; cursor:default;
+            border:1px solid transparent; position:relative; padding:2px;
         }
-        .calCell .d { font-size:10px; color:var(--viz-ink); opacity:.75; line-height:1; }
+        .calCell .d { font-size:11px; color:var(--viz-ink); opacity:.65; line-height:1; }
+        /* The net for that day, shown the way a flight calendar shows a fare. */
+        .calCell .v {
+            font-size:9.5px; font-weight:700; line-height:1; letter-spacing:-.01em;
+            white-space:nowrap; color:var(--viz-ink);
+        }
+        .calCell .v.up   { color:#cfe4ff; }
+        .calCell .v.down { color:#ffd9d9; }
         /* A day with no transactions is not zero — it is nothing, and reads as
            a plain surface rather than a value on the scale. */
         .calCell.empty { background:rgba(255,255,255,.03); }
@@ -161,6 +168,42 @@
             border:1px dashed rgba(255,255,255,.22); border-radius:4px;
         }
         .segBtn { padding:9px 13px; font-size:12px; border-radius:10px; }
+        /* Five equal actions, always visible — no scrolling to find one. */
+        .actTile {
+            display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+            padding:15px 5px; min-height:76px; border-radius:14px; cursor:pointer;
+            background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.11);
+            color:#e6efe9; font-family:inherit; font-weight:600; transition:transform .12s, background .2s;
+        }
+        .actTile:active { transform:scale(.95); }
+        .actTile i    { font-size:17px; }
+        .actTile span { font-size:10px; letter-spacing:.02em; line-height:1.25; }
+        .startOpt {
+            display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+            padding:16px 8px; min-height:78px; font-size:13px; text-align:center; line-height:1.25;
+        }
+        .startOpt i { font-size:17px; }
+
+        /* Review feed: every unsorted transaction with its choices right there,
+           so she works straight down the list. */
+        .revRow { padding:15px; }
+        .revRow.done { opacity:.45; }
+        .revOpt {
+            padding:12px 10px; font-size:12.5px; border-radius:11px; line-height:1.25;
+            background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12);
+            color:#e6efe9; font-family:inherit; font-weight:600; cursor:pointer;
+        }
+        .revOpt:active { transform:scale(.97); }
+        .revOpt i { display:block; font-size:14px; margin-bottom:5px; opacity:.85; }
+        .revGrid { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin-top:13px; }
+        .revGrid.two { grid-template-columns:repeat(2,1fr); }
+        .revCrumb { font-size:11px; color:#7ee2a4; margin-top:11px; }
+        @media (max-width:340px) { .actTile span { font-size:8.5px; } }
+        .fLbl { display:block; font-size:11px; color:#9fb3a6; margin:0 0 5px; }
+        .fIn  { width:100%; padding:13px; box-sizing:border-box; margin-bottom:12px; }
+        .fType.on { background:rgba(41,158,82,.28); border-color:rgba(41,158,82,.6); color:#fff; }
+        #micBtn.rec { background:rgba(185,28,28,.85); color:#fff; animation:pulse 1.2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.55} }
         .segBtn.on { background:rgba(255,255,255,.16); color:#fff; }
 
         /* On a phone the header has to fit a logo and two buttons, so the
@@ -220,7 +263,7 @@
 </div>
 
 <!-- ================= APP ================= -->
-<div id="app" class="hide" style="max-width:620px;margin:0 auto;padding-bottom:40px;">
+<div id="app" class="hide" style="max-width:620px;margin:0 auto;">
 
     <!-- Header -->
     <header style="display:flex;align-items:center;justify-content:space-between;
@@ -239,15 +282,15 @@
             <button id="homeBtn" class="btn btn-plain hide" style="padding:11px 16px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;">
                 <i class="fas fa-chevron-left"></i><span class="btnLabel" style="margin-left:6px;">Dashboard</span>
             </button>
-            <button id="helpBtn" class="btn btn-plain" title="Get help"
+            <button id="exportBtn" class="btn btn-plain" title="Export a spreadsheet"
                     style="padding:11px 14px;font-size:12px;letter-spacing:.06em;white-space:nowrap;">
-                <i class="fas fa-circle-question"></i><span class="btnLabel" style="margin-left:6px;">Get help</span>
+                <i class="fas fa-download"></i><span class="btnLabel" style="margin-left:6px;">Export</span>
             </button>
         </div>
     </header>
 
     <!-- ============ DASHBOARD ============ -->
-    <main id="dashView" style="padding:20px;">
+    <main id="dashView" style="padding:20px 20px 48px;">
 
         <!-- Overview -->
         <section class="card" style="padding:20px;margin-bottom:16px;">
@@ -255,41 +298,55 @@
                 Overview
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px 16px;margin-bottom:16px;">
                 <div>
-                    <div style="font-size:11px;color:#9fb3a6;margin-bottom:4px;">Money received</div>
-                    <div id="sInvested" style="font-size:24px;font-weight:700;letter-spacing:-.02em;">₦0</div>
+                    <div style="font-size:11px;color:#9fb3a6;margin-bottom:4px;">Owed to investors</div>
+                    <div id="sOutstanding" style="font-size:22px;font-weight:700;color:var(--gold);letter-spacing:-.02em;">₦0</div>
+                    <div id="sOwedSub" style="font-size:10px;color:#6d7f74;margin-top:3px;"></div>
                 </div>
                 <div>
-                    <div style="font-size:11px;color:#9fb3a6;margin-bottom:4px;">Still to pay out</div>
-                    <div id="sOutstanding" style="font-size:24px;font-weight:700;color:var(--gold);letter-spacing:-.02em;">₦0</div>
+                    <div style="font-size:11px;color:#9fb3a6;margin-bottom:4px;">Revenue received</div>
+                    <div id="sRevenue" style="font-size:22px;font-weight:700;color:#7ee2a4;letter-spacing:-.02em;">—</div>
+                    <div id="sRevSub" style="font-size:10px;color:#6d7f74;margin-top:3px;">since the start</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:#9fb3a6;margin-bottom:4px;">Average profit</div>
+                    <div id="sMargin" style="font-size:22px;font-weight:700;letter-spacing:-.02em;">—</div>
+                    <div id="sMarginSub" style="font-size:10px;color:#6d7f74;margin-top:3px;">of the money coming in</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:#9fb3a6;margin-bottom:4px;">Investor return</div>
+                    <div id="sRoi" style="font-size:22px;font-weight:700;color:#f0d475;letter-spacing:-.02em;">—</div>
+                    <div id="sRoiSub" style="font-size:10px;color:#6d7f74;margin-top:3px;">average paid out</div>
                 </div>
             </div>
 
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <span id="cOver" class="pill p-over hide"></span>
-                <span id="cSoon" class="pill p-soon hide"></span>
-                <span id="cOk"   class="pill p-ok"></span>
-                <span id="cPaid" class="pill p-paid hide"></span>
-            </div>
         </section>
 
-        <!-- Primary action -->
-        <button id="newBtn" class="btn btn-green tap"
-                style="width:100%;padding:19px;font-size:16px;margin-bottom:24px;
-                       display:flex;align-items:center;justify-content:center;gap:10px;">
-            <i class="fas fa-camera" style="font-size:18px;"></i>
-            Add an investment
-        </button>
+        <!-- Six actions, two rows of three — everything reachable at a glance -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:24px;">
+            <button id="newBtn"      class="actTile" style="background:linear-gradient(135deg,var(--green),#1b6334);border-color:transparent;">
+                <i class="fas fa-plus"></i><span>Add</span></button>
+            <button id="stmtBtn"     class="actTile"><i class="fas fa-file-invoice"></i><span>Statement</span></button>
+            <button id="reviewBtn"   class="actTile hide" style="border-color:rgba(212,175,55,.45);">
+                <i class="fas fa-layer-group" style="color:var(--gold);"></i>
+                <span id="reviewBtnLabel">Sort</span></button>
+            <button id="moneyBtn"    class="actTile"><i class="fas fa-chart-column"></i><span>Charts</span></button>
+            <button id="settingsBtn" class="actTile"><i class="fas fa-sliders"></i><span>Rates</span></button>
+            <button id="helpTile"    class="actTile"><i class="fas fa-circle-question"></i><span>Help</span></button>
+        </div>
 
         <!-- Investments -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
             <div style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7ee2a4;">
                 Investments
             </div>
-            <button id="exportBtn" class="btn btn-plain" style="padding:8px 12px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;">
-                <i class="fas fa-download" style="margin-right:5px;"></i>Export
-            </button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <span id="cOver" class="pill p-over hide"></span>
+                <span id="cSoon" class="pill p-soon hide"></span>
+                <span id="cOk"   class="pill p-ok hide"></span>
+                <span id="cPaid" class="pill p-paid hide"></span>
+            </div>
         </div>
 
         <input id="search" class="input" placeholder="Search a name…"
@@ -305,61 +362,117 @@
             <span id="txnCount" style="font-size:10px;color:#6d7f74;"></span>
         </div>
 
-        <button id="stmtBtn" class="btn btn-plain tap"
-                style="width:100%;padding:17px;font-size:15px;margin-bottom:14px;
-                       display:flex;align-items:center;justify-content:center;gap:10px;">
-            <i class="fas fa-file-invoice" style="font-size:17px;"></i>
-            Upload a bank statement
-        </button>
         <input type="file" id="stmtInput" accept="application/pdf,image/*" class="hide">
 
         <div id="moneySummary" style="display:flex;flex-direction:column;gap:9px;"></div>
 
-        <button id="moneyBtn" class="btn btn-plain tap"
-                style="width:100%;padding:16px;font-size:14px;margin-top:14px;
-                       display:flex;align-items:center;justify-content:center;gap:9px;">
-            <i class="fas fa-chart-column"></i> Calendar &amp; charts
-        </button>
 
-        <button id="settingsBtn" class="btn btn-plain tap"
-                style="width:100%;padding:16px;font-size:14px;margin-top:26px;
-                       display:flex;align-items:center;justify-content:center;gap:9px;">
-            <i class="fas fa-sliders"></i> Agreement &amp; rates
-        </button>
     </main>
 
     <!-- ============ CHAT ============ -->
-    <main id="chatView" class="hide" style="padding:20px;">
-        <div id="chatScroll" class="scroll" style="display:flex;flex-direction:column;gap:11px;
-             min-height:44vh;max-height:56vh;overflow-y:auto;padding-right:4px;margin-bottom:16px;"></div>
+    <main id="chatView" class="hide"
+          style="padding:16px 20px 18px;display:flex;flex-direction:column;
+                 height:calc(100dvh - var(--hdr, 76px));box-sizing:border-box;">
+        <!-- Only this list scrolls. Everything below stays put, so the
+             "Ready to save" card and the input can never slide out of view. -->
+        <div id="chatScroll" class="scroll" style="flex:1;min-height:0;display:flex;
+             flex-direction:column;gap:11px;overflow-y:auto;padding-right:4px;margin-bottom:12px;"></div>
+
+        <div id="chatExtras" class="scroll" style="flex-shrink:0;max-height:46%;overflow-y:auto;">
 
         <!-- How she wants to start, shown at the top of a new conversation -->
-        <div id="startChoice" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
-            <button id="camBtn" class="btn btn-gold tap" style="width:100%;padding:17px;font-size:15px;
-                    display:flex;align-items:center;justify-content:center;gap:10px;">
-                <i class="fas fa-camera" style="font-size:17px;"></i> Take a picture
+        <div id="startChoice" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+            <button id="camBtn"       class="btn btn-gold  tap startOpt"><i class="fas fa-camera"></i>Take a picture</button>
+            <button id="fileBtn"      class="btn btn-gold  tap startOpt"><i class="fas fa-arrow-up-from-bracket"></i>Upload a pic</button>
+            <button id="formBtn"      class="btn btn-plain tap startOpt"><i class="fas fa-table-list"></i>Fill a form</button>
+            <button id="tmplBtn"      class="btn btn-plain tap startOpt"><i class="fas fa-clock-rotate-left"></i>Renew previous</button>
+            <button id="skipPhotoBtn" class="btn btn-plain tap startOpt"><i class="fas fa-comment"></i>Just chat</button>
+            <button id="talkBtn"      class="btn btn-plain tap startOpt"><i class="fas fa-microphone"></i>Just talk</button>
+        </div>
+        <div id="pasteHint" style="font-size:11px;color:#6d7f74;text-align:center;line-height:1.5;margin-bottom:14px;">
+            You can also paste a screenshot here.
+        </div>
+
+        <!-- After speaking: where should the details show up? -->
+        <div id="talkChoice" class="hide" style="display:flex;gap:10px;margin-bottom:14px;">
+            <button id="talkForm" class="btn btn-plain tap startOpt" style="flex:1;">
+                <i class="fas fa-table-list"></i>Show me a form
             </button>
-            <div style="display:flex;gap:10px;">
-                <button id="galBtn" class="btn btn-plain tap" style="flex:1;padding:15px;font-size:14px;">
-                    <i class="fas fa-image" style="margin-right:7px;"></i>Photo
-                </button>
-                <button id="fileBtn" class="btn btn-plain tap" style="flex:1;padding:15px;font-size:14px;">
-                    <i class="fas fa-file-arrow-up" style="margin-right:7px;"></i>File
-                </button>
-            </div>
-            <button id="skipPhotoBtn" class="btn btn-plain tap" style="width:100%;padding:15px;font-size:14px;">
-                <i class="fas fa-keyboard" style="margin-right:7px;"></i>Type it myself
+            <button id="talkChat" class="btn btn-plain tap startOpt" style="flex:1;">
+                <i class="fas fa-comment"></i>Keep chatting
             </button>
-            <div style="font-size:11px;color:#6d7f74;text-align:center;line-height:1.5;">
-                You can also paste a screenshot straight into the box below.
+        </div>
+
+        <!-- Renew previous: pick someone already on the books and only the
+             date and amount need changing. -->
+        <div id="tmplPanel" class="hide" style="border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.22);
+             border-radius:18px;padding:14px;margin-bottom:14px;">
+            <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7ee2a4;margin-bottom:11px;">
+                Who is investing again?
             </div>
+            <div id="tmplList" style="display:flex;flex-direction:column;gap:8px;max-height:34vh;overflow-y:auto;"></div>
         </div>
         <!-- capture= opens the camera; the others open the gallery / file picker -->
         <input type="file" id="camInput"  accept="image/*" capture="environment" class="hide">
-        <input type="file" id="galInput"  accept="image/*" class="hide">
         <input type="file" id="fileInput" accept="image/*,application/pdf" class="hide">
+        <input type="file" id="fRecInput" accept="image/*,application/pdf" class="hide">
+        <input type="file" id="proofInput" accept="image/*,application/pdf" class="hide">
 
         <!-- Ready-to-save summary -->
+        <!-- Form builder: one field per value, for when she would rather type
+             than talk. Payout and due date fill themselves from the rates. -->
+        <div id="formPanel" class="hide" style="border:1px solid rgba(255,255,255,.12);
+             background:rgba(0,0,0,.22);border-radius:18px;padding:16px;margin-bottom:14px;">
+            <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7ee2a4;margin-bottom:14px;">
+                <i class="fas fa-table-list" style="margin-right:5px;"></i>New investment
+            </div>
+
+            <label class="fLbl">Type</label>
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+                <button type="button" class="btn btn-plain fType on" data-t="Farm Investment"
+                        style="flex:1;padding:12px;font-size:13px;">Farm</button>
+                <button type="button" class="btn btn-plain fType" data-t="Real Estate"
+                        style="flex:1;padding:12px;font-size:13px;">Property</button>
+            </div>
+
+            <div style="display:flex;gap:10px;">
+                <div style="flex:1;"><label class="fLbl">First name</label>
+                    <input id="fFirst" class="input fIn" autocomplete="off"></div>
+                <div style="flex:1;"><label class="fLbl">Surname</label>
+                    <input id="fLast" class="input fIn" autocomplete="off"></div>
+            </div>
+
+            <label class="fLbl">Amount they paid (₦)</label>
+            <input id="fAmount" class="input fIn" type="number" inputmode="numeric" placeholder="0">
+
+            <label class="fLbl">Date they paid</label>
+            <input id="fStart" class="input fIn" type="date">
+
+            <div id="fAuto" style="font-size:12px;color:#7ee2a4;background:rgba(41,158,82,.1);
+                 border-radius:10px;padding:11px;margin:4px 0 12px;line-height:1.6;"></div>
+
+            <div style="display:flex;gap:10px;">
+                <div style="flex:1;"><label class="fLbl">Pays back (₦)</label>
+                    <input id="fPayout" class="input fIn" type="number" inputmode="numeric"></div>
+                <div style="flex:1;"><label class="fLbl">Due date</label>
+                    <input id="fDue" class="input fIn" type="date"></div>
+            </div>
+
+            <div style="border-top:1px solid rgba(255,255,255,.09);margin:4px 0 12px;padding-top:12px;">
+                <label class="fLbl">Their payment receipt</label>
+                <button type="button" id="fReceipt" class="btn btn-plain tap"
+                        style="width:100%;padding:14px;font-size:13px;">
+                    <i class="fas fa-paperclip" style="margin-right:7px;"></i><span id="fReceiptLabel">Attach a receipt</span>
+                </button>
+                <img id="fReceiptPreview" class="hide" style="width:100%;max-height:150px;object-fit:contain;
+                     border-radius:10px;margin-top:9px;border:1px solid rgba(255,255,255,.14);">
+            </div>
+
+            <button id="fSave" class="btn btn-green tap" style="width:100%;padding:16px;font-size:15px;">
+                Save
+            </button>
+        </div>
+
         <div id="draft" class="hide" style="border:1px solid rgba(41,158,82,.45);background:rgba(41,158,82,.09);
              border-radius:18px;padding:18px;margin-bottom:16px;">
             <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7ee2a4;margin-bottom:13px;">
@@ -373,10 +486,16 @@
             </button>
         </div>
 
-        <form id="chatForm" style="display:flex;gap:9px;">
+        </div><!-- /chatExtras -->
+
+        <form id="chatForm" class="hide" style="display:flex;gap:9px;flex-shrink:0;">
             <input id="chatInput" class="input" autocomplete="off" placeholder="Type here…"
                    style="flex:1;padding:16px;min-width:0;">
-            <button type="submit" id="sendBtn" class="btn btn-gold" style="width:56px;font-size:16px;">
+            <button type="button" id="micBtn" class="btn btn-plain hide" title="Speak"
+                    style="width:54px;font-size:16px;flex-shrink:0;">
+                <i class="fas fa-microphone"></i>
+            </button>
+            <button type="submit" id="sendBtn" class="btn btn-gold" style="width:56px;font-size:16px;flex-shrink:0;">
                 <i class="fas fa-paper-plane"></i>
             </button>
         </form>
@@ -459,6 +578,17 @@
     </div>
     <div id="vizGapNote" style="font-size:11px;color:#9fb8a6;line-height:1.6;margin-bottom:22px;"></div>
 
+    <!-- projection -->
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px;">
+        <div style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7ee2a4;">Looking ahead</div>
+        <div style="font-size:10px;color:#6d7f74;">next 6 months</div>
+    </div>
+    <div class="card" style="padding:16px;margin-bottom:10px;">
+        <div id="projConf" style="font-size:12px;line-height:1.6;color:#9fb8a6;margin-bottom:12px;"></div>
+        <div id="projRows" style="display:flex;flex-direction:column;gap:7px;"></div>
+    </div>
+    <div id="projInsights" class="card" style="padding:16px;margin-bottom:22px;display:flex;flex-direction:column;gap:10px;"></div>
+
     <!-- calendar -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <button id="calPrev" class="btn btn-plain" style="padding:10px 13px;font-size:13px;">‹</button>
@@ -486,6 +616,34 @@
     <div id="vizTip" class="hide" style="position:fixed;z-index:320;pointer-events:none;
          background:#0a1f12;border:1px solid rgba(255,255,255,.18);border-radius:10px;
          padding:9px 12px;font-size:12px;line-height:1.55;box-shadow:0 10px 30px rgba(0,0,0,.6);"></div>
+</div>
+
+<!-- ================= REVIEW (one feed, multiple choice) ================= -->
+<div id="revView" class="hide" style="max-width:620px;margin:0 auto;padding:16px 20px 40px;">
+
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px;">
+        <div>
+            <div style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7ee2a4;">Sort these</div>
+            <div id="revProgress" style="font-size:11px;color:#9fb3a6;margin-top:3px;"></div>
+        </div>
+        <button id="revMore" class="btn btn-plain" style="padding:9px 12px;font-size:12px;">
+            Load more
+        </button>
+    </div>
+
+    <div style="display:flex;gap:7px;margin-bottom:14px;">
+        <button class="btn btn-plain segBtn revDir on" data-d="">Everything</button>
+        <button class="btn btn-plain segBtn revDir" data-d="in">Money in</button>
+        <button class="btn btn-plain segBtn revDir" data-d="out">Money out</button>
+    </div>
+
+    <div id="revFeed" style="display:flex;flex-direction:column;gap:11px;"></div>
+
+    <div id="revDone" class="hide" style="text-align:center;padding:34px;">
+        <i class="fas fa-circle-check" style="font-size:36px;color:#7ee2a4;"></i>
+        <div style="font-size:18px;font-weight:700;margin-top:14px;">All sorted</div>
+        <div style="font-size:13px;color:#9fb3a6;margin-top:6px;">Nothing left in the unknown pile.</div>
+    </div>
 </div>
 
 <!-- ================= SETTINGS ================= -->
@@ -622,6 +780,9 @@
             <button id="aPaid" class="btn btn-green tap" style="width:100%;padding:16px;font-size:14px;">
                 <i class="fas fa-circle-check" style="margin-right:7px;"></i><span id="aPaidLabel">Mark as paid</span>
             </button>
+            <button id="aProof" class="btn btn-plain tap" style="width:100%;padding:16px;font-size:14px;">
+                <i class="fas fa-receipt" style="margin-right:7px;"></i><span id="aProofLabel">Add proof you paid them</span>
+            </button>
             <button id="aChat" class="btn btn-plain tap" style="width:100%;padding:16px;font-size:14px;">
                 <i class="fas fa-comment-dots" style="margin-right:7px;"></i>Change something
             </button>
@@ -666,7 +827,7 @@ import { DEV_MODE, firebaseConfig } from './assets/js/firebase-config.js';
 import {
     isConfigured, listenRecords, createRecord, updateRecord, deleteRecord,
     markPaid, unmarkPaid, isPaid, renewRecord,
-    saveReceiptImage, getReceiptImage, deleteReceiptImage, resizeImage,
+    saveReceiptImage, savePayoutProof, getReceiptImage, deleteReceiptImage, resizeImage,
     statusOf, computeStats, recordsToCSV, naira, fullName, prettyDate,
     daysUntil, todayISO, addYearsISO, addMonthsISO,
     ensureCategories, fetchPayees, savePayee, applyPayeeRules, matchInvestor,
@@ -674,7 +835,10 @@ import {
     setTransactionCategory, payeeKey, PAYEE_ROLES, fetchCategories,
     loadSettings, getSettings, saveSettings, resetSettings,
     liveTermMonthsFor, liveExpectedPayout,
-    fetchSummaries, monthRange, prettyMonth, MONTH_NAMES,
+    fetchSummaries, monthRange, prettyMonth, MONTH_NAMES, project, insights,
+    operatingSummary, lastMonths, kindOf,
+    fetchUnsorted, countUnsorted, fileTransaction, categoriesFor, UNSORTED_CATEGORIES,
+    invalidateUnsorted, nudgeUnsorted, matchPayee,
 } from './assets/js/db.js';
 import {
     isAssistantConfigured, askAssistant, missingFields, withDerivedDueDate,
@@ -693,11 +857,14 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
 
 // ---------- state ----------
 let records = [];
+let showAllRecords = false;   // the list previews three until she asks for more
+let showAllMoney = false;
 let unsub = null;
 let sheetRecord = null;
 let pendingDelete = null;
 
 let chatMode = 'new';        // 'new' | 'edit'
+let talkTarget = 'chat';     // where spoken details land: 'chat' | 'form'
 let chatRecordId = null;
 let history = [];
 let draftFields = {};
@@ -795,6 +962,8 @@ async function initAuth() {
 
 async function start() {
     $('app').classList.remove('hide');
+    syncHeaderVar();
+    syncHeaderVar();
     await loadSettings();
 
     if (unsubTxn) unsubTxn();
@@ -817,8 +986,24 @@ async function start() {
 // ---------- overview ----------
 function renderOverview() {
     const s = computeStats(records);
-    $('sInvested').textContent = naira(s.invested);
     $('sOutstanding').textContent = naira(s.outstanding);
+    const owing = s.total - s.paid;
+    $('sOwedSub').textContent = owing
+        ? `${owing} investment${owing === 1 ? '' : 's'} still running`
+        : 'nothing outstanding';
+
+    // What the business actually charges investors, taken from the real
+    // records rather than the configured rate, so it reflects what was agreed.
+    const withBoth = records.filter(r => Number(r.investSum) > 0 && Number(r.dueSum) > 0);
+    if (withBoth.length) {
+        const avg = withBoth.reduce((a, r) => a + (r.dueSum / r.investSum - 1), 0) / withBoth.length;
+        $('sRoi').textContent = `${(avg * 100).toFixed(0)}%`;
+        $('sRoiSub').textContent = `average across ${withBoth.length} investment${withBoth.length === 1 ? '' : 's'}`;
+    } else {
+        const set = Math.round(((Number(getSettings().roiMultiplier) || 1.4) - 1) * 100);
+        $('sRoi').textContent = `${set}%`;
+        $('sRoiSub').textContent = 'your agreed rate';
+    }
     $('connState').textContent = `${s.total} investment${s.total === 1 ? '' : 's'}`;
 
     const set = (id, n, label) => {
@@ -830,9 +1015,7 @@ function renderOverview() {
     set('cSoon', s.dueSoon, 'due soon');
     set('cPaid', s.paid, 'paid');
 
-    const ok = $('cOk');
-    ok.classList.toggle('hide', !s.active);
-    if (s.active) ok.innerHTML = `<i class="fas fa-circle" style="font-size:5px;"></i>${s.active} on track`;
+    set('cOk', s.active, 'on track');
 }
 
 // ---------- list ----------
@@ -861,12 +1044,18 @@ function renderList() {
         $('list').innerHTML = `
           <div style="text-align:center;padding:40px 20px;color:#6d7f74;font-size:14px;
                       border:1px dashed rgba(255,255,255,.14);border-radius:18px;">
-            ${records.length ? 'Nothing matches that name.' : 'No investments yet.<br>Tap the green button above to add one.'}
+            ${records.length ? 'Nothing matches that name.' : 'No investments yet.<br>Tap Add above to log one.'}
           </div>`;
         return;
     }
 
-    $('list').innerHTML = rows.map(r => `
+    // Searching means she is looking for something specific, so show every match.
+    const PREVIEW = 3;
+    const searching = Boolean(term);
+    const shown = (showAllRecords || searching) ? rows : rows.slice(0, PREVIEW);
+    const hidden = rows.length - shown.length;
+
+    $('list').innerHTML = shown.map(r => `
       <button class="card tap rec" data-id="${r.id}" style="padding:16px;text-align:left;
               display:flex;align-items:center;gap:14px;cursor:pointer;font-family:inherit;color:inherit;">
         <div style="flex:1;min-width:0;">
@@ -882,10 +1071,24 @@ function renderList() {
           <div style="font-size:17px;font-weight:700;color:var(--gold);">${esc(naira(r.dueSum))}</div>
           <i class="fas fa-chevron-right" style="color:#4f6157;font-size:12px;margin-top:8px;"></i>
         </div>
-      </button>`).join('');
+      </button>`).join('') + (
+        hidden > 0
+          ? `<button id="moreRecords" class="btn btn-plain tap" style="width:100%;padding:14px;font-size:13px;">
+               See all ${rows.length} <i class="fas fa-chevron-down" style="margin-left:6px;font-size:11px;"></i>
+             </button>`
+          : (showAllRecords && rows.length > PREVIEW && !searching
+              ? `<button id="lessRecords" class="btn btn-plain" style="width:100%;padding:12px;font-size:12px;">
+                   Show fewer <i class="fas fa-chevron-up" style="margin-left:6px;font-size:11px;"></i>
+                 </button>` : ''));
 }
 
-$('search').addEventListener('input', renderList);
+$('search').addEventListener('input', () => { showAllRecords = false; renderList(); });
+
+document.addEventListener('click', (e) => {
+    if (e.target.closest('#moreRecords')) { showAllRecords = true;  renderList(); }
+    if (e.target.closest('#lessRecords')) { showAllRecords = false; renderList(); }
+    if (e.target.closest('#moreMoney'))   { showAllMoney = !showAllMoney; renderMoney(); }
+});
 
 $('list').addEventListener('click', (e) => {
     const btn = e.target.closest('.rec');
@@ -899,6 +1102,7 @@ function showDash() {
     $('stmtView').classList.add('hide');
     $('setView').classList.add('hide');
     $('vizView').classList.add('hide');
+    $('revView').classList.add('hide');
     $('homeBtn').classList.add('hide');
 }
 function showChat() {
@@ -924,6 +1128,7 @@ function openSheet(r) {
     $('shOut').textContent = naira(r.dueSum);
 
     const paid = isPaid(r);
+    $('aProofLabel').textContent = paid ? 'Replace proof of payment' : 'Add proof you paid them';
     $('aPaidLabel').textContent = paid ? 'Undo paid' : 'Mark as paid';
     $('aPaid').className = paid ? 'btn btn-plain tap' : 'btn btn-green tap';
     $('aRenew').classList.toggle('hide', paid);
@@ -1061,6 +1266,20 @@ function thinking() {
     return row;
 }
 
+/** The typing box only appears once she has chosen a path that uses it. */
+function showComposer(on) {
+    $('chatForm').classList.toggle('hide', !on);
+    if (on) setTimeout(() => $('chatInput').focus(), 60);
+}
+
+/** The choice grid and its hint appear and disappear together. */
+function showChoices(on) {
+    $('startChoice').classList.toggle('hide', !on);
+    $('pasteHint').classList.toggle('hide', !on);
+    if (!on) $('talkChoice').classList.add('hide');
+    if (!on) $('tmplPanel').classList.add('hide');
+}
+
 function startChat(mode, record) {
     chatMode = mode;
     chatRecordId = record?.id || null;
@@ -1070,6 +1289,15 @@ function startChat(mode, record) {
     receiptDataUrl = null;
     $('chatScroll').innerHTML = '';
     $('draft').classList.add('hide');
+    $('formPanel').classList.add('hide');
+    $('tmplPanel').classList.add('hide');
+    $('talkChoice').classList.add('hide');
+    talkTarget = 'chat';
+    ['fFirst','fLast','fAmount','fPayout'].forEach(id => { $(id).value = ''; });
+    formReceipt = null;
+    $('fReceiptLabel').textContent = 'Attach a receipt';
+    $('fReceiptPreview').classList.add('hide');
+    $('fPayout').dataset.touched = ''; $('fDue').dataset.touched = '';
 
     if (mode === 'edit' && record) {
         draftFields = {
@@ -1077,13 +1305,15 @@ function startChat(mode, record) {
             investDate: record.investDate, dueDate: record.dueDate,
             investSum: record.investSum, dueSum: record.dueSum,
         };
-        $('startChoice').classList.add('hide');
+        showChoices(false);
+        showComposer(true);                       // editing is a conversation
         $('draftTitle').textContent = 'Updated details';
         bubble(`${fullName(record)} — ₦${Number(record.investSum).toLocaleString()} paying out ₦${Number(record.dueSum).toLocaleString()} on ${prettyDate(record.dueDate)}.\n\nWhat should I change?`, 'ai');
         renderDraft();
     } else {
         draftFields = {};
-        $('startChoice').classList.remove('hide');
+        showChoices(true);
+        showComposer(false);                      // choose a path first
         $('draftTitle').textContent = 'Ready to save';
         bubble("Let's add an investment.\n\nDo you have the payment receipt?", 'ai');
     }
@@ -1094,34 +1324,41 @@ function startChat(mode, record) {
 $('newBtn').addEventListener('click', () => startChat('new'));
 
 // ---- receipt photo ----
-$('camBtn').addEventListener('click', () => $('camInput').click());
-$('galBtn').addEventListener('click', () => $('galInput').click());
-$('fileBtn').addEventListener('click', () => $('fileInput').click());
+const pickWith = (inputId, said) => {
+    bubble(said, 'me');
+    showChoices(false);
+    $(inputId).click();
+};
+$('camBtn').addEventListener('click',  () => pickWith('camInput',  'Take a picture'));
+$('fileBtn').addEventListener('click', () => pickWith('fileInput', 'Upload a pic'));
 $('skipPhotoBtn').addEventListener('click', () => {
-    $('startChoice').classList.add('hide');
-    bubble("No problem. Who is the investor, how much did they pay, and what do they get back?", 'ai');
+    showChoices(false);
+    bubble('No receipt, I will type it', 'me');
+    showComposer(true);
+    bubble("No problem. Who is the investor and how much did they pay?", 'ai');
 });
 
-['camInput','galInput','fileInput'].forEach(id =>
+['camInput','fileInput'].forEach(id =>
     $(id).addEventListener('change', (e) => {
         const f = e.target.files?.[0];
         e.target.value = '';
         if (f) handleReceiptFile(f);
     }));
 
-// Pasting a screenshot into the chat box works too.
-$('chatInput').addEventListener('paste', (e) => {
+// Pasting works anywhere on the chat screen, since the box may not be showing.
+document.addEventListener('paste', (e) => {
+    if ($('chatView').classList.contains('hide')) return;
     const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
     if (!item) return;
     e.preventDefault();
     const f = item.getAsFile();
-    if (f) handleReceiptFile(f);
+    if (f) { showChoices(false); handleReceiptFile(f); }
 });
 
 async function handleReceiptFile(file) {
 
-    $('startChoice').classList.add('hide');
-    bubble(file.type === 'application/pdf' ? '📄 Receipt file' : '📷 Receipt photo', 'me');
+    bubble(file.type === 'application/pdf' ? '📄 Sent the file' : '📷 Sent the photo', 'me');
+    showComposer(true);                           // follow-up questions come next
     const t = thinking();
 
     try {
@@ -1227,6 +1464,9 @@ async function ask(text, opts = {}) {
         bubble(turn.reply || 'Got it.', 'ai');
         history.push({ role: 'assistant', content: JSON.stringify({ fields: turn.fields, reply: turn.reply }) });
         renderDraft();
+
+        // She asked for a form, so mirror whatever has been understood into it.
+        if (talkTarget === 'form') fillFormFromDraft();
     } catch (err) {
         t.remove();
         bubble(err.message, 'err');
@@ -1241,7 +1481,7 @@ $('chatForm').addEventListener('submit', (e) => {
     const text = $('chatInput').value.trim();
     if (!text) return;
     $('chatInput').value = '';
-    $('startChoice').classList.add('hide');
+    showChoices(false);
     ask(text);
 });
 
@@ -1335,7 +1575,10 @@ function showStmt() {
 // Money summary under the investments list
 function renderMoney() {
     $('txnCount').textContent = transactions.length ? `${transactions.length} recorded` : '';
-    const rows = summariseByCategory(transactions).slice(0, 8);
+    renderLifetime();
+    refreshUnsortedBadge();
+    const allRows = summariseByCategory(transactions);
+    const rows = showAllMoney ? allRows : allRows.slice(0, 3);
 
     if (!rows.length) {
         $('moneySummary').innerHTML = `
@@ -1361,7 +1604,52 @@ function renderMoney() {
             ${isIn ? '+' : '−'}${esc(naira(total))}
           </div>
         </div>`;
-    }).join('');
+    }).join('') + (
+        allRows.length > 3
+          ? `<button id="moreMoney" class="btn btn-plain tap" style="width:100%;padding:13px;font-size:13px;">
+               ${showAllMoney ? 'Show fewer' : `More (${allRows.length - 3})`}
+               <i class="fas fa-chevron-${showAllMoney ? 'up' : 'down'}" style="margin-left:6px;font-size:11px;"></i>
+             </button>` : '');
+}
+
+/**
+ * Lifetime money in and out. Read from the monthly summaries rather than the
+ * 500 most recent transactions, so the figure covers every month on record.
+ */
+/**
+ * Categories that are genuinely money EARNED. Investor capital, family
+ * movements and transfers between the owner's own companies are money that
+ * arrived, not revenue — counting them would flatter every figure here.
+ */
+async function renderLifetime() {
+    try {
+        if (!summaries.length) summaries = await fetchSummaries();
+        const biz = summaries.filter(x => x.bank === 'UBA');
+        const use = biz.length ? biz : summaries;
+        if (!use.length) return;
+
+        // Revenue is money EARNED — investor deposits and internal transfers
+        // are excluded, because neither is income.
+        const all = operatingSummary(use);
+        const allMonths = use.map(x => x.month).sort();
+        $('sRevenue').textContent = naira(all.revenue);
+        $('sRevSub').textContent = `since ${prettyMonth(allMonths[0])}`;
+
+        // The last twelve months is what "how are we doing" actually means.
+        const recent = lastMonths(use, 12);
+        const t = operatingSummary(recent.rows);
+        if (t.margin === null) return;
+
+        // With a large unsorted tail the costs are understated, which makes the
+        // margin look far better than it is. Say so loudly rather than printing
+        // a healthy-looking green number she would reasonably believe.
+        const shaky = t.unknownShare > 25;
+        $('sMargin').textContent = `${t.margin >= 0 ? '+' : ''}${t.margin.toFixed(1)}%${shaky ? '?' : ''}`;
+        $('sMargin').style.color = shaky ? '#f0d475' : (t.margin >= 0 ? '#7ee2a4' : '#fca5a5');
+        $('sMarginSub').innerHTML = shaky
+            ? `<span style="color:#f0d475">not reliable — ${t.unknownShare.toFixed(0)}% of the money is still unsorted, so costs look lower than they are</span>`
+            : `last ${recent.months.length} months`;
+    } catch { /* leave the dashes */ }
 }
 
 // ---- upload ----
@@ -1813,7 +2101,7 @@ function openHelp() {
     }
     setTimeout(() => $('helpInput').focus(), 80);
 }
-$('helpBtn').addEventListener('click', openHelp);
+$('helpTile').addEventListener('click', openHelp);
 $('helpClose').addEventListener('click', () => $('helpPanel').classList.add('hide'));
 $('helpPanel').addEventListener('click', (e) => { if (e.target === $('helpPanel')) $('helpPanel').classList.add('hide'); });
 $('helpChips').addEventListener('click', (e) => {
@@ -1885,14 +2173,25 @@ function showViz() {
     $('vizView').classList.remove('hide'); $('homeBtn').classList.remove('hide');
 }
 
+let vizReady = false;   // the filters are built once, on first open
+
 $('moneyBtn').addEventListener('click', async () => {
     showViz();
+
     if (!summaries.length) {
         $('vizChart').innerHTML = '<div style="padding:26px;text-align:center;color:#6d7f74;font-size:13px;">Loading…</div>';
         try { summaries = await fetchSummaries(); }
         catch (e) { $('vizChart').innerHTML = '<div style="padding:22px;text-align:center;color:#fca5a5;font-size:13px;">Could not load.</div>'; return; }
+    }
+
+    // Built on its own flag, NOT on whether summaries are empty — the dashboard's
+    // lifetime totals load them first, which used to skip this entirely and
+    // leave the account and year filters missing.
+    if (!vizReady && summaries.length) {
+        vizReady = true;
         buildAccountChips();
         buildYearChips();
+
         // Default to the business account: mixing the personal accounts in
         // makes "profit" meaningless and hides that account's own gaps.
         const biz = summaries.find(x => x.bank === 'UBA');
@@ -1903,6 +2202,7 @@ $('moneyBtn').addEventListener('click', async () => {
         const months = [...new Set(summaries.map(s => s.month))].sort();
         calMonth = months[months.length - 1] || todayISO().slice(0, 7);
     }
+
     renderViz();
 });
 
@@ -1967,9 +2267,18 @@ function renderViz() {
     $('vizHead').textContent = naira(Math.abs(tot));
     $('vizHead').style.color = vizMeasure === 'net' ? (tot >= 0 ? 'var(--viz-pos)' : 'var(--viz-neg)')
                              : vizMeasure === 'in'  ? 'var(--viz-in)' : 'var(--viz-out)';
-    $('vizHeadSub').textContent =
-        `${prettyMonth(all[0])} to ${prettyMonth(all[all.length - 1])} · ` +
+    // Profit as a percentage of money in — the figure that says whether the
+    // business is actually keeping any of what passes through it.
+    const totIn = all.reduce((a, m) => a + (byMonth.get(m)?.in || 0), 0);
+    const margin = totIn ? (tot / totIn) * 100 : null;
+
+    $('vizHeadSub').innerHTML =
+        `${esc(prettyMonth(all[0]))} to ${esc(prettyMonth(all[all.length - 1])) } · ` +
         `${all.length - missing.length} of ${all.length} months on record` +
+        (vizMeasure === 'net' && margin !== null
+            ? ` · <strong style="color:${tot >= 0 ? 'var(--viz-pos)' : 'var(--viz-neg)'}">` +
+              `${margin >= 0 ? '+' : ''}${margin.toFixed(1)}%</strong> of money in was kept`
+            : '') +
         (tot < 0 && vizMeasure === 'net' ? ' · this is a loss' : '');
 
     $('vizLegend').innerHTML = vizMeasure === 'net'
@@ -1993,6 +2302,59 @@ function renderViz() {
 
     if (!byMonth.has(calMonth)) calMonth = have[have.length - 1];
     drawCalendar(byMonth);
+    drawProjection(byMonth);
+}
+
+// ---- projection ----
+function drawProjection(byMonth) {
+    const p = project(byMonth, { ahead: 6 });
+
+    if (!p.ok) {
+        $('projConf').textContent = p.reason;
+        $('projRows').innerHTML = '';
+        $('projInsights').innerHTML = '';
+        return;
+    }
+
+    // Say plainly how much to trust it. A confident-looking number from a
+    // no-trend fit would be worse than no number at all.
+    const trust = {
+        steady:      ['#7ee2a4', 'The pattern is fairly steady, so these are a reasonable guide.'],
+        rough:       ['#f0d475', 'The months jump around a lot, so treat these as rough.'],
+        'very rough':['#fca5a5', 'The months jump around so much that there is no real pattern yet — treat these as a very rough guide only.'],
+    }[p.confidence];
+
+    const dir = p.trendPerMonth >= 0 ? 'improving' : 'slipping';
+    $('projConf').innerHTML =
+        `<span style="color:${trust[0]};font-weight:600;">${esc(trust[1])}</span><br>
+         Based on ${p.monthsUsed} months of records${p.gapsSkipped ? `, skipping ${p.gapsSkipped} with no statement` : ''}.
+         Profit is ${dir} by about ${esc(naira(Math.abs(p.trendPerMonth)))} a month.`;
+
+    const key = vizMeasure;
+    const peak = Math.max(...p.points.map(x => Math.abs(x[key])), 1);
+    $('projRows').innerHTML = p.points.map(x => {
+        const v = x[key];
+        const w = Math.max(4, Math.abs(v) / peak * 100);
+        const col = key === 'net' ? (v >= 0 ? 'var(--viz-pos)' : 'var(--viz-neg)')
+                  : key === 'in' ? 'var(--viz-in)' : 'var(--viz-out)';
+        return `<div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:11px;color:#9fb8a6;width:58px;flex-shrink:0;">${esc(prettyMonth(x.month))}</span>
+            <span style="flex:1;height:14px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden;">
+              <span style="display:block;height:100%;width:${w.toFixed(1)}%;border-radius:4px;
+                    background:repeating-linear-gradient(45deg, ${col} 0 5px, rgba(255,255,255,.28) 5px 8px);"></span>
+            </span>
+            <span style="font-size:12px;font-weight:600;width:92px;text-align:right;flex-shrink:0;">
+              ${v < 0 ? '−' : ''}${esc(naira(Math.abs(v)))}${
+                key === 'net' && x.in ? `<br><span style="font-size:9.5px;font-weight:600;color:#9fb8a6;">${(v / x.in * 100).toFixed(0)}%</span>` : ''}</span>
+        </div>`;
+    }).join('') +
+    `<div style="font-size:10px;color:#6d7f74;margin-top:4px;">Striped bars are predictions, not records.</div>`;
+
+    $('projInsights').innerHTML = insights(byMonth).map(i =>
+        `<div style="display:flex;gap:10px;align-items:flex-start;">
+           <i class="fas fa-${esc(i.icon)}" style="color:#7ee2a4;font-size:13px;margin-top:2px;width:16px;"></i>
+           <span style="font-size:13px;line-height:1.55;">${esc(i.text)}</span>
+         </div>`).join('');
 }
 
 // ---- monthly bars, gaps drawn as gaps ----
@@ -2087,6 +2449,15 @@ document.addEventListener('mousemove', (e) => {
     tip.style.top = Math.max(e.clientY - 60, 8) + 'px';
 });
 
+/** ₦1.2m / ₦450k / ₦850 — short enough to sit inside a calendar cell. */
+function shortNaira(n) {
+    const a = Math.abs(n);
+    if (a >= 1e9) return '₦' + (a / 1e9).toFixed(a >= 1e10 ? 0 : 1).replace(/\.0$/, '') + 'b';
+    if (a >= 1e6) return '₦' + (a / 1e6).toFixed(a >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'm';
+    if (a >= 1e3) return '₦' + Math.round(a / 1e3) + 'k';
+    return '₦' + Math.round(a);
+}
+
 // ---- calendar ----
 $('calPrev').addEventListener('click', () => stepMonth(-1));
 $('calNext').addEventListener('click', () => stepMonth(1));
@@ -2129,14 +2500,17 @@ function drawCalendar(byMonth) {
         if (!rec) { cells += `<div class="calCell empty"><span class="d">${d}</span></div>`; continue; }
         const net = (Number(rec.in)||0) - (Number(rec.out)||0);
         const t = Math.min(1, Math.abs(net) / peak);
-        const col = net >= 0 ? '57,135,229' : '230,103,103';
+        const up = net >= 0;
+        const col = up ? '57,135,229' : '230,103,103';
         const alpha = (0.16 + t * 0.72).toFixed(2);
         cells += `<div class="calCell" style="background:rgba(${col},${alpha});"
-                    title="${prettyDate(`${calMonth}-${key}`)} — ${net>=0?'up':'down'} ${naira(Math.abs(net))} across ${rec.n} transaction${rec.n===1?'':'s'}">
-                    <span class="d">${d}</span></div>`;
+                    title="${prettyDate(`${calMonth}-${key}`)} — ${up?'up':'down'} ${naira(Math.abs(net))} across ${rec.n} transaction${rec.n===1?'':'s'}">
+                    <span class="d">${d}</span>
+                    <span class="v ${up?'up':'down'}">${up?'+':'−'}${esc(shortNaira(net))}</span>
+                  </div>`;
     }
     $('calGrid').innerHTML = cells;
-    $('calNote').innerHTML = `Each day is shaded by how much the money moved. Tap and hold a day for the figures.`;
+    $('calNote').innerHTML = `Each day shows what it ended up or down by. Tap and hold a day for the full figures.`;
     $('calScale').innerHTML = `
         <span>loss</span>
         <span style="flex:1;height:9px;border-radius:5px;
@@ -2146,6 +2520,570 @@ function drawCalendar(byMonth) {
           <span style="width:11px;height:11px;border-radius:3px;background:rgba(255,255,255,.03);
                 border:1px solid rgba(255,255,255,.12);"></span> no activity</span>`;
 }
+
+
+// ---- header height drives the chat's fixed height ----
+//  Measured rather than hard-coded, so the layout survives the header wrapping
+//  on a narrow phone.
+function syncHeaderVar() {
+    const h = document.querySelector('#app header');
+    if (h) document.documentElement.style.setProperty('--hdr', h.offsetHeight + 'px');
+}
+window.addEventListener('resize', syncHeaderVar);
+
+// ================= FORM BUILDER =================
+
+let formType = 'Farm Investment';
+
+$('formBtn').addEventListener('click', () => {
+    showChoices(false);
+    // Echo the choice as her own message, so the conversation reads back as a
+    // conversation rather than the app talking to itself.
+    bubble('Fill a form', 'me');
+    $('formPanel').classList.remove('hide');
+    $('fStart').value = todayISO();
+    recalcForm();
+    bubble('Alright — fill in what you know below and tap Save.', 'ai');
+    showComposer(false);                          // the form is the input now
+});
+
+document.addEventListener('click', (e) => {
+    const b = e.target.closest('.fType');
+    if (!b) return;
+    formType = b.dataset.t;
+    document.querySelectorAll('.fType').forEach(x => x.classList.toggle('on', x === b));
+});
+
+['fAmount', 'fStart'].forEach(id => $(id).addEventListener('input', recalcForm));
+
+/** Payout and due date follow the amount, using the live rates from Settings. */
+/** Copy whatever the conversation has established into the form fields. */
+function fillFormFromDraft() {
+    $('formPanel').classList.remove('hide');
+    if (draftFields.type) {
+        formType = draftFields.type;
+        document.querySelectorAll('.fType').forEach(x => x.classList.toggle('on', x.dataset.t === formType));
+    }
+    if (draftFields.firstName) $('fFirst').value = draftFields.firstName;
+    if (draftFields.lastName)  $('fLast').value  = draftFields.lastName;
+    if (draftFields.investSum) $('fAmount').value = draftFields.investSum;
+    if (draftFields.investDate) $('fStart').value = draftFields.investDate;
+    if (draftFields.dueSum)  { $('fPayout').value = draftFields.dueSum; $('fPayout').dataset.touched = '1'; }
+    if (draftFields.dueDate) { $('fDue').value = draftFields.dueDate;  $('fDue').dataset.touched = '1'; }
+    recalcForm();
+}
+
+function recalcForm() {
+    const amt = Number($('fAmount').value) || 0;
+    const start = $('fStart').value;
+    if (!amt || !start) { $('fAuto').textContent = 'Enter the amount and the date and the rest fills itself in.'; return; }
+
+    const months = liveTermMonthsFor(amt);
+    const payout = liveExpectedPayout(amt);
+    const due = addMonthsISO(start, months);
+
+    // Only overwrite while she has not typed her own figures.
+    if (!$('fPayout').dataset.touched) $('fPayout').value = payout;
+    if (!$('fDue').dataset.touched) $('fDue').value = due;
+
+    const pct = Math.round((Number(getSettings().roiMultiplier) || 1.4) * 100);
+    $('fAuto').innerHTML = `At ${pct}% over ${months} months this pays back
+        <strong style="color:#f4f1ea">${esc(naira(payout))}</strong> on
+        <strong style="color:#f4f1ea">${esc(prettyDate(due))}</strong>. Change either below if it differs.`;
+}
+$('fPayout').addEventListener('input', () => { $('fPayout').dataset.touched = '1'; });
+$('fDue').addEventListener('input', () => { $('fDue').dataset.touched = '1'; });
+
+$('fSave').addEventListener('click', async () => {
+    const first = $('fFirst').value.trim(), last = $('fLast').value.trim();
+    const amt = Number($('fAmount').value) || 0;
+    const start = $('fStart').value, due = $('fDue').value;
+    const payout = Number($('fPayout').value) || 0;
+
+    if (!first || !last) { toast('Please enter both names', true); return; }
+    if (!amt)            { toast('Please enter the amount', true); return; }
+    if (!start || !due)  { toast('Please check the dates', true); return; }
+
+    const btn = $('fSave'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
+    try {
+        const payload = { type: formType, firstName: first, lastName: last,
+                          investDate: start, dueDate: due, investSum: amt, dueSum: payout };
+        const id = await createRecord(payload);
+        const img = receiptDataUrl || formReceipt?.dataUrl;
+        if (img) await saveReceiptImage(id, img, receiptMeta || {});
+        toast('Saved');
+        lastSavedRecord = { id, ...payload };
+        showDash();
+    } catch (err) { toast(err.message || 'Could not save', true); }
+    finally { btn.disabled = false; btn.textContent = 'Save'; }
+});
+
+// ================= VOICE INPUT =================
+//  Uses the browser's own speech recognition. Chrome and Edge support it;
+//  Firefox and some iOS versions do not, so the button only appears where it
+//  will actually work rather than failing silently when tapped.
+
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recog = null, listening = false;
+
+if (SpeechRec) {
+    $('micBtn').classList.remove('hide');
+
+    recog = new SpeechRec();
+    recog.lang = 'en-NG';
+    recog.interimResults = true;
+    recog.continuous = false;
+
+    let base = '';
+    recog.onresult = (e) => {
+        let text = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) text += e.results[i][0].transcript;
+        $('chatInput').value = (base + ' ' + text).trim();
+    };
+    recog.onerror = (e) => {
+        stopListening();
+        if (e.error === 'not-allowed') toast('Microphone permission was refused', true);
+        else if (e.error !== 'aborted' && e.error !== 'no-speech') toast('Could not hear that', true);
+    };
+    recog.onend = () => stopListening();
+
+    $('micBtn').addEventListener('click', () => {
+        if (listening) { recog.stop(); return; }
+        base = $('chatInput').value.trim();
+        try { recog.start(); listening = true; $('micBtn').classList.add('rec');
+              $('chatInput').placeholder = 'Listening…'; }
+        catch { /* already running */ }
+    });
+}
+
+function stopListening() {
+    listening = false;
+    $('micBtn').classList.remove('rec');
+    $('chatInput').placeholder = 'Type here…';
+}
+
+
+// ---- Renew previous: reuse someone already on the books ----
+$('tmplBtn').addEventListener('click', () => {
+    if (!records.length) { bubble('Renew previous', 'me');
+        bubble('There are no investments saved yet to copy from. Try one of the other ways.', 'ai'); return; }
+
+    bubble('Renew previous', 'me');
+    $('startChoice').classList.add('hide');
+    $('pasteHint').classList.add('hide');
+
+    // Most recent first — a repeat investor is usually a recent one.
+    const rows = [...records].sort((a, b) => String(b.investDate).localeCompare(String(a.investDate)));
+    $('tmplList').innerHTML = rows.map(r => `
+      <button class="btn btn-plain tmplPick" data-id="${r.id}"
+              style="width:100%;padding:13px;text-align:left;display:flex;align-items:center;
+                     justify-content:space-between;gap:10px;font-family:inherit;">
+        <span style="min-width:0;">
+          <span style="display:block;font-size:14px;font-weight:700;">${esc(fullName(r))}</span>
+          <span style="display:block;font-size:11px;color:#9fb3a6;margin-top:2px;">
+            ${esc(r.type === 'Real Estate' ? 'Property' : 'Farm')} · last ${esc(naira(r.investSum))} on ${esc(prettyDate(r.investDate))}
+          </span>
+        </span>
+        <i class="fas fa-chevron-right" style="color:#4f6157;font-size:12px;"></i>
+      </button>`).join('');
+    $('tmplPanel').classList.remove('hide');
+    bubble('Who is investing again?', 'ai');
+});
+
+$('tmplList').addEventListener('click', (e) => {
+    const b = e.target.closest('.tmplPick');
+    if (!b) return;
+    const r = records.find(x => x.id === b.dataset.id);
+    if (!r) return;
+
+    $('tmplPanel').classList.add('hide');
+    bubble(fullName(r), 'me');
+
+    // Copy the person across; only the date and amount are hers to change.
+    formType = r.type || 'Farm Investment';
+    document.querySelectorAll('.fType').forEach(x => x.classList.toggle('on', x.dataset.t === formType));
+    $('fFirst').value = r.firstName || '';
+    $('fLast').value  = r.lastName || '';
+    $('fStart').value = todayISO();
+    $('fAmount').value = r.investSum || '';
+    $('fPayout').dataset.touched = ''; $('fDue').dataset.touched = '';
+    recalcForm();
+
+    $('formPanel').classList.remove('hide');
+    showComposer(false);
+    bubble(`Copied ${fullName(r)}'s details. Change the amount and the date if they differ, then tap Save.`, 'ai');
+    setTimeout(() => $('fAmount').focus(), 80);
+});
+
+// ---- Just talk: straight into voice ----
+$('talkBtn').addEventListener('click', () => {
+    bubble('Just talk', 'me');
+    showChoices(false);
+    if (!SpeechRec) {
+        showComposer(true);
+        bubble("This browser cannot listen, so please type it instead. Who is the investor and how much did they pay?", 'ai');
+        return;
+    }
+    // Ask where she wants the details to land before listening, so the answer
+    // arrives in the shape she asked for rather than one she has to switch out of.
+    bubble('Sure. Once you have spoken, where should I put the details?', 'ai');
+    $('talkChoice').classList.remove('hide');
+});
+
+/** Chosen after "Just talk": form or chat, then start listening. */
+function startTalking(mode) {
+    talkTarget = mode;
+    $('talkChoice').classList.add('hide');
+    bubble(mode === 'form' ? 'Show me a form' : 'Keep chatting', 'me');
+    showComposer(true);
+
+    if (mode === 'form') {
+        $('fStart').value = todayISO();
+        recalcForm();
+        $('formPanel').classList.remove('hide');
+        bubble('Go ahead — say who invested and how much, and I will fill the form in.', 'ai');
+    } else {
+        bubble('Go ahead — tell me who invested and how much.', 'ai');
+    }
+    setTimeout(() => $('micBtn').click(), 350);
+}
+$('talkForm').addEventListener('click', () => startTalking('form'));
+$('talkChat').addEventListener('click', () => startTalking('chat'));
+
+
+// ================= REVIEW: one feed, multiple choice =================
+//
+//  Every unsorted transaction sits in one scrollable feed with its choices
+//  underneath, so she works straight down the list without a card at a time.
+//  Choices narrow: whose money -> what kind -> which animal.
+
+let revQueue = [];
+let revPage = 0;
+let revChoice = {};        // txn id -> its part-made choice
+let revDir = '';           // '' | 'in' | 'out'
+
+/**
+ * The choices, flat. Two rows of four covering almost everything, so the common
+ * cases — including investor money — are one tap rather than hidden behind
+ * "Other". The rarer ones sit under More.
+ */
+const REV_MAIN = {
+    out: [
+        { c: 'Feeds, Vet & Farm Supplies',        label: 'Feed & vet',     icon: 'wheat-awn' },
+        { c: 'Livestock Purchases',               label: 'Bought stock',   icon: 'piggy-bank' },
+        { c: 'Salaries & Wages',                  label: 'Wages',          icon: 'user' },
+        { c: 'Transport & Logistics',             label: 'Transport',      icon: 'truck' },
+        { c: 'Investor Payouts & Loan Repayments',label: 'Paid investor',  icon: 'handshake' },
+        { c: 'Building & Hardware Materials',     label: 'Building',       icon: 'trowel-bricks' },
+        { c: 'Everyday Personal & Card Purchases',label: 'Personal',       icon: 'house' },
+        { more: true,                             label: 'More',           icon: 'ellipsis' },
+    ],
+    in: [
+        { c: 'Farm & Produce Sales',              label: 'Sold produce',   icon: 'sack-dollar' },
+        { c: 'Property Sales & Land Revenue',     label: 'Sold land',      icon: 'map' },
+        { c: 'Rental Income',                     label: 'Rent',           icon: 'key' },
+        { c: 'Investor Capital & Business Loans', label: 'Investor money', icon: 'handshake' },
+        { c: 'Family Internal Transfers (In)',    label: 'From family',    icon: 'people-roof' },
+        { c: 'School Fees & Education',           label: 'School fees',    icon: 'graduation-cap' },
+        { c: 'Transfers Between Our Companies',   label: 'Our own money',  icon: 'right-left' },
+        { more: true,                             label: 'More',           icon: 'ellipsis' },
+    ],
+};
+
+const REV_MORE = {
+    out: [
+        { c: 'Property Purchase',              label: 'Bought land',   icon: 'map' },
+        { c: 'Repairs & Maintenance',          label: 'Repairs',       icon: 'screwdriver-wrench' },
+        { c: 'Utilities',                      label: 'Utilities',     icon: 'bolt' },
+        { c: 'Vehicle Fuel & Station Spending',label: 'Fuel',          icon: 'gas-pump' },
+        { c: 'Bank Charges & Fees',            label: 'Bank',          icon: 'building-columns' },
+        { c: 'School Fees & Education',        label: 'School fees',   icon: 'graduation-cap' },
+        { c: 'Family Internal Transfers (Out)',label: 'To family',     icon: 'people-roof' },
+        { c: 'Transfers Between Our Companies',label: 'Our own money', icon: 'right-left' },
+        { c: 'Owner Drawings',                 label: 'Owner',         icon: 'wallet' },
+        { c: 'Uncategorised',                  label: 'Still unsure',  icon: 'question' },
+    ],
+    in: [
+        { c: 'Family Internal Transfers (In)', label: 'From family',   icon: 'people-roof' },
+        { c: 'Bank Charges & Fees',            label: 'Bank',          icon: 'building-columns' },
+        { c: 'Uncategorised',                  label: 'Still unsure',  icon: 'question' },
+    ],
+};
+
+/** Which part of the farm — asked only where it actually tells us something. */
+const SEGMENTS = [
+    { id: 'pigs',      label: 'Pigs',     icon: 'piggy-bank' },
+    { id: 'chickens',  label: 'Chickens', icon: 'kiwi-bird' },
+    { id: 'turkeys',   label: 'Turkeys',  icon: 'kiwi-bird' },
+    { id: 'plantain',  label: 'Plantain', icon: 'seedling' },
+    { id: 'eggs',      label: 'Eggs',     icon: 'egg' },
+    { id: 'general',   label: 'All / not sure', icon: 'circle-question' },
+];
+const SEGMENT_CATS = new Set([
+    'Feeds, Vet & Farm Supplies', 'Livestock Purchases', 'Farm & Produce Sales',
+]);
+
+function showRev() {
+    ['dashView','chatView','stmtView','setView','vizView'].forEach(v => $(v).classList.add('hide'));
+    $('revView').classList.remove('hide');
+    $('homeBtn').classList.remove('hide');
+}
+
+/**
+ * Show the button straight away and fill the number in when it lands — waiting
+ * on a count before revealing the button made it look like nothing was there.
+ */
+let badgeShown = false;
+async function refreshUnsortedBadge() {
+    if (!badgeShown) {
+        badgeShown = true;
+        $('reviewBtn').classList.remove('hide');
+        $('reviewBtnLabel').innerHTML = 'Sort';
+    }
+    try {
+        const { count, value } = await countUnsorted();
+        $('reviewBtn').classList.toggle('hide', count === 0);
+        $('reviewBtnLabel').innerHTML = count
+            ? `Sort<br><span style="font-size:8.5px;opacity:.8;font-weight:600;">${count.toLocaleString()}</span>`
+            : 'Sort';
+        $('reviewBtn').title = count ? `${count.toLocaleString()} unsorted — ${naira(value)}` : '';
+    } catch {
+        $('reviewBtnLabel').innerHTML = 'Sort';
+    }
+}
+
+$('reviewBtn').addEventListener('click', async () => {
+    showRev();
+    $('revFeed').innerHTML = '<div style="padding:26px;text-align:center;color:#6d7f74;">Loading…</div>';
+    try {
+        revQueue = await fetchUnsorted(30);
+        revPage = 1;
+        revChoice = {};
+        renderFeed();
+    } catch (err) { toast(friendlyError(err), true); showDash(); }
+});
+
+document.addEventListener('click', (e) => {
+    const b = e.target.closest('.revDir');
+    if (!b) return;
+    revDir = b.dataset.d;
+    document.querySelectorAll('.revDir').forEach(x => x.classList.toggle('on', x === b));
+    renderFeed();
+});
+
+$('revMore').addEventListener('click', async () => {
+    const btn = $('revMore'); btn.disabled = true; btn.textContent = 'Loading…';
+    try {
+        revPage++;
+        revQueue = await fetchUnsorted(30 * (revPage + 1));
+        renderFeed();
+    } catch (err) { toast(friendlyError(err), true); }
+    finally { btn.disabled = false; btn.textContent = 'Load more'; }
+});
+
+const NOISE_WORDS = /^(NIP|NFT|TNF|TRF|POS|PUR|MOB|UTU|IFO|FRM|FROM|TO|FIP|MB|IBPS|TRBPS|NIBSS|VIA|AT|BR|CDB|CHQ|REF|APP|TRSF|INSTANT|PAYMENT|OUTWARD|TRANSFER|BETWEEN|CUSTOMERS|SELF|PLC|LTD|LIMITED)$/i;
+
+/**
+ * The stored counterparty is blank for a lot of rows — the import's extraction
+ * missed patterns like "NIP/trf to OBASI JOHNSON". Rather than show "Not named"
+ * over a narration that plainly contains the name, pull it out here.
+ */
+function nameOf(t) {
+    if (t.counterparty && t.counterparty.trim()) return t.counterparty.trim();
+    let raw = String(t.description || '');
+    // Card terminals name the processor, not the merchant.
+    raw = raw.replace(/\b(OPay|Moniepoint|Moniepola|Paycom|Teamapt|Interswitch|Flutterwave)\b/gi, ' ');
+    const after = raw.split(/\b(?:IFO|to|TO|FRM|FROM|@)\b/).pop() || raw;
+    const words = after.split(/[^A-Za-z]+/).filter(x => x.length > 1 && !NOISE_WORDS.test(x));
+    const name = words.slice(0, 4).join(' ')
+        .toLowerCase().replace(/\b[a-z]/g, ch => ch.toUpperCase()).trim();
+    // "For Pullets" is a purpose, not a person — better to admit we do not know.
+    if (!name || /^(For|And|The|Of|With|Payment)\b/i.test(name)) return 'Not named';
+    return name;
+}
+
+function optionsHTML(list, level, id) {
+    return `<div class="revGrid${list.length <= 2 ? ' two' : ''}">` + list.map(o =>
+        `<button class="revOpt" data-lvl="${level}" data-id="${esc(id)}"
+                 data-val="${esc(o.id || o.c || '')}" data-more="${o.more ? '1' : ''}"
+                 data-label="${esc(o.label)}">
+           <i class="fas fa-${esc(o.icon)}"></i>${esc(o.label)}
+         </button>`).join('') + '</div>';
+}
+
+function renderFeed() {
+    const inScope = revDir ? revQueue.filter(t => t.direction === revDir) : revQueue;
+    const pending = inScope.filter(t => !revChoice[t.id]?.done);
+    const what = revDir === 'in' ? 'money in' : revDir === 'out' ? 'money out' : 'biggest first';
+    $('revProgress').textContent = pending.length
+        ? `${pending.length} to go · ${what}`
+        : (revDir ? 'nothing left in this one' : 'nothing left here');
+    $('revDone').classList.toggle('hide', pending.length > 0);
+    $('revFeed').classList.toggle('hide', pending.length === 0);
+
+    $('revFeed').innerHTML = inScope.map(t => {
+        const ch = revChoice[t.id] || {};
+        const inn = t.direction === 'in';
+
+        if (ch.done) {
+            return `<div class="card revRow done" style="display:flex;align-items:center;gap:10px;">
+                <i class="fas fa-check" style="color:#7ee2a4;"></i>
+                <span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                  ${esc(nameOf(t))}</span>
+                <span style="font-size:12px;color:#9fb3a6;">${esc(ch.label)}</span>
+                <button class="revRedo" data-id="${esc(t.id)}"
+                        style="background:none;border:none;color:#7ee2a4;font-family:inherit;
+                               font-size:11px;cursor:pointer;padding:4px 6px;">Change</button>
+            </div>`;
+        }
+
+        const backBtn = () =>
+            `<button class="revBack" data-id="${esc(t.id)}"
+                     style="background:none;border:none;color:#7ee2a4;font-family:inherit;
+                            font-size:11px;padding:0;cursor:pointer;">
+               <i class="fas fa-arrow-left" style="margin-right:5px;"></i>Back
+             </button>`;
+
+        let body;
+        if (ch.category) {
+            // Only farm money worth splitting gets a second question.
+            body = `<div class="revCrumb" style="display:flex;align-items:center;gap:10px;">
+                      ${backBtn()}<span style="opacity:.8;">${esc(ch.label)} → which part?</span>
+                    </div>` + optionsHTML(SEGMENTS, 'seg', t.id);
+        } else if (ch.more) {
+            body = `<div class="revCrumb" style="display:flex;align-items:center;gap:10px;">
+                      ${backBtn()}<span style="opacity:.8;">More</span>
+                    </div>` + optionsHTML(REV_MORE[t.direction] || [], 'cat', t.id);
+        } else {
+            body = optionsHTML(REV_MAIN[t.direction] || [], 'cat', t.id);
+        }
+
+        return `<div class="card revRow" data-row="${esc(t.id)}">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+              <div style="min-width:0;">
+                <div style="font-size:15px;font-weight:700;">${esc(nameOf(t))}</div>
+                <div style="font-size:11px;color:#9fb3a6;margin-top:3px;">${esc(prettyDate(t.date))}</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0;">
+                <div style="font-size:17px;font-weight:700;color:${inn ? '#7ee2a4' : 'var(--gold)'};">
+                  ${inn ? '+' : '−'}${esc(naira(t.amount))}</div>
+                <div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#6d7f74;margin-top:2px;">
+                  ${inn ? 'in' : 'out'}</div>
+              </div>
+            </div>
+            <div style="font-size:10.5px;color:#6d7f74;margin-top:9px;line-height:1.45;
+                        word-break:break-word;max-height:44px;overflow:hidden;">${esc(t.description || '')}</div>
+            ${body}
+        </div>`;
+    }).join('');
+}
+
+$('revFeed').addEventListener('click', async (e) => {
+    // Going back has to be possible at every step — a wrong tap should cost a
+    // tap, not the whole entry.
+    const redo = e.target.closest('.revRedo');
+    if (redo) { revChoice[redo.dataset.id] = {}; return renderFeed(); }
+
+    const back = e.target.closest('.revBack');
+    if (back) { revChoice[back.dataset.id] = {}; return renderFeed(); }
+
+    const b = e.target.closest('.revOpt');
+    if (!b) return;
+    const id = b.dataset.id, lvl = b.dataset.lvl, val = b.dataset.val, label = b.dataset.label;
+    const t = revQueue.find(x => x.id === id);
+    if (!t) return;
+    const ch = revChoice[id] || {};
+
+    if (b.dataset.more) { revChoice[id] = { more: true }; return renderFeed(); }
+
+    if (lvl === 'cat') {
+        if (SEGMENT_CATS.has(val)) {          // ask which animal, then file
+            revChoice[id] = { category: val, label };
+            return renderFeed();
+        }
+        return commit(t, val, '', label);
+    }
+
+    return commit(t, ch.category, val, `${ch.label} · ${label}`);
+});
+
+/** Do two rows look like the same person, by the recovered name? */
+function sameParty(a, b) {
+    const t = nameOf(b).toLowerCase().split(/[^a-z]+/).filter(w => w.length > 2);
+    if (!t.length) return false;
+    const hay = `${a.description || ''} ${a.counterparty || ''}`.toLowerCase();
+    return a.direction === b.direction && t.every(w => new RegExp('\\b' + w).test(hay));
+}
+
+async function commit(txn, category, segment, label) {
+    const row = document.querySelector(`[data-row="${CSS.escape(txn.id)}"]`);
+    if (row) row.style.opacity = '.5';
+    try {
+        // Learn against the recovered name, so the rule actually matches next time.
+        const res = await fileTransaction({ ...txn, counterparty: nameOf(txn) }, category, { segment });
+        const extra = res?.alsoFiled || 0;
+        revChoice[txn.id] = { ...(revChoice[txn.id] || {}), done: true,
+                              label: extra ? `${label} · +${extra} more` : label };
+        if (extra) {
+            toast(`Also sorted ${extra} more from ${nameOf(txn)}`);
+            // those rows are handled now, so take them out of the feed
+            revQueue = revQueue.filter(x => x.id === txn.id || !sameParty(x, txn));
+        }
+        renderFeed();
+        refreshUnsortedBadge();
+    } catch (err) {
+        toast(friendlyError(err), true);
+        if (row) row.style.opacity = '1';
+    }
+}
+
+
+// ---- attaching receipts ----
+//  Every record should carry the evidence for both halves: what the investor
+//  paid in, and what we paid back.
+
+let formReceipt = null;     // { dataUrl } chosen in the form builder
+
+$('fReceipt').addEventListener('click', () => $('fRecInput').click());
+$('fRecInput').addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+        const isPdf = file.type === 'application/pdf';
+        const img = isPdf ? null : await resizeImage(file);
+        formReceipt = { dataUrl: img?.dataUrl || null, isPdf };
+        $('fReceiptLabel').textContent = isPdf ? 'File attached' : 'Receipt attached';
+        if (img) {
+            $('fReceiptPreview').src = img.dataUrl;
+            $('fReceiptPreview').classList.remove('hide');
+        }
+        toast('Receipt attached');
+    } catch (err) { toast(friendlyError(err), true); }
+});
+
+// ---- proof of payout, from a record ----
+$('aProof').addEventListener('click', () => {
+    if (!sheetRecord) return;
+    $('proofInput').click();
+});
+
+$('proofInput').addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !sheetRecord) return;
+    const btn = $('aProof'), label = $('aProofLabel');
+    btn.disabled = true; label.textContent = 'Saving…';
+    try {
+        const img = await resizeImage(file);
+        await savePayoutProof(sheetRecord.id, img.dataUrl);
+        // Attaching proof of payment is itself the statement that it was paid.
+        if (!isPaid(sheetRecord)) await markPaid(sheetRecord.id, todayISO());
+        toast('Proof saved and marked as paid');
+        closeSheet();
+    } catch (err) { toast(friendlyError(err), true); }
+    finally { btn.disabled = false; label.textContent = 'Add proof you paid them'; }
+});
 
 document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;

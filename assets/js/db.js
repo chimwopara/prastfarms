@@ -23,6 +23,10 @@ import {
   serverTimestamp,
   increment,
   writeBatch,
+  getCountFromServer,
+  getAggregateFromServer,
+  sum as fsSum,
+  count as fsCount,
 } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
 import { firebaseConfig, RECORDS_COLLECTION } from "./firebase-config.js";
@@ -488,12 +492,33 @@ export const FAMILY_PERSONAL_LIMIT = 500_000;
 const PERSONAL_ROLES = new Set(["family", "owner"]);
 
 export async function saveReceiptImage(recordId, dataUrl, meta = {}) {
-  await setDoc(doc(db, RECEIPTS_COLLECTION, recordId), {
-    image: dataUrl,
-    reference: meta.reference || "",
-    bank: meta.bank || "",
-    createdAt: serverTimestamp(),
-  });
+  await setDoc(
+    doc(db, RECEIPTS_COLLECTION, recordId),
+    {
+      image: dataUrl,
+      reference: meta.reference || "",
+      bank: meta.bank || "",
+      createdAt: serverTimestamp(),
+    },
+    { merge: true }   // never wipe a payout proof already attached
+  );
+}
+
+/**
+ * Proof that WE paid the investor — the other half of the story.
+ * Kept in the same document as the incoming receipt so one read gets both.
+ */
+export async function savePayoutProof(recordId, dataUrl, meta = {}) {
+  await setDoc(
+    doc(db, RECEIPTS_COLLECTION, recordId),
+    {
+      payoutImage: dataUrl,
+      payoutReference: meta.reference || "",
+      payoutBank: meta.bank || "",
+      payoutAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
 }
 
 export async function getReceiptImage(recordId) {
@@ -639,7 +664,7 @@ export async function fetchPayees() {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
-export async function savePayee(name, { role, defaultCategory, catIn, catOut, investorId, note, confirmed } = {}) {
+export async function savePayee(name, { role, defaultCategory, catIn, catOut, investorId, note, confirmed, segment } = {}) {
   const key = payeeKey(name);
   if (!key) return null;
 
@@ -653,9 +678,51 @@ export async function savePayee(name, { role, defaultCategory, catIn, catOut, in
   if (investorId !== undefined) patch.investorId = investorId;
   if (note !== undefined) patch.note = note;
   if (confirmed !== undefined) patch.confirmed = confirmed;
+  if (segment !== undefined) patch.segment = segment;
 
   await setDoc(doc(db, PAYEE_COLLECTION, key), patch, { merge: true });
   return key;
+}
+
+/**
+ * Names that are never a payee — the business's own name shows up in almost
+ * every narration ("NIP transfer to PRAST FARM") and would otherwise capture
+ * the whole statement.
+ */
+const NOT_A_PAYEE = new Set(["prast-farm", "prast-farms", "prast", "not-named", "bank", "self", "cash"]);
+
+const NAME_STOPWORDS = new Set(["dr", "mrs", "mr", "miss", "chief", "alhaji", "and", "the", "ltd", "limited", "plc", "nigeria"]);
+
+/** The meaningful words of a payee name, for matching inside a narration. */
+function nameTokens(name) {
+  return String(name || "")
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter((w) => w.length > 2 && !NAME_STOPWORDS.has(w));
+}
+
+/**
+ * Find the payee rule that applies to a transaction.
+ *
+ * Matching is done against the NARRATION, not an extracted name: bank
+ * descriptions are messy ("POS Pur @ 2057IIB2-OPay MICHVIN ENTERPRISEPort Ha")
+ * and any extraction misses cases. Every word of the payee's name must appear,
+ * so "Wali Clifford" never captures "Wali Kenneth", and the longest name wins
+ * so "Kehinde Adenipekun" beats a bare "Adenipekun".
+ */
+export function matchPayee(txn, payees) {
+  const hay = `${txn.description || ""} ${txn.counterparty || ""}`.toLowerCase();
+  if (!hay.trim()) return null;
+
+  let best = null, bestLen = 0;
+  for (const p of payees) {
+    if (NOT_A_PAYEE.has(p.id)) continue;
+    const tk = nameTokens(p.name || p.id.replace(/-/g, " "));
+    if (!tk.length) continue;
+    if (!tk.every((w) => new RegExp(`\\b${w}`).test(hay))) continue;
+    if (tk.length > bestLen) { best = p; bestLen = tk.length; }
+  }
+  return best;
 }
 
 /** Roles she can pick from when asked "who is this?" */
@@ -680,12 +747,13 @@ export const PAYEE_ROLES = [
  * never seen, which is what she gets asked about.
  */
 export function applyPayeeRules(transactions, payees) {
-  const byKey = new Map(payees.map((p) => [p.id, p]));
   const unknown = new Map();
 
   const out = transactions.map((t) => {
-    const key = payeeKey(t.counterparty);
-    const known = byKey.get(key);
+    // Matched on the narration, so a rule saved once catches every future
+    // transaction from that person however the bank writes it.
+    const known = matchPayee(t, payees);
+    const key = known ? known.id : payeeKey(t.counterparty);
 
     let category = t.suggestedCategory || "Uncategorised";
     let source = "ai";
@@ -723,6 +791,7 @@ export function applyPayeeRules(transactions, payees) {
       category,
       categorySource: source,
       payeeRole: known?.role || "",
+      segment: known?.segment || t.segment || "",
       investorId: known?.investorId || "",
       overFamilyLimit: Boolean(suppressPersonal),
       needsReview: !category || category === "Uncategorised",
@@ -992,3 +1061,386 @@ export const prettyMonth = (ym) => {
   const [y, m] = ym.split("-").map(Number);
   return `${MONTH_NAMES[m - 1]} ${y}`;
 };
+
+// =============================================================================
+//  FINANCIAL PROJECTION
+//
+//  Fits a straight line through the months we actually hold and extends it
+//  forward. Deliberately simple and explainable: the owner needs to see why a
+//  number was predicted, and a model she cannot reason about is worse than a
+//  rough one she can.
+// =============================================================================
+
+/** Least-squares fit of y = a + b·x over the supplied points. */
+function fitLine(points) {
+  const n = points.length;
+  if (n < 2) return null;
+  const sx = points.reduce((s, p) => s + p.x, 0);
+  const sy = points.reduce((s, p) => s + p.y, 0);
+  const sxx = points.reduce((s, p) => s + p.x * p.x, 0);
+  const sxy = points.reduce((s, p) => s + p.x * p.y, 0);
+  const denom = n * sxx - sx * sx;
+  if (!denom) return null;
+  const b = (n * sxy - sx * sy) / denom;
+  const a = (sy - b * sx) / n;
+
+  // R² tells her how much to trust the line.
+  const mean = sy / n;
+  const ssTot = points.reduce((s, p) => s + (p.y - mean) ** 2, 0);
+  const ssRes = points.reduce((s, p) => s + (p.y - (a + b * p.x)) ** 2, 0);
+  const r2 = ssTot ? 1 - ssRes / ssTot : 0;
+
+  return { a, b, r2 };
+}
+
+const monthIndex = (ym) => {
+  const [y, m] = ym.split("-").map(Number);
+  return y * 12 + (m - 1);
+};
+const indexToMonth = (i) => `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`;
+
+/**
+ * Project `ahead` months of in / out / net.
+ *
+ * Only months we actually have are fitted — a missing statement is skipped, not
+ * treated as a zero month, which would drag every trend toward the floor.
+ */
+export function project(rowsByMonth, { ahead = 6, window: win = 18 } = {}) {
+  const months = [...rowsByMonth.keys()].sort();
+  if (months.length < 3) {
+    return { ok: false, reason: "Not enough months yet — at least three are needed.", points: [] };
+  }
+
+  const recent = months.slice(-win);
+  const base = monthIndex(recent[0]);
+
+  const series = {};
+  for (const key of ["in", "out", "net"]) {
+    const pts = recent.map((m) => ({ x: monthIndex(m) - base, y: rowsByMonth.get(m)[key] }));
+    series[key] = { fit: fitLine(pts), pts };
+  }
+
+  const lastIdx = monthIndex(months[months.length - 1]);
+  const points = [];
+  for (let k = 1; k <= ahead; k++) {
+    const x = lastIdx - base + k;
+    const row = { month: indexToMonth(lastIdx + k) };
+    for (const key of ["in", "out", "net"]) {
+      const f = series[key].fit;
+      row[key] = f ? Math.round(f.a + f.b * x) : 0;
+    }
+    points.push(row);
+  }
+
+  // Confidence comes from the profit fit, since that is what she reads.
+  const r2 = series.net.fit ? series.net.fit.r2 : 0;
+  const perMonth = series.net.fit ? series.net.fit.b : 0;
+
+  return {
+    ok: true,
+    points,
+    monthsUsed: recent.length,
+    gapsSkipped: monthRange(recent[0], months[months.length - 1]).length - recent.length,
+    r2,
+    trendPerMonth: perMonth,
+    confidence: r2 >= 0.5 ? "steady" : r2 >= 0.2 ? "rough" : "very rough",
+  };
+}
+
+/** Plain-English observations about the months we hold. */
+export function insights(rowsByMonth) {
+  const months = [...rowsByMonth.keys()].sort();
+  if (!months.length) return [];
+  const rows = months.map((m) => ({ month: m, ...rowsByMonth.get(m) }));
+  const out = [];
+
+  const best = rows.reduce((a, b) => (b.net > a.net ? b : a));
+  const worst = rows.reduce((a, b) => (b.net < a.net ? b : a));
+  out.push({ icon: "arrow-trend-up", text: `Best month so far was ${prettyMonth(best.month)}, up ${naira(best.net)}.` });
+  if (worst.net < 0) {
+    out.push({ icon: "arrow-trend-down", text: `Hardest month was ${prettyMonth(worst.month)}, down ${naira(Math.abs(worst.net))}.` });
+  }
+
+  const losses = rows.filter((r) => r.net < 0).length;
+  out.push({ icon: "scale-balanced", text: `${rows.length - losses} of ${rows.length} months on record ended up.` });
+
+  const last6 = rows.slice(-6);
+  if (last6.length >= 3) {
+    const avg = last6.reduce((s, r) => s + r.net, 0) / last6.length;
+    out.push({
+      icon: "calendar-day",
+      text: avg >= 0
+        ? `Over the last ${last6.length} months you kept about ${naira(avg)} a month on average.`
+        : `Over the last ${last6.length} months you were about ${naira(Math.abs(avg))} a month short on average.`,
+    });
+  }
+  return out;
+}
+
+// =============================================================================
+//  WHAT COUNTS AS PROFIT
+//
+//  Money arriving is not the same as money earned. An investor's deposit is a
+//  DEBT — it must be paid back with a return on top — and moving money between
+//  the family's own accounts is not trade at all. Counting either as profit
+//  flatters the business, so both are excluded from the operating figures.
+// =============================================================================
+
+export const CATEGORY_KIND = {
+  // earned
+  "Farm & Produce Sales": "revenue",
+  "Property Sales & Land Revenue": "revenue",
+  "Rental Income": "revenue",
+
+  // borrowed / repaid — never profit, never a cost of trading
+  "Investor Capital & Business Loans": "financing",
+  "Investor Payouts & Loan Repayments": "financing",
+
+  // the same money in a different pocket
+  "Family Internal Transfers (In)": "transfer",
+  "Family Internal Transfers (Out)": "transfer",
+  "Transfers Between Our Companies": "transfer",
+
+  // the household, not the business
+  "School Fees & Education": "personal",
+  "Everyday Personal & Card Purchases": "personal",
+  "Owner Drawings": "personal",
+
+  // we genuinely do not know yet
+  "Unidentified Bank Transfers (In)": "unknown",
+  "Unidentified Bank Transfers (Out)": "unknown",
+  Uncategorised: "unknown",
+};
+
+/** Anything not listed is a cost of running the farm. */
+export const kindOf = (category) => CATEGORY_KIND[category] || "expense";
+
+/**
+ * Operating position across a set of monthly summaries.
+ *
+ * `unknownIn` / `unknownOut` are reported rather than buried: with a large
+ * uncategorised tail the profit figure carries real uncertainty, and hiding
+ * that would be worse than showing it.
+ */
+export function operatingSummary(rows) {
+  const t = { revenue: 0, expenses: 0, financingIn: 0, financingOut: 0,
+              transferIn: 0, transferOut: 0, personal: 0,
+              unknownIn: 0, unknownOut: 0, cashIn: 0, cashOut: 0 };
+
+  rows.forEach((m) => {
+    t.cashIn += m.in;
+    t.cashOut += m.out;
+    Object.entries(m.cats || {}).forEach(([name, v]) => {
+      const inn = Number(v.in) || 0, out = Number(v.out) || 0;
+      switch (kindOf(name)) {
+        case "revenue":   t.revenue += inn; break;
+        case "financing": t.financingIn += inn; t.financingOut += out; break;
+        case "transfer":  t.transferIn += inn; t.transferOut += out; break;
+        case "personal":  t.personal += out; break;
+        case "unknown":   t.unknownIn += inn; t.unknownOut += out; break;
+        default:          t.expenses += out; if (inn) t.revenue += inn;
+      }
+    });
+  });
+
+  t.profit = t.revenue - t.expenses;
+  t.margin = t.revenue ? (t.profit / t.revenue) * 100 : null;
+  t.cashNet = t.cashIn - t.cashOut;
+  // How much of the picture is still unclassified — the honesty figure.
+  const known = t.revenue + t.expenses;
+  t.unknownShare = (known + t.unknownIn + t.unknownOut)
+    ? ((t.unknownIn + t.unknownOut) / (known + t.unknownIn + t.unknownOut)) * 100 : 0;
+  return t;
+}
+
+/** The most recent `n` months present in the summaries. */
+export function lastMonths(rows, n = 12) {
+  const months = [...new Set(rows.map((r) => r.month))].sort().slice(-n);
+  const keep = new Set(months);
+  return { rows: rows.filter((r) => keep.has(r.month)), months };
+}
+
+// =============================================================================
+//  REVIEW QUEUE — sorting the unknown pile
+// =============================================================================
+
+export const UNSORTED_CATEGORIES = [
+  "Uncategorised",
+  "Unidentified Bank Transfers (In)",
+  "Unidentified Bank Transfers (Out)",
+];
+
+/**
+ * The biggest unsorted transactions first, because sorting the largest ones
+ * moves the profit figure fastest. One query per unsorted category, merged.
+ */
+export async function fetchUnsorted(perCategory = 40) {
+  let batches;
+  try {
+    batches = await Promise.all(
+      UNSORTED_CATEGORIES.map((c) =>
+        getDocs(
+          query(
+            collection(db, TXN_COLLECTION),
+            where("category", "==", c),
+            orderBy("amount", "desc"),
+            fsLimit(perCategory)
+          )
+        )
+      )
+    );
+  } catch (err) {
+    // A silently-empty list looks like "nothing to sort", which is the exact
+    // opposite of the truth while the index is still being built.
+    if (String(err?.message || "").includes("index")) {
+      throw new Error("Still getting the list ready — try again in a minute.");
+    }
+    throw err;
+  }
+  return batches
+    .flatMap((s) => s.docs.map((d) => ({ id: d.id, ...d.data() })))
+    .sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0));
+}
+
+/**
+ * How much is still unsorted.
+ *
+ * Counted and summed ON THE SERVER — reading every one of ~7,600 documents just
+ * to count them made the button take seconds to appear, and cost a read per row.
+ * Cached briefly because the dashboard re-renders on every snapshot.
+ */
+const UNSORTED_CACHE_KEY = "prast:unsorted";
+let unsortedCache = null;
+let unsortedAt = 0;
+
+// Survive moving between screens, so the figure is instant after the first look.
+try {
+  const raw = sessionStorage.getItem(UNSORTED_CACHE_KEY);
+  if (raw) { const c = JSON.parse(raw); unsortedCache = c.v; unsortedAt = c.t; }
+} catch { /* private mode, no cache */ }
+
+export async function countUnsorted({ maxAgeMs = 300_000 } = {}) {
+  if (unsortedCache && Date.now() - unsortedAt < maxAgeMs) return unsortedCache;
+
+  const results = await Promise.all(
+    UNSORTED_CATEGORIES.map(async (c) => {
+      const q = query(collection(db, TXN_COLLECTION), where("category", "==", c));
+      try {
+        const snap = await getAggregateFromServer(q, { n: fsCount(), total: fsSum("amount") });
+        return { count: snap.data().n || 0, value: snap.data().total || 0 };
+      } catch {
+        // Older SDK or a blocked aggregation — a plain count still beats
+        // downloading every document.
+        try {
+          const c2 = await getCountFromServer(q);
+          return { count: c2.data().count || 0, value: 0 };
+        } catch { return { count: 0, value: 0 }; }
+      }
+    })
+  );
+
+  unsortedCache = results.reduce(
+    (a, r) => ({ count: a.count + r.count, value: a.value + r.value }),
+    { count: 0, value: 0 }
+  );
+  unsortedAt = Date.now();
+  try { sessionStorage.setItem(UNSORTED_CACHE_KEY, JSON.stringify({ v: unsortedCache, t: unsortedAt })); } catch {}
+  return unsortedCache;
+}
+
+/** Force the next read to go back to the server — used after filing. */
+export function invalidateUnsorted() {
+  unsortedCache = null;
+  unsortedAt = 0;
+  try { sessionStorage.removeItem(UNSORTED_CACHE_KEY); } catch {}
+}
+
+/**
+ * Adjust the cached figure locally after filing, instead of asking the server
+ * again. Keeps the number moving as she works without a round trip per tap.
+ */
+export function nudgeUnsorted(countDelta, valueDelta) {
+  if (!unsortedCache) return;
+  unsortedCache = {
+    count: Math.max(0, unsortedCache.count + countDelta),
+    value: Math.max(0, unsortedCache.value + valueDelta),
+  };
+  try { sessionStorage.setItem(UNSORTED_CACHE_KEY, JSON.stringify({ v: unsortedCache, t: unsortedAt })); } catch {}
+}
+
+/**
+ * File one transaction, and remember the decision against the payee so the
+ * next one from the same person is already sorted.
+ */
+export async function fileTransaction(txn, category, { learn = true, segment = "" } = {}) {
+  const patch = { category, categorySource: "manual", updatedAt: serverTimestamp() };
+  // Which part of the farm this belongs to — kept beside the category rather
+  // than multiplied into it, so profit per animal stays possible later.
+  if (segment) patch.segment = segment;
+  await updateDoc(doc(db, TXN_COLLECTION, txn.id), patch);
+  nudgeUnsorted(-1, -(Number(txn.amount) || 0));
+
+  const key = txn.payeeKey || payeeKey(txn.counterparty);
+  if (!learn || !key || key === "bank" || !txn.counterparty) return;
+
+  if (NOT_A_PAYEE.has(key)) return { alsoFiled: 0 };
+
+  const rule = {
+    name: txn.counterparty,
+    [txn.direction === "in" ? "catIn" : "catOut"]: category,
+    updatedAt: serverTimestamp(),
+  };
+  if (segment) rule.segment = segment;
+  await setDoc(doc(db, PAYEE_COLLECTION, key), rule, { merge: true });
+
+  // Apply the decision to everything else still unsorted from the same person,
+  // so she only ever has to say it once.
+  const alsoFiled = await applyRuleToUnsorted(
+    { id: key, name: txn.counterparty, segment, role: "" },
+    txn.direction,
+    category
+  );
+  return { alsoFiled };
+}
+
+/** Categories that make sense for a given direction, for the quick chooser. */
+export function categoriesFor(direction, categories) {
+  return categories
+    .filter((c) => c.direction === direction && !UNSORTED_CATEGORIES.includes(c.name))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+
+/**
+ * Sweep the unsorted pile for other transactions from the same person and file
+ * them the same way. Bounded so one tap can never turn into a long wait.
+ */
+export async function applyRuleToUnsorted(payee, direction, category, max = 300) {
+  const tk = nameTokens(payee.name || payee.id.replace(/-/g, " "));
+  if (!tk.length || NOT_A_PAYEE.has(payee.id)) return 0;
+
+  const pending = await fetchUnsorted(max);
+  const hits = pending.filter(
+    (t) =>
+      t.direction === direction &&
+      t.categorySource !== "manual" &&
+      tk.every((w) => new RegExp(`\\b${w}`).test(`${t.description || ""} ${t.counterparty || ""}`.toLowerCase()))
+  );
+  if (!hits.length) return 0;
+
+  const batch = writeBatch(db);
+  hits.forEach((t) => {
+    const patch = {
+      category,
+      categorySource: "learned",
+      counterparty: payee.name,
+      payeeKey: payee.id,
+      updatedAt: serverTimestamp(),
+    };
+    if (payee.segment) patch.segment = payee.segment;
+    batch.update(doc(db, TXN_COLLECTION, t.id), patch);
+  });
+  await batch.commit();
+  nudgeUnsorted(-hits.length, -hits.reduce((a, t) => a + (Number(t.amount) || 0), 0));
+  return hits.length;
+}

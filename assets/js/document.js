@@ -319,7 +319,7 @@ function agreementPage(record, values) {
 
 function receiptPage(record, values, receipt) {
   const photo = receipt?.image
-    ? `<img src="${receipt.image}" style="max-width:100%;max-height:430px;display:block;margin:0 auto;
+    ? `<img src="${receipt.image}" style="max-width:100%;max-height:340px;display:block;margin:0 auto;
               border:3px solid #fff;border-radius:8px;">`
     : `<div style="border:2px dashed ${RULE};border-radius:10px;padding:40px;text-align:center;color:${INK_DIM};font-size:12px;">
          No receipt photo was attached to this record.
@@ -357,6 +357,14 @@ function receiptPage(record, values, receipt) {
       Investor's payment evidence
     </div>
     ${photo}
+
+    ${receipt?.payoutImage ? `
+      <div style="font-size:9px;letter-spacing:.14em;color:${ACCENT};text-transform:uppercase;
+                  margin:22px 0 10px;">
+        Our payment to the investor${record.paidDate ? ` — ${esc(prettyDate(record.paidDate))}` : ""}
+      </div>
+      <img src="${receipt.payoutImage}" style="max-width:100%;max-height:300px;display:block;margin:0 auto;
+           border:3px solid #fff;border-radius:8px;">` : ""}
     `,
     values,
     "receipt"
