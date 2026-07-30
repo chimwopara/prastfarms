@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sheet → Firebase Migration | Prast Farms</title>
+    <link rel="icon" type="image/png" href="assets/img/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Montserrat', sans-serif; background: #0f2e1a; color: #f4f1ea; }
+        .card { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; }
+        .input-tech {
+            background: rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.12);
+            color: #fff; font-size: 16px; transition: all .3s;
+        }
+        .input-tech:focus { outline: none; border-color: #299e52; box-shadow: 0 0 15px rgba(41,158,82,.25); }
+        .btn { transition: all .25s; font-weight: 700; }
+        .btn:disabled { opacity: .45; cursor: not-allowed; }
+        .btn-green { background: linear-gradient(135deg,#299e52,#1b6334); color: #fff; }
+        .btn-green:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(41,158,82,.3); }
+        .btn-gold { background: linear-gradient(135deg,#d4af37,#b89628); color: #0f2e1a; }
+        .btn-gold:not(:disabled):hover { transform: translateY(-1px); }
+        .step { opacity: .35; transition: opacity .3s; }
+        .step.on { opacity: 1; }
+        .bar { height: 8px; background: rgba(0,0,0,.4); border-radius: 999px; overflow: hidden; }
+        .bar > div { height: 100%; background: linear-gradient(90deg,#299e52,#d4af37); width: 0; transition: width .3s; }
+        table { font-size: 12px; }
+        th { text-align: left; color: #7ee2a4; text-transform: uppercase; font-size: 9px; letter-spacing: .1em; padding: 8px; }
+        td { padding: 8px; border-top: 1px solid rgba(255,255,255,.06); color: #cbd5cd; }
+        .log { font-family: ui-monospace, monospace; font-size: 11px; max-height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body class="min-h-screen p-4 sm:p-8">
+
+<div class="max-w-3xl mx-auto">
+
+    <header class="flex items-center gap-4 mb-8">
+        <img src="assets/img/logo.png" class="h-14 w-14 object-contain" alt="Prast Farms"
+             onerror="this.onerror=null;this.src='https://placehold.co/56x56/299e52/ffffff?text=PF';">
+        <div>
+            <h1 class="text-2xl font-bold">Google Sheet → Firebase</h1>
+            <p class="text-xs uppercase tracking-[.2em] text-green-400">One-time data migration</p>
+        </div>
+    </header>
+
+    <!-- Not configured -->
+    <div id="notConfigured" class="hidden card p-6 mb-6 border-yellow-500/30 bg-yellow-500/5">
+        <p class="text-sm text-yellow-200">
+            <i class="fas fa-triangle-exclamation mr-2"></i>
+            Firebase isn't configured yet. Paste your config into
+            <span class="font-mono text-yellow-400">assets/js/firebase-config.js</span> before migrating.
+        </p>
+    </div>
+
+    <!-- STEP 1 -->
+    <section id="step1" class="step on card p-6 mb-5">
+        <h2 class="font-bold mb-1"><span class="text-green-400">1.</span> Pull records from the Google Sheet</h2>
+        <p class="text-xs text-gray-400 mb-4">
+            The old Apps Script still requires the staff access code to hand over the data.
+            This is used once, here, and never stored.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-3">
+            <input type="password" id="accessCode" class="input-tech flex-grow p-3 rounded-lg" placeholder="Apps Script access code" autocomplete="off">
+            <button id="fetchBtn" class="btn btn-gold px-6 py-3 rounded-lg text-sm uppercase tracking-wider">
+                Fetch
+            </button>
+        </div>
+        <div id="step1Msg" class="hidden mt-3 text-sm"></div>
+    </section>
+
+    <!-- STEP 2 -->
+    <section id="step2" class="step card p-6 mb-5">
+        <h2 class="font-bold mb-1"><span class="text-green-400">2.</span> Review what will be imported</h2>
+        <div id="previewBox" class="mt-4 text-sm text-gray-400">Nothing fetched yet.</div>
+    </section>
+
+    <!-- STEP 3 -->
+    <section id="step3" class="step card p-6 mb-5">
+        <h2 class="font-bold mb-1"><span class="text-green-400">3.</span> Write to Firestore</h2>
+        <div id="dupWarn" class="hidden mt-3 mb-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-xs text-red-200"></div>
+        <button id="importBtn" class="btn btn-green w-full py-4 rounded-lg text-sm uppercase tracking-widest mt-4" disabled>
+            Import records
+        </button>
+        <div id="progressWrap" class="hidden mt-4">
+            <div class="bar"><div id="bar"></div></div>
+            <p id="progressText" class="text-xs text-gray-400 mt-2 text-center"></p>
+        </div>
+        <div id="log" class="log hidden mt-4 p-3 rounded-lg bg-black/40 text-gray-400"></div>
+    </section>
+
+    <div id="doneBox" class="hidden card p-6 text-center border-green-500/30 bg-green-500/5">
+        <i class="fas fa-circle-check text-3xl text-green-400 mb-3"></i>
+        <h2 class="text-xl font-bold mb-2">Migration complete</h2>
+        <p id="doneText" class="text-sm text-gray-300 mb-5"></p>
+        <a href="portal.html" class="btn btn-green inline-block px-8 py-3 rounded-lg text-sm uppercase tracking-widest">
+            Open the portal
+        </a>
+        <p class="text-[11px] text-gray-500 mt-5">
+            Once you've confirmed the records look right, delete <span class="font-mono">migrate.html</span> from the repo.
+        </p>
+    </div>
+
+</div>
+
+<script type="module">
+    import { LEGACY_SCRIPT_URL } from './assets/js/firebase-config.js';
+    import { importRecords, countRecords, isConfigured, naira, prettyDate } from './assets/js/db.js';
+
+    const $ = (id) => document.getElementById(id);
+    let pending = [];
+
+    if (!isConfigured()) {
+        $('notConfigured').classList.remove('hidden');
+        $('fetchBtn').disabled = true;
+    }
+
+    const log = (msg) => {
+        $('log').classList.remove('hidden');
+        $('log').innerHTML += `<div>${msg}</div>`;
+        $('log').scrollTop = $('log').scrollHeight;
+    };
+
+    function message(el, text, isError) {
+        el.textContent = text;
+        el.className = `mt-3 text-sm ${isError ? 'text-red-400' : 'text-green-400'}`;
+        el.classList.remove('hidden');
+    }
+
+    /**
+     * The sheet's header row decides the key names, so match them
+     * case-insensitively rather than assuming exact casing.
+     */
+    function fromSheetRow(row) {
+        const get = (...names) => {
+            for (const name of names) {
+                const key = Object.keys(row).find(
+                    (k) => k.toLowerCase().replace(/[^a-z]/g, '') === name
+                );
+                if (key !== undefined && row[key] !== '') return row[key];
+            }
+            return '';
+        };
+
+        return {
+            type:       get('type') || 'Farm Investment',
+            firstName:  get('firstname'),
+            lastName:   get('lastname'),
+            investDate: String(get('investdate') || '').slice(0, 10),
+            dueDate:    String(get('duedate') || '').slice(0, 10),
+            investSum:  Number(get('investsum')) || 0,
+            dueSum:     Number(get('duesum')) || 0,
+            renewDate:  String(get('renewdate') || '').slice(0, 10),
+            totalYears: Number(get('totalyears')) || 0,
+            legacyRow:  Number(get('row')) || null,
+        };
+    }
+
+    // ---------- Step 1: fetch ----------
+    $('fetchBtn').addEventListener('click', async () => {
+        const password = $('accessCode').value;
+        if (!password) { message($('step1Msg'), 'Enter the access code.', true); return; }
+
+        const btn = $('fetchBtn');
+        btn.disabled = true;
+        btn.textContent = 'Fetching…';
+
+        try {
+            const res = await fetch(LEGACY_SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'getRecords', payload: { password } }),
+            });
+            const data = await res.json();
+            if (data.status !== 'success') throw new Error(data.message || 'Rejected by Apps Script');
+
+            const rows = Array.isArray(data.data) ? data.data : [];
+            const mapped = rows.map(fromSheetRow);
+
+            // A blank name means a blank sheet row — skip those rather than import junk.
+            pending = mapped.filter((r) => r.firstName || r.lastName);
+            const skipped = mapped.length - pending.length;
+
+            message($('step1Msg'), `Fetched ${rows.length} rows.`, false);
+            renderPreview(pending, skipped);
+            await checkExisting();
+        } catch (err) {
+            message($('step1Msg'), `Failed: ${err.message}`, true);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Fetch';
+        }
+    });
+
+    // ---------- Step 2: preview ----------
+    function renderPreview(records, skipped) {
+        $('step2').classList.add('on');
+
+        if (!records.length) {
+            $('previewBox').innerHTML = '<span class="text-red-400">No usable records found.</span>';
+            return;
+        }
+
+        const totalInvested = records.reduce((sum, r) => sum + r.investSum, 0);
+        const totalPayout   = records.reduce((sum, r) => sum + r.dueSum, 0);
+        const noDates       = records.filter((r) => !r.investDate || !r.dueDate).length;
+
+        const rowsHTML = records.slice(0, 8).map((r) => `
+            <tr>
+                <td>${r.firstName} ${r.lastName}</td>
+                <td>${r.type}</td>
+                <td>${prettyDate(r.investDate)}</td>
+                <td>${prettyDate(r.dueDate)}</td>
+                <td class="text-yellow-500">${naira(r.dueSum)}</td>
+            </tr>`).join('');
+
+        $('previewBox').innerHTML = `
+            <div class="grid grid-cols-3 gap-3 mb-4">
+                <div class="p-3 rounded-lg bg-black/30 text-center">
+                    <div class="text-[9px] uppercase tracking-widest text-gray-500">Records</div>
+                    <div class="text-xl font-bold text-white">${records.length}</div>
+                </div>
+                <div class="p-3 rounded-lg bg-black/30 text-center">
+                    <div class="text-[9px] uppercase tracking-widest text-gray-500">Invested</div>
+                    <div class="text-xl font-bold text-white">${naira(totalInvested)}</div>
+                </div>
+                <div class="p-3 rounded-lg bg-black/30 text-center">
+                    <div class="text-[9px] uppercase tracking-widest text-gray-500">Payout</div>
+                    <div class="text-xl font-bold text-yellow-500">${naira(totalPayout)}</div>
+                </div>
+            </div>
+
+            ${skipped ? `<p class="text-xs text-yellow-400 mb-2"><i class="fas fa-circle-info mr-1"></i>${skipped} blank row(s) will be skipped.</p>` : ''}
+            ${noDates ? `<p class="text-xs text-yellow-400 mb-2"><i class="fas fa-circle-info mr-1"></i>${noDates} record(s) are missing a date — they'll import but show as "—" until edited.</p>` : ''}
+
+            <div class="overflow-x-auto rounded-lg bg-black/20">
+                <table class="w-full">
+                    <thead><tr><th>Name</th><th>Type</th><th>Start</th><th>Due</th><th>Payout</th></tr></thead>
+                    <tbody>${rowsHTML}</tbody>
+                </table>
+            </div>
+            ${records.length > 8 ? `<p class="text-[11px] text-gray-500 mt-2">…and ${records.length - 8} more.</p>` : ''}
+        `;
+
+        $('step3').classList.add('on');
+        $('importBtn').disabled = false;
+    }
+
+    // ---------- Duplicate guard ----------
+    async function checkExisting() {
+        try {
+            const existing = await countRecords();
+            if (existing > 0) {
+                $('dupWarn').classList.remove('hidden');
+                $('dupWarn').innerHTML =
+                    `<i class="fas fa-triangle-exclamation mr-1"></i>` +
+                    `Firestore already holds <strong>${existing}</strong> record(s). ` +
+                    `Importing again will create duplicates — clear the collection first if this is a re-run.`;
+            }
+        } catch {
+            // A blocked count read usually means the security rules aren't open yet.
+            $('dupWarn').classList.remove('hidden');
+            $('dupWarn').innerHTML =
+                `<i class="fas fa-triangle-exclamation mr-1"></i>` +
+                `Couldn't read the existing collection — check that firestore.rules is deployed.`;
+        }
+    }
+
+    // ---------- Step 3: import ----------
+    $('importBtn').addEventListener('click', async () => {
+        if (!pending.length) return;
+
+        const btn = $('importBtn');
+        btn.disabled = true;
+        btn.textContent = 'Importing…';
+        $('progressWrap').classList.remove('hidden');
+        log(`Starting import of ${pending.length} records…`);
+
+        try {
+            const written = await importRecords(pending, (done, total) => {
+                const pct = Math.round((done / total) * 100);
+                $('bar').style.width = `${pct}%`;
+                $('progressText').textContent = `${done} / ${total} written (${pct}%)`;
+                log(`Committed batch — ${done}/${total}`);
+            });
+
+            log(`<span style="color:#7ee2a4">Done. ${written} records written.</span>`);
+            $('doneBox').classList.remove('hidden');
+            $('doneText').textContent =
+                `${written} records are now in Firestore. The portal reads them live — open it and confirm the totals match your sheet before you retire the Apps Script.`;
+            btn.textContent = 'Imported';
+        } catch (err) {
+            log(`<span style="color:#fca5a5">Failed: ${err.message}</span>`);
+            btn.disabled = false;
+            btn.textContent = 'Retry import';
+        }
+    });
+</script>
+</body>
+</html>

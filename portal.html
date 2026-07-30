@@ -3,687 +3,2158 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Prast Tracker | Staff Portal</title>
-    <link rel="icon" type="image/png" href="logo.png">
-    
-    <!-- Tailwind CSS -->
+    <title>Prast Farms</title>
+    <link rel="icon" type="image/png" href="assets/img/logo.png">
+
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
-        /* --- THEME VARIABLES --- */
         :root {
-            --primary-dark: #0f2e1a;
-            --primary-green: #299e52;
-            --accent-gold: #d4af37;
-            --glass-bg: rgba(15, 46, 26, 0.95); /* Increased opacity for security/contrast */
-            --glass-border: rgba(212, 175, 55, 0.3);
-            --input-bg: rgba(0, 0, 0, 0.4);
+            --dark:   #0f2e1a;
+            --darker: #08200f;
+            --green:  #299e52;
+            --gold:   #d4af37;
         }
 
-        body { 
-            font-family: 'Montserrat', sans-serif; 
-            background-color: var(--primary-dark);
+        * { -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: var(--darker);
             color: #f4f1ea;
+            margin: 0;
             overflow-x: hidden;
-            -webkit-tap-highlight-color: transparent;
+        }
+        h1, h2, .serif { font-family: 'Playfair Display', serif; }
+
+        /* Big, forgiving touch targets throughout. */
+        .tap { min-height: 56px; }
+
+        .card {
+            background: rgba(255,255,255,.05);
+            border: 1px solid rgba(255,255,255,.09);
+            border-radius: 18px;
         }
 
-        h1, h2, .font-serif { font-family: 'Playfair Display', serif; }
-        
-        /* --- BACKGROUND --- */
-        #canvas-container {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
-            z-index: -1; background: var(--primary-dark);
+        .btn {
+            border: none; cursor: pointer; font-weight: 700;
+            border-radius: 14px; transition: transform .12s, filter .2s;
+            font-family: inherit;
         }
+        .btn:active { transform: scale(.97); }
+        .btn:disabled { opacity: .45; cursor: not-allowed; }
+        .btn-green { background: linear-gradient(135deg, var(--green), #1b6334); color: #fff; }
+        .btn-gold  { background: linear-gradient(135deg, var(--gold), #b89628); color: #0f2e1a; }
+        .btn-plain { background: rgba(255,255,255,.08); color: #e6efe9; border: 1px solid rgba(255,255,255,.12); }
+        .btn-red   { background: rgba(185,28,28,.9); color: #fff; }
 
-        /* --- GLASS PANELS --- */
-        .glass-panel {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+        .input {
+            background: rgba(0,0,0,.45);
+            border: 1px solid rgba(255,255,255,.14);
+            color: #fff; font-size: 16px; font-family: inherit;
+            border-radius: 14px;
         }
+        .input:focus { outline: none; border-color: var(--green); }
+        ::placeholder { color: #6d7f74; }
 
-        /* --- FUTURISTIC INPUTS --- */
-        .input-tech {
-            background-color: var(--input-bg);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
-            transition: all 0.3s ease;
-            font-size: 16px; /* Prevents iOS zoom */
+        /* ---- status pills ---- */
+        .pill {
+            display:inline-flex; align-items:center; gap:5px;
+            font-size:10px; font-weight:700; letter-spacing:.06em;
+            text-transform:uppercase; padding:4px 10px; border-radius:999px;
         }
-        .input-tech:focus {
-            outline: none;
-            border-color: var(--primary-green);
-            background-color: rgba(0, 0, 0, 0.6);
-            box-shadow: 0 0 15px rgba(41, 158, 82, 0.3);
-        }
-        /* Fix Date Picker Icon visibility */
-        ::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.5; cursor: pointer; }
+        .p-paid    { background:rgba(41,158,82,.2);  color:#7ee2a4; }
+        .p-over    { background:rgba(185,28,28,.22); color:#fca5a5; }
+        .p-soon    { background:rgba(212,175,55,.2); color:#f0d475; }
+        .p-ok      { background:rgba(255,255,255,.09); color:#9fb3a6; }
 
-        /* --- BUTTONS --- */
-        .btn-action {
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s ease;
+        /* ---- chat ---- */
+        .bubble {
+            max-width: 86%; padding: 14px 17px; border-radius: 20px;
+            font-size: 15px; line-height: 1.55; white-space: pre-wrap;
+            animation: pop .22s ease-out;
         }
-        .btn-action::after {
-            content: ''; position: absolute; top: 0; left: -100%;
-            width: 100%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: 0.5s;
-        }
-        .btn-action:hover::after { left: 100%; }
-        .btn-action:active { transform: scale(0.98); }
+        @keyframes pop { from { opacity:0; transform: translateY(8px);} to { opacity:1; transform:none;} }
+        .b-ai { background: rgba(255,255,255,.08); border-bottom-left-radius: 6px; }
+        .b-me { background: linear-gradient(135deg, var(--green), #1b6334); color:#fff;
+                border-bottom-right-radius: 6px; margin-left:auto; }
+        .b-err{ background: rgba(185,28,28,.2); color:#fecaca; border-bottom-left-radius:6px; }
 
-        .btn-gold {
-            background: linear-gradient(135deg, var(--accent-gold), #b89628);
-            color: #0f2e1a;
-            font-weight: 700;
+        .dots span {
+            display:inline-block; width:7px; height:7px; margin-right:4px;
+            border-radius:50%; background:#7ee2a4; animation: blink 1.4s infinite both;
         }
-        
-        .btn-green {
-            background: linear-gradient(135deg, var(--primary-green), #1b6334);
-            color: white;
-            font-weight: 600;
-            box-shadow: 0 4px 15px rgba(41, 158, 82, 0.3);
-        }
+        .dots span:nth-child(2){animation-delay:.2s}
+        .dots span:nth-child(3){animation-delay:.4s}
+        @keyframes blink { 0%,80%,100%{opacity:.25} 40%{opacity:1} }
 
-        /* --- TABS --- */
-        .nav-tab {
-            color: rgba(255, 255, 255, 0.4);
-            border-bottom: 2px solid transparent;
-            transition: all 0.3s;
+        /* ---- bottom sheet ---- */
+        .sheet-wrap {
+            position: fixed; inset: 0; z-index: 200;
+            background: rgba(0,0,0,.72);
+            display: flex; align-items: flex-end; justify-content: center;
         }
-        .nav-tab.active {
-            color: var(--accent-gold);
-            border-bottom: 2px solid var(--accent-gold);
-            background: linear-gradient(to top, rgba(212, 175, 55, 0.1), transparent);
+        .sheet-wrap.hide { display: none; }
+        .sheet {
+            width: 100%; max-width: 520px;
+            background: #0c2416;
+            border-radius: 24px 24px 0 0;
+            border-top: 1px solid rgba(212,175,55,.3);
+            padding: 8px 20px 28px;
+            max-height: 88vh; overflow-y: auto;
+            animation: up .25s ease-out;
         }
-
-        /* --- SCROLLBAR --- */
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
-        .custom-scroll::-webkit-scrollbar-thumb { background: var(--primary-green); border-radius: 3px; }
-
-        /* --- AUTOCOMPLETE --- */
-        .autocomplete-items {
-            position: absolute; border: 1px solid var(--glass-border); border-top: none; z-index: 99;
-            top: 100%; left: 0; right: 0; background-color: #05160c;
+        @media (min-width: 640px) {
+            .sheet-wrap { align-items: center; }
+            .sheet { border-radius: 24px; padding-bottom: 20px; }
         }
-        .autocomplete-items div { padding: 12px; cursor: pointer; border-bottom: 1px solid #1a3a2a; color: #ccc; }
-        .autocomplete-items div:hover { background-color: #1a3a2a; color: var(--accent-gold); }
+        @keyframes up { from { transform: translateY(40px); opacity:.6 } to { transform:none; opacity:1 } }
+        .grab { width:44px; height:5px; border-radius:99px; background:rgba(255,255,255,.22); margin:6px auto 16px; }
 
-        /* --- UTILS --- */
-        .loader {
-            border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid var(--accent-gold);
-            border-radius: 50%; width: 24px; height: 24px;
-            animation: spin 1s linear infinite; display: inline-block; vertical-align: middle;
+        .scroll::-webkit-scrollbar { width:5px }
+        .scroll::-webkit-scrollbar-thumb { background:var(--green); border-radius:9px }
+
+        .spin {
+            width:20px; height:20px; border-radius:50%;
+            border:2.5px solid rgba(255,255,255,.25); border-top-color:#fff;
+            animation: sp .8s linear infinite; display:inline-block;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes sp { to { transform: rotate(360deg) } }
 
-        /* Mobile Adjustments */
-        @media (max-width: 640px) {
-            .glass-panel { border-radius: 0; border: none; height: 100vh; display: flex; flex-direction: column; }
-            #appContent { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
-            main { flex-grow: 1; overflow-y: auto; padding-bottom: 80px; }
+        .hide { display: none !important; }
+
+        /* ---- data visualisation ----
+           Series colours validated with the palette checker against this
+           surface (#0d2716): CVD ΔE 26.8, normal-vision ΔE 31.8, both >= 3:1.
+           Deliberately NOT green-vs-red: that pair is unreadable for the most
+           common colour blindness. */
+        .viz {
+            --viz-surface:  #0d2716;
+            --viz-in:       #3987e5;   /* money in            */
+            --viz-out:      #d95926;   /* money out           */
+            --viz-pos:      #3987e5;   /* profit  (diverging) */
+            --viz-neg:      #e66767;   /* loss    (diverging) */
+            --viz-mid:      #2c3f34;   /* neutral midpoint    */
+            --viz-grid:     rgba(255,255,255,.10);
+            --viz-ink:      #f4f1ea;
+            --viz-ink-dim:  #9fb8a6;
+        }
+        .viz text { fill: var(--viz-ink-dim); font-size: 10px; }
+        .calCell {
+            aspect-ratio: 1; border-radius: 7px; display:flex; flex-direction:column;
+            align-items:center; justify-content:center; cursor:default;
+            border:1px solid transparent; position:relative;
+        }
+        .calCell .d { font-size:10px; color:var(--viz-ink); opacity:.75; line-height:1; }
+        /* A day with no transactions is not zero — it is nothing, and reads as
+           a plain surface rather than a value on the scale. */
+        .calCell.empty { background:rgba(255,255,255,.03); }
+        .calCell.blank { visibility:hidden; }
+        .gapBar {
+            background-image: repeating-linear-gradient(45deg,
+                rgba(255,255,255,.14) 0 3px, transparent 3px 6px);
+            border:1px dashed rgba(255,255,255,.22); border-radius:4px;
+        }
+        .segBtn { padding:9px 13px; font-size:12px; border-radius:10px; }
+        .segBtn.on { background:rgba(255,255,255,.16); color:#fff; }
+
+        /* On a phone the header has to fit a logo and two buttons, so the
+           button labels collapse to their icons. */
+        @media (max-width: 430px) {
+            .btnLabel { display: none; }
         }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center sm:p-4">
+<body>
 
-    <!-- 3D Background -->
-    <div id="canvas-container"></div>
+<!-- ================= SETUP NOTICE ================= -->
+<div id="setupNotice" class="hide" style="position:fixed;inset:0;z-index:500;background:#08200f;
+     display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center;">
+    <i class="fas fa-plug" style="font-size:38px;color:var(--gold);margin-bottom:18px;"></i>
+    <h2 style="font-size:22px;margin:0 0 10px;">Not connected</h2>
+    <p style="color:#9fb3a6;font-size:14px;max-width:300px;line-height:1.6;">
+        Firebase settings are missing. Open
+        <span style="color:var(--gold);font-family:monospace;">assets/js/firebase-config.js</span>.
+    </p>
+</div>
 
-    <!-- Main Container: Fixed height on desktop to ensure layout stability, Full screen on mobile -->
-    <div class="w-full max-w-4xl mx-auto glass-panel sm:rounded-2xl relative z-10 overflow-hidden shadow-2xl h-[100vh] sm:h-[85vh] flex flex-col">
-        
-        <!-- PASSWORD WALL: Absolute, Opaque, High Z-Index to prevent bypass -->
-        <div id="passwordWall" class="absolute inset-0 z-[100] flex flex-col items-center justify-center p-6 bg-[#05160c] transition-all duration-700">
-            <div class="w-full max-w-sm text-center p-8">
-                <div class="mb-6 relative inline-block">
-                    <div class="absolute inset-0 bg-green-500 blur-xl opacity-20 rounded-full"></div>
-                    <img src="logo.png" alt="PF" class="h-24 w-24 relative z-10 mx-auto object-contain" onerror="this.onerror=null;this.src='https://placehold.co/96x96/299e52/ffffff?text=PF';">
-                </div>
-                <h1 class="text-3xl font-bold text-white mb-2 tracking-wider">STAFF ACCESS</h1>
-                <p class="text-green-400 text-xs uppercase tracking-[0.2em] mb-8">Prast Farms Secure Terminal</p>
-                
-                <div class="space-y-4">
-                     <input type="password" id="password" autocomplete="off" class="input-tech w-full p-4 rounded-lg text-center text-xl tracking-widest placeholder-gray-500" placeholder="ENTER CODE">
-                     <button id="unlockBtn" class="btn-action btn-gold w-full py-4 rounded-lg text-sm tracking-widest uppercase shadow-[0_0_20px_rgba(212,175,55,0.3)] hover:shadow-[0_0_30px_rgba(212,175,55,0.5)]">
-                         Authenticate
-                     </button>
-                </div>
-            </div>
-        </div>
+<!-- ================= LOGIN (only when DEV_MODE = false) ================= -->
+<div id="login" class="hide" style="position:fixed;inset:0;z-index:400;background:#08200f;
+     display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;">
+    <img src="assets/img/logo.png" alt="" style="height:80px;width:80px;object-fit:contain;margin-bottom:22px;"
+         onerror="this.onerror=null;this.src='https://placehold.co/80x80/299e52/fff?text=PF';">
+    <div style="font-size:22px;font-weight:700;margin-bottom:6px;">Prast Farms</div>
+    <div style="font-size:11px;color:#7ee2a4;letter-spacing:.2em;text-transform:uppercase;margin-bottom:28px;">Staff sign in</div>
 
-        <!-- APP CONTENT: Hidden by default -->
-        <div id="appContent" class="hidden h-full flex flex-col flex-grow">
-            <!-- Header -->
-            <header class="flex items-center justify-between p-5 border-b border-white/10 bg-black/20">
-                <div class="flex items-center gap-3">
-                    <img src="logo.png" alt="Logo" class="h-10 w-10 object-contain" onerror="this.onerror=null;this.src='https://placehold.co/40x40/299e52/ffffff?text=P';">
-                    <div>
-                        <h1 class="text-xl font-bold text-white leading-none">TRACKER</h1>
-                        <span class="text-[10px] text-green-400 uppercase tracking-widest">System Online</span>
-                    </div>
-                </div>
-                <!-- Status Indicator -->
-                <div class="h-2 w-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#299e52]"></div>
-            </header>
+    <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px;">
+        <input type="email" id="lEmail" class="input" autocomplete="username" placeholder="Email"
+               style="width:100%;padding:16px;box-sizing:border-box;">
+        <input type="password" id="lPass" class="input" autocomplete="current-password" placeholder="Password"
+               style="width:100%;padding:16px;box-sizing:border-box;">
+        <button id="lBtn" class="btn btn-gold tap" style="width:100%;padding:17px;font-size:15px;">Sign in</button>
 
-            <!-- Navigation -->
-            <div class="flex border-b border-white/10 bg-black/10">
-                <button id="addTabBtn" class="nav-tab flex-1 py-4 text-sm font-bold uppercase tracking-wider active">
-                    <i class="fas fa-plus-circle mr-2"></i>New Entry
-                </button>
-                <button id="viewTabBtn" class="nav-tab flex-1 py-4 text-sm font-bold uppercase tracking-wider">
-                    <i class="fas fa-database mr-2"></i>Records
-                </button>
-            </div>
-
-            <!-- Scrollable Main Area -->
-            <main class="custom-scroll p-5 sm:p-8 overflow-y-auto flex-grow">
-                
-                <!-- ADD RECORD FORM -->
-                <section id="addRecordSection">
-                    <form id="addRecordForm" class="space-y-6">
-                        
-                        <!-- Type Selection -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-xs font-bold text-green-400 mb-2 uppercase">Investment Type</label>
-                                <div class="relative">
-                                    <select id="type" class="input-tech w-full p-4 rounded-lg appearance-none">
-                                        <option class="text-black" value="Farm Investment">Farm Investment</option>
-                                        <option class="text-black" value="Real Estate">Real Estate</option>
-                                    </select>
-                                    <i class="fas fa-chevron-down absolute right-4 top-4 text-gray-500 pointer-events-none"></i>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Names -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div class="relative">
-                                <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">First Name</label>
-                                <input type="text" id="firstName" required autocomplete="off" class="input-tech w-full p-4 rounded-lg" placeholder="e.g. John">
-                            </div>
-                            <div class="relative">
-                                <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Last Name</label>
-                                <input type="text" id="lastName" required autocomplete="off" class="input-tech w-full p-4 rounded-lg" placeholder="e.g. Doe">
-                            </div>
-                        </div>
-
-                        <!-- Dates -->
-                        <div class="p-4 rounded-xl border border-white/10 bg-white/5">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase"><i class="far fa-calendar-alt mr-1"></i> Start Date</label>
-                                    <div class="flex gap-2">
-                                        <input type="tel" id="investDateDay" class="input-tech w-1/4 p-3 rounded text-center" placeholder="DD" maxlength="2">
-                                        <input type="tel" id="investDateMonth" class="input-tech w-1/4 p-3 rounded text-center" placeholder="MM" maxlength="2">
-                                        <input type="tel" id="investDateYear" class="input-tech w-1/2 p-3 rounded text-center" placeholder="YYYY" maxlength="4">
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-green-400 mb-2 uppercase"><i class="far fa-clock mr-1"></i> Due Date</label>
-                                    <div class="flex gap-2">
-                                        <input type="tel" id="dueDateDay" class="input-tech w-1/4 p-3 rounded text-center border-green-900/50" placeholder="DD" maxlength="2">
-                                        <input type="tel" id="dueDateMonth" class="input-tech w-1/4 p-3 rounded text-center border-green-900/50" placeholder="MM" maxlength="2">
-                                        <input type="tel" id="dueDateYear" class="input-tech w-1/2 p-3 rounded text-center border-green-900/50" placeholder="YYYY" maxlength="4">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Financials -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Invested Amount (₦)</label>
-                                <input type="number" id="investSum" required class="input-tech w-full p-4 rounded-lg font-mono text-lg" placeholder="0.00">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-yellow-500 mb-2 uppercase">Expected Return (₦)</label>
-                                <input type="number" id="dueSum" required class="input-tech w-full p-4 rounded-lg font-mono text-lg border-yellow-500/30 text-yellow-400" placeholder="0.00">
-                            </div>
-                        </div>
-
-                        <!-- Actions -->
-                        <div class="pt-4 flex flex-col sm:flex-row gap-4">
-                            <button type="submit" class="btn-action btn-green flex-1 py-4 rounded-lg text-sm uppercase tracking-widest shadow-lg">
-                                Save To Database
-                            </button>
-                            <button type="button" id="shareBtn" class="hidden btn-action btn-gold flex-1 py-4 rounded-lg text-sm uppercase tracking-widest shadow-lg">
-                                <i class="fas fa-share-alt mr-2"></i> Share Receipt
-                            </button>
-                        </div>
-                    </form>
-                    
-                    <!-- Spacer for mobile scroll -->
-                    <div class="h-20 sm:hidden"></div>
-                </section>
-
-                <!-- DATABASE VIEW -->
-                <section id="viewRecordSection" class="hidden">
-                    <div class="flex flex-col gap-4 mb-6 sticky top-0 bg-[#0f2e1a] z-20 pb-4 pt-2 shadow-lg sm:static sm:bg-transparent sm:shadow-none sm:pb-0 sm:pt-0 sm:flex-row">
-                        <div class="relative flex-grow">
-                            <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
-                            <input type="text" id="searchInput" class="input-tech w-full p-3 pl-10 rounded-lg text-sm" placeholder="Search client name...">
-                        </div>
-                        <select id="sortFilter" class="input-tech p-3 rounded-lg sm:w-1/3 text-sm">
-                            <option class="text-black" value="soonest">Due: Soonest</option>
-                            <option class="text-black" value="recent">Added: Newest</option>
-                            <option class="text-black" value="asc">Name: A-Z</option>
-                        </select>
-                    </div>
-                    
-                    <div id="recordList" class="space-y-3 pb-20">
-                        <!-- Records injected via JS -->
-                    </div>
-                </section>
-
-            </main>
-        </div>
-        
-        <!-- Toast Notification -->
-        <div id="statusMessage" class="hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full text-center shadow-2xl z-50 text-sm font-bold tracking-wide min-w-[300px] backdrop-blur-md border border-white/10"></div>
-    </div>
-    
-    <!-- PRINT TEMPLATE (Hidden - Optimized for White Paper) -->
-    <div id="receipt-template" style="position:fixed; left:-9999px; width:450px; background:white; color:#1a1a1a; padding:40px; font-family:'Montserrat', sans-serif;">
-        <div style="text-align:center; margin-bottom:30px; border-bottom:2px solid #299e52; padding-bottom:20px;">
-            <img src="logo.png" style="height:80px; display:block; margin:0 auto;" crossorigin="anonymous">
-            <h2 style="font-family:'Playfair Display', serif; color:#0f2e1a; font-size:24px; margin:10px 0 5px;">PRAST FARMS</h2>
-            <p style="font-size:10px; text-transform:uppercase; letter-spacing:2px; color:#666;">Official Investment Receipt</p>
-        </div>
-        <div style="font-size:14px; line-height:2.2;">
-            <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #ccc;">
-                <span style="color:#666;">Investor:</span>
-                <span id="receipt-name" style="font-weight:700;"></span>
-            </div>
-            <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #ccc;">
-                <span style="color:#666;">Category:</span>
-                <span id="receipt-type"></span>
-            </div>
-            <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #ccc;">
-                <span style="color:#666;">Date Logged:</span>
-                <span id="receipt-investDate"></span>
-            </div>
-            <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #ccc;">
-                <span style="color:#666;">Maturity Date:</span>
-                <span id="receipt-dueDate"></span>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-top:15px;">
-                <span style="color:#666;">Principal Sum:</span>
-                <span id="receipt-investSum" style="font-weight:600;"></span>
-            </div>
-            <div style="display:flex; justify-content:space-between; background:#f0fdf4; padding:10px; margin-top:10px; border-radius:8px;">
-                <span style="color:#166534; font-weight:700;">Total Payout:</span>
-                <span id="receipt-dueSum" style="color:#166534; font-weight:700; font-size:16px;"></span>
-            </div>
-        </div>
-        <p style="text-align:center; margin-top:40px; font-size:11px; color:#999;">Generational Wealth Through Agriculture.</p>
+        <button id="lForgot" type="button"
+                style="background:none;border:none;color:#9fb3a6;font-family:inherit;
+                       font-size:13px;padding:14px 0;cursor:pointer;text-decoration:underline;">
+            I forgot my password
+        </button>
     </div>
 
-    <script>
-        // --- 1. THREE.JS BACKGROUND ---
-        const initThreeJS = () => {
-            const container = document.getElementById('canvas-container');
-            if(!container) return;
-            const scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x0f2e1a, 0.05);
+    <!-- Shown after a reset email goes out -->
+    <div id="lSent" class="hide" style="width:100%;max-width:320px;margin-top:6px;
+         background:rgba(41,158,82,.12);border:1px solid rgba(41,158,82,.4);
+         border-radius:14px;padding:16px;text-align:center;">
+        <i class="fas fa-envelope-circle-check" style="font-size:22px;color:#7ee2a4;"></i>
+        <div style="font-size:14px;font-weight:600;margin-top:9px;">Check your email</div>
+        <div id="lSentTo" style="font-size:12px;color:#9fb3a6;margin-top:6px;line-height:1.6;"></div>
+        <div style="font-size:11px;color:#6d7f74;margin-top:10px;line-height:1.6;">
+            Tap the link in the email to choose a new password.
+            If it is not there, look in your spam folder.
+        </div>
+    </div>
+</div>
 
-            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 5; camera.position.y = 2; camera.rotation.x = -0.3;
+<!-- ================= APP ================= -->
+<div id="app" class="hide" style="max-width:620px;margin:0 auto;padding-bottom:40px;">
 
-            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
-            container.appendChild(renderer.domElement);
+    <!-- Header -->
+    <header style="display:flex;align-items:center;justify-content:space-between;
+                   padding:18px 20px;position:sticky;top:0;z-index:60;
+                   background:rgba(8,32,15,.96);backdrop-filter:blur(10px);
+                   border-bottom:1px solid rgba(255,255,255,.07);">
+        <div style="display:flex;align-items:center;gap:11px;min-width:0;">
+            <img src="assets/img/logo.png" alt="" style="height:38px;width:38px;object-fit:contain;flex-shrink:0;"
+                 onerror="this.onerror=null;this.src='https://placehold.co/38x38/299e52/fff?text=P';">
+            <div style="min-width:0;">
+                <div style="font-size:16px;font-weight:700;line-height:1.1;white-space:nowrap;">Prast Farms</div>
+                <div id="connState" style="font-size:10px;color:#7ee2a4;letter-spacing:.1em;text-transform:uppercase;">…</div>
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <button id="homeBtn" class="btn btn-plain hide" style="padding:11px 16px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;">
+                <i class="fas fa-chevron-left"></i><span class="btnLabel" style="margin-left:6px;">Dashboard</span>
+            </button>
+            <button id="helpBtn" class="btn btn-plain" title="Get help"
+                    style="padding:11px 14px;font-size:12px;letter-spacing:.06em;white-space:nowrap;">
+                <i class="fas fa-circle-question"></i><span class="btnLabel" style="margin-left:6px;">Get help</span>
+            </button>
+        </div>
+    </header>
 
-            const geometry = new THREE.PlaneGeometry(20, 20, 25, 25);
-            const material = new THREE.MeshBasicMaterial({ color: 0x299e52, wireframe: true, transparent: true, opacity: 0.15 });
-            const terrain = new THREE.Mesh(geometry, material);
-            terrain.rotation.x = -Math.PI / 2;
-            scene.add(terrain);
+    <!-- ============ DASHBOARD ============ -->
+    <main id="dashView" style="padding:20px;">
 
-            const particlesGeom = new THREE.BufferGeometry();
-            const particlesCount = 80; 
-            const posArray = new Float32Array(particlesCount * 3);
-            for(let i = 0; i < particlesCount * 3; i++) { posArray[i] = (Math.random() - 0.5) * 15; }
-            particlesGeom.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-            const particlesMat = new THREE.PointsMaterial({ size: 0.05, color: 0xd4af37, transparent: true, opacity: 0.6 });
-            const particles = new THREE.Points(particlesGeom, particlesMat);
-            scene.add(particles);
+        <!-- Overview -->
+        <section class="card" style="padding:20px;margin-bottom:16px;">
+            <div style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7ee2a4;margin-bottom:16px;">
+                Overview
+            </div>
 
-            let count = 0;
-            const animate = () => {
-                requestAnimationFrame(animate);
-                const positions = terrain.geometry.attributes.position.array;
-                for (let i = 0; i < positions.length; i += 3) {
-                    positions[i+2] = Math.sin(positions[i] + count) * 0.5 + Math.sin(positions[i+1] + count) * 0.5;
-                }
-                terrain.geometry.attributes.position.needsUpdate = true;
-                particles.rotation.y += 0.001;
-                count += 0.02;
-                renderer.render(scene, camera);
-            };
-            animate();
-            
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;">
+                <div>
+                    <div style="font-size:11px;color:#9fb3a6;margin-bottom:4px;">Money received</div>
+                    <div id="sInvested" style="font-size:24px;font-weight:700;letter-spacing:-.02em;">₦0</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:#9fb3a6;margin-bottom:4px;">Still to pay out</div>
+                    <div id="sOutstanding" style="font-size:24px;font-weight:700;color:var(--gold);letter-spacing:-.02em;">₦0</div>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <span id="cOver" class="pill p-over hide"></span>
+                <span id="cSoon" class="pill p-soon hide"></span>
+                <span id="cOk"   class="pill p-ok"></span>
+                <span id="cPaid" class="pill p-paid hide"></span>
+            </div>
+        </section>
+
+        <!-- Primary action -->
+        <button id="newBtn" class="btn btn-green tap"
+                style="width:100%;padding:19px;font-size:16px;margin-bottom:24px;
+                       display:flex;align-items:center;justify-content:center;gap:10px;">
+            <i class="fas fa-camera" style="font-size:18px;"></i>
+            Add an investment
+        </button>
+
+        <!-- Investments -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7ee2a4;">
+                Investments
+            </div>
+            <button id="exportBtn" class="btn btn-plain" style="padding:8px 12px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;">
+                <i class="fas fa-download" style="margin-right:5px;"></i>Export
+            </button>
+        </div>
+
+        <input id="search" class="input" placeholder="Search a name…"
+               style="width:100%;padding:15px 17px;margin-bottom:14px;box-sizing:border-box;">
+
+        <div id="list" style="display:flex;flex-direction:column;gap:11px;"></div>
+
+        <!-- ---------- MONEY / BOOKKEEPING ---------- -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:30px 0 12px;">
+            <div style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7ee2a4;">
+                Money in &amp; out
+            </div>
+            <span id="txnCount" style="font-size:10px;color:#6d7f74;"></span>
+        </div>
+
+        <button id="stmtBtn" class="btn btn-plain tap"
+                style="width:100%;padding:17px;font-size:15px;margin-bottom:14px;
+                       display:flex;align-items:center;justify-content:center;gap:10px;">
+            <i class="fas fa-file-invoice" style="font-size:17px;"></i>
+            Upload a bank statement
+        </button>
+        <input type="file" id="stmtInput" accept="application/pdf,image/*" class="hide">
+
+        <div id="moneySummary" style="display:flex;flex-direction:column;gap:9px;"></div>
+
+        <button id="moneyBtn" class="btn btn-plain tap"
+                style="width:100%;padding:16px;font-size:14px;margin-top:14px;
+                       display:flex;align-items:center;justify-content:center;gap:9px;">
+            <i class="fas fa-chart-column"></i> Calendar &amp; charts
+        </button>
+
+        <button id="settingsBtn" class="btn btn-plain tap"
+                style="width:100%;padding:16px;font-size:14px;margin-top:26px;
+                       display:flex;align-items:center;justify-content:center;gap:9px;">
+            <i class="fas fa-sliders"></i> Agreement &amp; rates
+        </button>
+    </main>
+
+    <!-- ============ CHAT ============ -->
+    <main id="chatView" class="hide" style="padding:20px;">
+        <div id="chatScroll" class="scroll" style="display:flex;flex-direction:column;gap:11px;
+             min-height:44vh;max-height:56vh;overflow-y:auto;padding-right:4px;margin-bottom:16px;"></div>
+
+        <!-- How she wants to start, shown at the top of a new conversation -->
+        <div id="startChoice" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+            <button id="camBtn" class="btn btn-gold tap" style="width:100%;padding:17px;font-size:15px;
+                    display:flex;align-items:center;justify-content:center;gap:10px;">
+                <i class="fas fa-camera" style="font-size:17px;"></i> Take a picture
+            </button>
+            <div style="display:flex;gap:10px;">
+                <button id="galBtn" class="btn btn-plain tap" style="flex:1;padding:15px;font-size:14px;">
+                    <i class="fas fa-image" style="margin-right:7px;"></i>Photo
+                </button>
+                <button id="fileBtn" class="btn btn-plain tap" style="flex:1;padding:15px;font-size:14px;">
+                    <i class="fas fa-file-arrow-up" style="margin-right:7px;"></i>File
+                </button>
+            </div>
+            <button id="skipPhotoBtn" class="btn btn-plain tap" style="width:100%;padding:15px;font-size:14px;">
+                <i class="fas fa-keyboard" style="margin-right:7px;"></i>Type it myself
+            </button>
+            <div style="font-size:11px;color:#6d7f74;text-align:center;line-height:1.5;">
+                You can also paste a screenshot straight into the box below.
+            </div>
+        </div>
+        <!-- capture= opens the camera; the others open the gallery / file picker -->
+        <input type="file" id="camInput"  accept="image/*" capture="environment" class="hide">
+        <input type="file" id="galInput"  accept="image/*" class="hide">
+        <input type="file" id="fileInput" accept="image/*,application/pdf" class="hide">
+
+        <!-- Ready-to-save summary -->
+        <div id="draft" class="hide" style="border:1px solid rgba(41,158,82,.45);background:rgba(41,158,82,.09);
+             border-radius:18px;padding:18px;margin-bottom:16px;">
+            <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7ee2a4;margin-bottom:13px;">
+                <i class="fas fa-check-circle" style="margin-right:5px;"></i><span id="draftTitle">Ready to save</span>
+            </div>
+            <div id="draftBody" style="display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:14px;margin-bottom:14px;"></div>
+            <div id="draftNote" class="hide" style="font-size:12px;line-height:1.6;color:#f0d475;
+                 background:rgba(212,175,55,.1);border-radius:12px;padding:11px;margin-bottom:13px;"></div>
+            <button id="saveBtn" class="btn btn-green tap" style="width:100%;padding:17px;font-size:15px;">
+                Save
+            </button>
+        </div>
+
+        <form id="chatForm" style="display:flex;gap:9px;">
+            <input id="chatInput" class="input" autocomplete="off" placeholder="Type here…"
+                   style="flex:1;padding:16px;min-width:0;">
+            <button type="submit" id="sendBtn" class="btn btn-gold" style="width:56px;font-size:16px;">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </form>
+    </main>
+</div>
+
+<!-- ================= STATEMENT REVIEW ================= -->
+<div id="stmtView" class="hide" style="max-width:620px;margin:0 auto;padding:20px 20px 60px;">
+
+    <div id="stmtLoading" style="text-align:center;padding:50px 20px;">
+        <div class="spin" style="width:34px;height:34px;border-width:3px;"></div>
+        <div id="stmtStage" style="margin-top:18px;font-size:15px;">Reading your statement…</div>
+        <div style="margin-top:8px;font-size:12px;color:#6d7f74;">This can take up to a minute.</div>
+    </div>
+
+    <div id="stmtBody" class="hide">
+        <!-- header -->
+        <div class="card" style="padding:18px;margin-bottom:14px;">
+            <div id="stmtAcct" style="font-size:15px;font-weight:700;"></div>
+            <div id="stmtPeriod" style="font-size:12px;color:#9fb3a6;margin-top:3px;"></div>
+            <div id="stmtRecon" style="margin-top:12px;font-size:12px;line-height:1.6;padding:11px;border-radius:12px;"></div>
+        </div>
+
+        <!-- who's who questions -->
+        <div id="askWrap" class="hide" style="margin-bottom:14px;">
+            <div style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7ee2a4;margin-bottom:10px;">
+                Quick questions
+            </div>
+            <div id="askList" style="display:flex;flex-direction:column;gap:11px;"></div>
+        </div>
+
+        <!-- totals -->
+        <div style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7ee2a4;margin-bottom:10px;">
+            What it found
+        </div>
+        <div id="stmtCats" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+
+        <button id="stmtSave" class="btn btn-green tap" style="width:100%;padding:18px;font-size:16px;">
+            Save these transactions
+        </button>
+        <button id="stmtCancel" class="btn btn-plain" style="width:100%;padding:14px;font-size:13px;margin-top:10px;">
+            Cancel
+        </button>
+    </div>
+</div>
+
+<!-- ================= CALENDAR & CHARTS ================= -->
+<div id="vizView" class="viz hide" style="max-width:620px;margin:0 auto;padding:20px 20px 60px;">
+
+    <!-- what to look at -->
+    <div style="display:flex;gap:7px;margin-bottom:12px;">
+        <button class="btn btn-plain segBtn measBtn on" data-m="net">Profit</button>
+        <button class="btn btn-plain segBtn measBtn" data-m="in">Money in</button>
+        <button class="btn btn-plain segBtn measBtn" data-m="out">Money out</button>
+    </div>
+
+    <!-- which account -->
+    <div id="acctRow" style="display:flex;gap:7px;margin-bottom:10px;overflow-x:auto;">
+        <button class="btn btn-plain segBtn acctBtn on" data-a="">All accounts</button>
+    </div>
+
+    <!-- which year — a shared 3-year scale hides the early months, so she can
+         zoom to one year and see it re-fit -->
+    <div id="yearRow" style="display:flex;gap:7px;margin-bottom:18px;overflow-x:auto;"></div>
+
+    <!-- headline -->
+    <div class="card" style="padding:18px;margin-bottom:16px;">
+        <div id="vizHeadLabel" style="font-size:11px;color:#9fb8a6;">Profit across everything we have</div>
+        <div id="vizHead" style="font-size:28px;font-weight:700;letter-spacing:-.02em;margin-top:4px;">₦0</div>
+        <div id="vizHeadSub" style="font-size:11px;color:#6d7f74;margin-top:5px;"></div>
+    </div>
+
+    <!-- monthly chart -->
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px;">
+        <div style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7ee2a4;">Month by month</div>
+        <div id="vizLegend" style="display:flex;gap:12px;font-size:10px;color:#9fb8a6;"></div>
+    </div>
+    <div class="card" style="padding:14px 10px 8px;margin-bottom:8px;">
+        <div id="vizChart" style="overflow-x:auto;"></div>
+    </div>
+    <div id="vizGapNote" style="font-size:11px;color:#9fb8a6;line-height:1.6;margin-bottom:22px;"></div>
+
+    <!-- calendar -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <button id="calPrev" class="btn btn-plain" style="padding:10px 13px;font-size:13px;">‹</button>
+        <div style="text-align:center;">
+            <div id="calTitle" style="font-size:15px;font-weight:700;"></div>
+            <div id="calSub" style="font-size:11px;color:#9fb8a6;margin-top:2px;"></div>
+        </div>
+        <button id="calNext" class="btn btn-plain" style="padding:10px 13px;font-size:13px;">›</button>
+    </div>
+    <div class="card" style="padding:14px;">
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:6px;">
+            <div style="text-align:center;font-size:9px;color:#6d7f74;">M</div>
+            <div style="text-align:center;font-size:9px;color:#6d7f74;">T</div>
+            <div style="text-align:center;font-size:9px;color:#6d7f74;">W</div>
+            <div style="text-align:center;font-size:9px;color:#6d7f74;">T</div>
+            <div style="text-align:center;font-size:9px;color:#6d7f74;">F</div>
+            <div style="text-align:center;font-size:9px;color:#6d7f74;">S</div>
+            <div style="text-align:center;font-size:9px;color:#6d7f74;">S</div>
+        </div>
+        <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;"></div>
+        <div id="calNote" style="font-size:11px;color:#9fb8a6;margin-top:12px;line-height:1.6;"></div>
+        <div id="calScale" style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:10px;color:#9fb8a6;"></div>
+    </div>
+
+    <div id="vizTip" class="hide" style="position:fixed;z-index:320;pointer-events:none;
+         background:#0a1f12;border:1px solid rgba(255,255,255,.18);border-radius:10px;
+         padding:9px 12px;font-size:12px;line-height:1.55;box-shadow:0 10px 30px rgba(0,0,0,.6);"></div>
+</div>
+
+<!-- ================= SETTINGS ================= -->
+<div id="setView" class="hide" style="max-width:620px;margin:0 auto;padding:20px 20px 60px;">
+
+    <div style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7ee2a4;margin-bottom:6px;">
+        Agreement &amp; rates
+    </div>
+    <div style="font-size:12px;color:#9fb3a6;line-height:1.6;margin-bottom:20px;">
+        Changes here apply to every document made from now on. Documents already sent stay as they were.
+    </div>
+
+    <!-- rates -->
+    <div class="card" style="padding:18px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:14px;">Return on investment</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+            <input type="number" id="setRoi" step="1" min="100" max="400" class="input"
+                   style="width:110px;padding:13px;text-align:center;">
+            <span style="font-size:14px;color:#9fb3a6;">% of the amount invested</span>
+        </div>
+        <div id="setRoiHint" style="font-size:12px;color:#6d7f74;margin-top:8px;"></div>
+    </div>
+
+    <!-- term bands -->
+    <div class="card" style="padding:18px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px;">How long each investment runs</div>
+        <div style="font-size:12px;color:#9fb3a6;margin-bottom:14px;">Bigger amounts can run longer.</div>
+        <div id="setBands" style="display:flex;flex-direction:column;gap:10px;"></div>
+        <button id="setAddBand" class="btn btn-plain" style="margin-top:12px;padding:11px 14px;font-size:12px;">
+            <i class="fas fa-plus" style="margin-right:6px;"></i>Add a band
+        </button>
+    </div>
+
+    <!-- company details -->
+    <div class="card" style="padding:18px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:14px;">Your details on the document</div>
+        <div id="setCompany" style="display:flex;flex-direction:column;gap:11px;"></div>
+    </div>
+
+    <!-- agreement wording -->
+    <div class="card" style="padding:18px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px;">The agreement wording</div>
+        <div style="font-size:12px;color:#9fb3a6;margin-bottom:14px;line-height:1.6;">
+            Anything in <span style="color:#f0d475;font-family:monospace;">{{curly braces}}</span>
+            is filled in automatically for each investor.
+        </div>
+
+        <label style="font-size:11px;color:#9fb3a6;">Title</label>
+        <input type="text" id="setTitle" class="input" style="width:100%;padding:12px;margin:5px 0 13px;box-sizing:border-box;">
+
+        <label style="font-size:11px;color:#9fb3a6;">Opening paragraph</label>
+        <textarea id="setPreamble" rows="4" class="input"
+                  style="width:100%;padding:12px;margin:5px 0 13px;box-sizing:border-box;resize:vertical;"></textarea>
+
+        <div id="setClauses" style="display:flex;flex-direction:column;gap:12px;"></div>
+        <button id="setAddClause" class="btn btn-plain" style="margin-top:12px;padding:11px 14px;font-size:12px;">
+            <i class="fas fa-plus" style="margin-right:6px;"></i>Add a section
+        </button>
+    </div>
+
+    <button id="setSave" class="btn btn-green tap" style="width:100%;padding:18px;font-size:16px;">
+        Save changes
+    </button>
+    <div style="display:flex;gap:10px;margin-top:10px;">
+        <button id="setPreview" class="btn btn-plain" style="flex:1;padding:14px;font-size:13px;">
+            <i class="fas fa-eye" style="margin-right:6px;"></i>See a sample
+        </button>
+        <button id="setReset" class="btn btn-plain" style="flex:1;padding:14px;font-size:13px;">
+            Undo all my changes
+        </button>
+    </div>
+</div>
+
+<!-- ================= HELP ================= -->
+<div id="helpPanel" class="sheet-wrap hide">
+    <div class="sheet" style="max-width:560px;">
+        <div class="grab"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div>
+                <div style="font-size:17px;font-weight:700;">Get help</div>
+                <div style="font-size:12px;color:#9fb3a6;margin-top:2px;">Ask anything about using this app</div>
+            </div>
+            <button id="helpClose" class="btn btn-plain" style="padding:10px 13px;font-size:13px;">
+                <i class="fas fa-xmark"></i>
+            </button>
+        </div>
+
+        <div id="helpScroll" class="scroll" style="display:flex;flex-direction:column;gap:10px;
+             min-height:200px;max-height:46vh;overflow-y:auto;padding-right:4px;margin-bottom:12px;"></div>
+
+        <div id="helpChips" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px;"></div>
+
+        <form id="helpForm" style="display:flex;gap:9px;">
+            <input id="helpInput" class="input" autocomplete="off" placeholder="Type your question…"
+                   style="flex:1;padding:15px;min-width:0;">
+            <button type="submit" id="helpSend" class="btn btn-gold" style="width:54px;font-size:15px;">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- ================= RECORD SHEET ================= -->
+<div id="sheet" class="sheet-wrap hide">
+    <div class="sheet">
+        <div class="grab"></div>
+
+        <div style="text-align:center;margin-bottom:6px;">
+            <div id="shName" style="font-size:21px;font-weight:700;"></div>
+            <div id="shMeta" style="font-size:12px;color:#9fb3a6;margin-top:4px;"></div>
+        </div>
+
+        <div style="display:flex;justify-content:center;margin:14px 0 20px;">
+            <span id="shPill" class="pill"></span>
+        </div>
+
+        <div style="background:rgba(0,0,0,.28);border-radius:16px;padding:16px;margin-bottom:20px;
+                    display:grid;grid-template-columns:1fr 1fr;gap:14px;text-align:center;">
+            <div>
+                <div style="font-size:10px;color:#9fb3a6;text-transform:uppercase;letter-spacing:.1em;">Received</div>
+                <div id="shIn" style="font-size:18px;font-weight:700;margin-top:3px;"></div>
+            </div>
+            <div>
+                <div style="font-size:10px;color:#9fb3a6;text-transform:uppercase;letter-spacing:.1em;">Pays out</div>
+                <div id="shOut" style="font-size:18px;font-weight:700;color:var(--gold);margin-top:3px;"></div>
+            </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            <button id="aDoc" class="btn btn-gold tap" style="width:100%;padding:17px;font-size:15px;
+                    display:flex;align-items:center;justify-content:center;gap:9px;">
+                <i class="fas fa-file-arrow-down"></i><span id="aDocLabel">Send document</span>
+            </button>
+            <button id="aPaid" class="btn btn-green tap" style="width:100%;padding:16px;font-size:14px;">
+                <i class="fas fa-circle-check" style="margin-right:7px;"></i><span id="aPaidLabel">Mark as paid</span>
+            </button>
+            <button id="aChat" class="btn btn-plain tap" style="width:100%;padding:16px;font-size:14px;">
+                <i class="fas fa-comment-dots" style="margin-right:7px;"></i>Change something
+            </button>
+            <div style="display:flex;gap:10px;">
+                <button id="aRenew" class="btn btn-plain" style="flex:1;padding:14px;font-size:12px;">
+                    <i class="fas fa-rotate" style="margin-right:5px;"></i>Renew
+                </button>
+                <button id="aDel" class="btn btn-red" style="flex:1;padding:14px;font-size:12px;">
+                    <i class="fas fa-trash" style="margin-right:5px;"></i>Delete
+                </button>
+            </div>
+            <button id="shClose" class="btn btn-plain" style="width:100%;padding:14px;font-size:13px;margin-top:4px;">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ================= CONFIRM ================= -->
+<div id="confirm" class="sheet-wrap hide">
+    <div class="sheet" style="max-width:400px;">
+        <div class="grab"></div>
+        <div style="text-align:center;padding:8px 0 20px;">
+            <i class="fas fa-triangle-exclamation" style="font-size:34px;color:#fca5a5;margin-bottom:14px;"></i>
+            <div style="font-size:19px;font-weight:700;margin-bottom:8px;">Delete this?</div>
+            <div id="cfText" style="font-size:14px;color:#9fb3a6;line-height:1.6;"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            <button id="cfNo" class="btn btn-plain tap" style="width:100%;padding:16px;font-size:15px;">Keep it</button>
+            <button id="cfYes" class="btn btn-red tap" style="width:100%;padding:16px;font-size:15px;">Yes, delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- ================= TOAST ================= -->
+<div id="toast" class="hide" style="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
+     z-index:400;padding:15px 24px;border-radius:99px;font-size:14px;font-weight:700;
+     min-width:240px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.6);"></div>
+
+<script type="module">
+import { DEV_MODE, firebaseConfig } from './assets/js/firebase-config.js';
+import {
+    isConfigured, listenRecords, createRecord, updateRecord, deleteRecord,
+    markPaid, unmarkPaid, isPaid, renewRecord,
+    saveReceiptImage, getReceiptImage, deleteReceiptImage, resizeImage,
+    statusOf, computeStats, recordsToCSV, naira, fullName, prettyDate,
+    daysUntil, todayISO, addYearsISO, addMonthsISO,
+    ensureCategories, fetchPayees, savePayee, applyPayeeRules, matchInvestor,
+    saveTransactions, saveStatement, listenTransactions, summariseByCategory,
+    setTransactionCategory, payeeKey, PAYEE_ROLES, fetchCategories,
+    loadSettings, getSettings, saveSettings, resetSettings,
+    liveTermMonthsFor, liveExpectedPayout,
+    fetchSummaries, monthRange, prettyMonth, MONTH_NAMES,
+} from './assets/js/db.js';
+import {
+    isAssistantConfigured, askAssistant, missingFields, withDerivedDueDate,
+    REQUIRED_FIELDS, FIELD_LABELS,
+} from './assets/js/assistant.js';
+import { shareDocument } from './assets/js/document.js';
+import { termMonthsFor, expectedPayout } from './assets/js/agreement.js';
+
+const $ = (id) => document.getElementById(id);
+
+// If she taps "I forgot my password" without typing anything, the reset goes
+// to the owner's address. Change this if the account owner changes.
+const RESET_FALLBACK_EMAIL = 'stellawopara77@gmail.com';
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// ---------- state ----------
+let records = [];
+let unsub = null;
+let sheetRecord = null;
+let pendingDelete = null;
+
+let chatMode = 'new';        // 'new' | 'edit'
+let chatRecordId = null;
+let history = [];
+let draftFields = {};
+let notes = [];
+let receiptMeta = null;      // { reference, bank }
+let receiptDataUrl = null;
+let busy = false;
+
+// ---------- toast ----------
+function toast(msg, bad = false) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.style.background = bad ? 'rgba(153,27,27,.97)' : 'rgba(22,101,52,.97)';
+    t.style.color = '#fff';
+    t.classList.remove('hide');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => t.classList.add('hide'), 3800);
+}
+
+// ---------- boot ----------
+function boot() {
+    if (!isConfigured()) { $('setupNotice').classList.remove('hide'); return; }
+    if (DEV_MODE) start();
+    else initAuth();
+}
+
+/**
+ * Email/password sign-in, used only when DEV_MODE is false.
+ * Loaded on demand so the Auth SDK is not fetched during testing.
+ */
+async function initAuth() {
+    $('login').classList.remove('hide');
+
+    const [{ getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut },
+           { initializeApp, getApps }] = await Promise.all([
+        import('https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js'),
+        import('https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js'),
+    ]);
+
+    const app = getApps()[0] || initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) { $('login').classList.add('hide'); start(); }
+        else {
+            if (unsub) { unsub(); unsub = null; }
+            $('app').classList.add('hide');
+            $('login').classList.remove('hide');
+        }
+    });
+
+    const signIn = async () => {
+        const email = $('lEmail').value.trim();
+        const pass = $('lPass').value;
+        if (!email || !pass) { toast('Enter your email and password', true); return; }
+        $('lBtn').disabled = true;
+        $('lBtn').innerHTML = '<span class="spin"></span>';
+        try { await signInWithEmailAndPassword(auth, email, pass); }
+        catch { toast('Wrong email or password', true); }
+        finally { $('lBtn').disabled = false; $('lBtn').textContent = 'Sign in'; }
+    };
+
+    $('lBtn').addEventListener('click', signIn);
+    $('lPass').addEventListener('keyup', (e) => { if (e.key === 'Enter') signIn(); });
+    window.__signOut = () => signOut(auth);
+
+    // ---- forgot password ----
+    //  Firebase sends the reset link to the account's own address, so the email
+    //  can only ever go to the registered owner of that account. Someone who
+    //  has leaked their password cannot use this to redirect the reset.
+    const { sendPasswordResetEmail } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js');
+
+    $('lForgot').addEventListener('click', async () => {
+        const email = ($('lEmail').value || '').trim() || RESET_FALLBACK_EMAIL;
+        const btn = $('lForgot');
+        btn.disabled = true;
+        btn.textContent = 'Sending…';
+        try {
+            await sendPasswordResetEmail(auth, email);
+            $('lSentTo').innerHTML = `We sent a link to <strong style="color:#f4f1ea">${esc(email)}</strong>.`;
+            $('lSent').classList.remove('hide');
+            $('lForgot').classList.add('hide');
+        } catch (err) {
+            // Deliberately vague: confirming whether an address is registered
+            // would let anyone probe for valid staff accounts.
+            $('lSentTo').innerHTML = `If <strong style="color:#f4f1ea">${esc(email)}</strong> is a staff account, a reset link is on its way.`;
+            $('lSent').classList.remove('hide');
+            $('lForgot').classList.add('hide');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'I forgot my password';
+        }
+    });
+}
+
+async function start() {
+    $('app').classList.remove('hide');
+    await loadSettings();
+
+    if (unsubTxn) unsubTxn();
+    unsubTxn = listenTransactions(
+        (rows) => { transactions = rows; renderMoney(); },
+        () => {}
+    );
+
+    if (unsub) unsub();
+    unsub = listenRecords(
+        (rows) => { records = rows; renderOverview(); renderList(); },
+        (err) => {
+            $('connState').textContent = 'offline';
+            toast(err.code === 'permission-denied'
+                ? 'No access to the database.' : 'Cannot reach the database.', true);
+        }
+    );
+}
+
+// ---------- overview ----------
+function renderOverview() {
+    const s = computeStats(records);
+    $('sInvested').textContent = naira(s.invested);
+    $('sOutstanding').textContent = naira(s.outstanding);
+    $('connState').textContent = `${s.total} investment${s.total === 1 ? '' : 's'}`;
+
+    const set = (id, n, label) => {
+        const el = $(id);
+        el.classList.toggle('hide', !n);
+        if (n) el.innerHTML = `<i class="fas fa-circle" style="font-size:5px;"></i>${n} ${label}`;
+    };
+    set('cOver', s.matured, 'overdue');
+    set('cSoon', s.dueSoon, 'due soon');
+    set('cPaid', s.paid, 'paid');
+
+    const ok = $('cOk');
+    ok.classList.toggle('hide', !s.active);
+    if (s.active) ok.innerHTML = `<i class="fas fa-circle" style="font-size:5px;"></i>${s.active} on track`;
+}
+
+// ---------- list ----------
+function pillFor(r) {
+    const st = statusOf(r);
+    if (st === 'paid')     return `<span class="pill p-paid">Paid</span>`;
+    if (st === 'matured')  return `<span class="pill p-over">${Math.abs(daysUntil(r.dueDate))} days late</span>`;
+    if (st === 'due-soon') return `<span class="pill p-soon">${daysUntil(r.dueDate)} days left</span>`;
+    return `<span class="pill p-ok">On track</span>`;
+}
+
+function renderList() {
+    const term = $('search').value.trim().toLowerCase();
+    let rows = records;
+    if (term) {
+        rows = rows.filter(r => fullName(r).toLowerCase().includes(term)
+                             || String(r.type || '').toLowerCase().includes(term));
+    }
+
+    // Needs-attention first, then soonest due.
+    const rank = (r) => ({ matured: 0, 'due-soon': 1, active: 2, paid: 3 })[statusOf(r)];
+    rows = [...rows].sort((a, b) =>
+        rank(a) - rank(b) || String(a.dueDate).localeCompare(String(b.dueDate)));
+
+    if (!rows.length) {
+        $('list').innerHTML = `
+          <div style="text-align:center;padding:40px 20px;color:#6d7f74;font-size:14px;
+                      border:1px dashed rgba(255,255,255,.14);border-radius:18px;">
+            ${records.length ? 'Nothing matches that name.' : 'No investments yet.<br>Tap the green button above to add one.'}
+          </div>`;
+        return;
+    }
+
+    $('list').innerHTML = rows.map(r => `
+      <button class="card tap rec" data-id="${r.id}" style="padding:16px;text-align:left;
+              display:flex;align-items:center;gap:14px;cursor:pointer;font-family:inherit;color:inherit;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${esc(fullName(r))}
+          </div>
+          <div style="font-size:12px;color:#9fb3a6;margin-top:3px;">
+            ${esc(r.type === 'Real Estate' ? 'Property' : 'Farm')} · due ${esc(prettyDate(r.dueDate))}
+          </div>
+          <div style="margin-top:8px;">${pillFor(r)}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:17px;font-weight:700;color:var(--gold);">${esc(naira(r.dueSum))}</div>
+          <i class="fas fa-chevron-right" style="color:#4f6157;font-size:12px;margin-top:8px;"></i>
+        </div>
+      </button>`).join('');
+}
+
+$('search').addEventListener('input', renderList);
+
+$('list').addEventListener('click', (e) => {
+    const btn = e.target.closest('.rec');
+    if (btn) openSheet(records.find(r => r.id === btn.dataset.id));
+});
+
+// ---------- views ----------
+function showDash() {
+    $('dashView').classList.remove('hide');
+    $('chatView').classList.add('hide');
+    $('stmtView').classList.add('hide');
+    $('setView').classList.add('hide');
+    $('vizView').classList.add('hide');
+    $('homeBtn').classList.add('hide');
+}
+function showChat() {
+    $('vizView').classList.add('hide');
+    $('dashView').classList.add('hide');
+    $('stmtView').classList.add('hide');
+    $('setView').classList.add('hide');
+    $('chatView').classList.remove('hide');
+    $('homeBtn').classList.remove('hide');
+}
+$('homeBtn').addEventListener('click', showDash);
+
+// ---------- record sheet ----------
+function openSheet(r) {
+    if (!r) return;
+    sheetRecord = r;
+
+    $('shName').textContent = fullName(r);
+    $('shMeta').textContent =
+        `${r.type === 'Real Estate' ? 'Property' : 'Farm'} · ${prettyDate(r.investDate)} → ${prettyDate(r.dueDate)}`;
+    $('shPill').outerHTML = pillFor(r).replace('<span', '<span id="shPill"');
+    $('shIn').textContent = naira(r.investSum);
+    $('shOut').textContent = naira(r.dueSum);
+
+    const paid = isPaid(r);
+    $('aPaidLabel').textContent = paid ? 'Undo paid' : 'Mark as paid';
+    $('aPaid').className = paid ? 'btn btn-plain tap' : 'btn btn-green tap';
+    $('aRenew').classList.toggle('hide', paid);
+
+    $('sheet').classList.remove('hide');
+}
+function closeSheet() { $('sheet').classList.add('hide'); sheetRecord = null; }
+
+$('shClose').addEventListener('click', closeSheet);
+$('sheet').addEventListener('click', (e) => { if (e.target === $('sheet')) closeSheet(); });
+
+// ---- send document ----
+$('aDoc').addEventListener('click', async () => {
+    const r = sheetRecord;
+    if (!r) return;
+    const btn = $('aDoc'), label = $('aDocLabel');
+    btn.disabled = true;
+
+    try {
+        const receipt = await getReceiptImage(r.id);
+        label.textContent = 'Preparing…';
+        const outcome = await shareDocument(r, receipt, (name, i, n) => {
+            label.textContent = `${name} (${i}/${n})`;
+        });
+        if (outcome === 'shared')      toast('Document sent');
+        else if (outcome === 'downloaded') toast('Document saved to your files');
+    } catch (err) {
+        toast(err.message || 'Could not make the document', true);
+    } finally {
+        btn.disabled = false;
+        label.textContent = 'Send document';
+    }
+});
+
+// ---- mark paid ----
+$('aPaid').addEventListener('click', async () => {
+    const r = sheetRecord;
+    if (!r) return;
+    const btn = $('aPaid');
+    btn.disabled = true;
+    try {
+        if (isPaid(r)) { await unmarkPaid(r.id); toast('No longer marked paid'); }
+        else { await markPaid(r.id, todayISO()); toast('Marked as paid'); }
+        closeSheet();
+    } catch (err) {
+        toast(err.message || 'Could not update', true);
+    } finally { btn.disabled = false; }
+});
+
+// ---- change by chat ----
+$('aChat').addEventListener('click', () => {
+    const r = sheetRecord;
+    if (!r) return;
+    closeSheet();
+    startChat('edit', r);
+});
+
+// ---- renew ----
+$('aRenew').addEventListener('click', async () => {
+    const r = sheetRecord;
+    if (!r) return;
+    const start = todayISO();
+    const months = termMonthsFor(r.investSum);
+    const btn = $('aRenew');
+    btn.disabled = true;
+    try {
+        await renewRecord(r.id, {
+            investDate: start,
+            dueDate: addMonthsISO(start, months),
+            investSum: r.investSum,
+            dueSum: expectedPayout(r.investSum),
+        });
+        toast(`Renewed for ${months} more months`);
+        closeSheet();
+    } catch (err) {
+        toast(err.message || 'Could not renew', true);
+    } finally { btn.disabled = false; }
+});
+
+// ---- delete ----
+$('aDel').addEventListener('click', () => {
+    pendingDelete = sheetRecord;
+    $('cfText').innerHTML = `${esc(fullName(pendingDelete))} — ${esc(naira(pendingDelete.dueSum))}.<br>This cannot be undone.`;
+    $('confirm').classList.remove('hide');
+});
+$('cfNo').addEventListener('click', () => $('confirm').classList.add('hide'));
+$('confirm').addEventListener('click', (e) => { if (e.target === $('confirm')) $('confirm').classList.add('hide'); });
+
+$('cfYes').addEventListener('click', async () => {
+    if (!pendingDelete) return;
+    const btn = $('cfYes');
+    btn.disabled = true;
+    try {
+        await deleteReceiptImage(pendingDelete.id);
+        await deleteRecord(pendingDelete.id);
+        toast('Deleted');
+        $('confirm').classList.add('hide');
+        closeSheet();
+    } catch (err) {
+        toast(err.message || 'Could not delete', true);
+    } finally { btn.disabled = false; pendingDelete = null; }
+});
+
+// ---------- export ----------
+$('exportBtn').addEventListener('click', () => {
+    if (!records.length) { toast('Nothing to export', true); return; }
+    const blob = new Blob(['﻿' + recordsToCSV(records)], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `prast-${todayISO()}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast('Exported');
+});
+
+// ================= CHAT =================
+
+function bubble(text, kind) {
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    const b = document.createElement('div');
+    b.className = 'bubble ' + (kind === 'me' ? 'b-me' : kind === 'err' ? 'b-err' : 'b-ai');
+    b.textContent = text;
+    row.appendChild(b);
+    $('chatScroll').appendChild(row);
+    $('chatScroll').scrollTop = $('chatScroll').scrollHeight;
+    return row;
+}
+
+function thinking() {
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.innerHTML = '<div class="bubble b-ai dots"><span></span><span></span><span></span></div>';
+    $('chatScroll').appendChild(row);
+    $('chatScroll').scrollTop = $('chatScroll').scrollHeight;
+    return row;
+}
+
+function startChat(mode, record) {
+    chatMode = mode;
+    chatRecordId = record?.id || null;
+    history = [];
+    notes = [];
+    receiptMeta = null;
+    receiptDataUrl = null;
+    $('chatScroll').innerHTML = '';
+    $('draft').classList.add('hide');
+
+    if (mode === 'edit' && record) {
+        draftFields = {
+            type: record.type, firstName: record.firstName, lastName: record.lastName,
+            investDate: record.investDate, dueDate: record.dueDate,
+            investSum: record.investSum, dueSum: record.dueSum,
         };
-        document.addEventListener('DOMContentLoaded', initThreeJS);
+        $('startChoice').classList.add('hide');
+        $('draftTitle').textContent = 'Updated details';
+        bubble(`${fullName(record)} — ₦${Number(record.investSum).toLocaleString()} paying out ₦${Number(record.dueSum).toLocaleString()} on ${prettyDate(record.dueDate)}.\n\nWhat should I change?`, 'ai');
+        renderDraft();
+    } else {
+        draftFields = {};
+        $('startChoice').classList.remove('hide');
+        $('draftTitle').textContent = 'Ready to save';
+        bubble("Let's add an investment.\n\nDo you have the payment receipt?", 'ai');
+    }
 
-        // --- 2. APP LOGIC ---
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby901f9aG5P7dfL2aHYIRLEdOpZ4JSifJT-Kp3VoKBpa6FylRwId5bHia4ioKEO-bno/exec";
+    showChat();
+}
 
-        const passwordWall = document.getElementById('passwordWall');
-        const appContent = document.getElementById('appContent');
-        const unlockBtn = document.getElementById('unlockBtn');
-        const passwordInput = document.getElementById('password');
-        const addTabBtn = document.getElementById('addTabBtn');
-        const viewTabBtn = document.getElementById('viewTabBtn');
-        const addRecordSection = document.getElementById('addRecordSection');
-        const viewRecordSection = document.getElementById('viewRecordSection');
-        const addRecordForm = document.getElementById('addRecordForm');
-        const statusMessage = document.getElementById('statusMessage');
-        const recordList = document.getElementById('recordList');
-        const searchInput = document.getElementById('searchInput');
-        const sortFilter = document.getElementById('sortFilter');
-        const shareBtn = document.getElementById('shareBtn');
-        
-        let allRecords = []; 
-        let clientNames = [];
-        let lastEntryData = null; 
+$('newBtn').addEventListener('click', () => startChat('new'));
 
-        // Tabs
-        addTabBtn.addEventListener('click', () => {
-            addRecordSection.classList.remove('hidden');
-            viewRecordSection.classList.add('hidden');
-            addTabBtn.classList.add('active');
-            viewTabBtn.classList.remove('active');
+// ---- receipt photo ----
+$('camBtn').addEventListener('click', () => $('camInput').click());
+$('galBtn').addEventListener('click', () => $('galInput').click());
+$('fileBtn').addEventListener('click', () => $('fileInput').click());
+$('skipPhotoBtn').addEventListener('click', () => {
+    $('startChoice').classList.add('hide');
+    bubble("No problem. Who is the investor, how much did they pay, and what do they get back?", 'ai');
+});
+
+['camInput','galInput','fileInput'].forEach(id =>
+    $(id).addEventListener('change', (e) => {
+        const f = e.target.files?.[0];
+        e.target.value = '';
+        if (f) handleReceiptFile(f);
+    }));
+
+// Pasting a screenshot into the chat box works too.
+$('chatInput').addEventListener('paste', (e) => {
+    const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+    if (!item) return;
+    e.preventDefault();
+    const f = item.getAsFile();
+    if (f) handleReceiptFile(f);
+});
+
+async function handleReceiptFile(file) {
+
+    $('startChoice').classList.add('hide');
+    bubble(file.type === 'application/pdf' ? '📄 Receipt file' : '📷 Receipt photo', 'me');
+    const t = thinking();
+
+    try {
+        const isPdf = file.type === 'application/pdf';
+        // PDFs go through untouched; photos are shrunk first.
+        const img = isPdf ? await pdfAsPayload(file) : await resizeImage(file);
+        receiptDataUrl = isPdf ? null : img.dataUrl;
+
+        const { getFunctions, httpsCallable } =
+            await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-functions.js');
+        const { initializeApp, getApps } =
+            await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js');
+        const app = getApps()[0] || initializeApp(firebaseConfig);
+        const read = httpsCallable(getFunctions(app, 'us-central1'), 'readReceipt');
+
+        const res = await read({ imageBase64: img.base64, mimeType: img.mimeType });
+        const f = res?.data?.fields || {};
+        t.remove();
+
+        receiptMeta = { reference: f.reference || '', bank: f.bank || '' };
+
+        // Only the record fields go into the draft; reference/bank ride along
+        // on the receipt document instead.
+        ['type','firstName','lastName','investDate','investSum'].forEach(k => {
+            if (f[k] !== undefined && f[k] !== '') draftFields[k] = f[k];
         });
 
-        viewTabBtn.addEventListener('click', () => {
-            viewRecordSection.classList.remove('hidden');
-            addRecordSection.classList.add('hidden');
-            viewTabBtn.classList.add('active');
-            addTabBtn.classList.remove('active');
-            renderRecords(allRecords);
-        });
-        
-        // Auto Focus
-        function setupAutoProgress() {
-            const fields = ['firstName', 'lastName', 'investDateDay', 'investDateMonth', 'investDateYear', 'dueDateDay', 'dueDateMonth', 'dueDateYear', 'investSum', 'dueSum'];
-            fields.forEach((id, index) => {
-                const el = document.getElementById(id);
-                el.addEventListener('keyup', (e) => {
-                    if ((el.maxLength > 0 && el.value.length === el.maxLength) || e.key === 'Enter') {
-                        const nextField = document.getElementById(fields[index + 1]);
-                        if (nextField) nextField.focus();
-                    }
-                });
-            });
+        const got = [];
+        if (f.firstName || f.lastName) got.push(`${f.firstName || ''} ${f.lastName || ''}`.trim());
+        if (f.investSum) got.push(`₦${Number(f.investSum).toLocaleString()}`);
+        if (f.investDate) got.push(prettyDate(f.investDate));
+
+        if (got.length) {
+            bubble(`I can see: ${got.join(', ')}.`, 'ai');
+        } else {
+            bubble("I could not read much from that photo.", 'ai');
         }
-        setupAutoProgress();
+        if (f.confidence === 'low' && f.note) bubble(f.note, 'ai');
 
-        // Auto Date Calc
-        function setupAutoDueDate() {
-            const ids = ['investDateDay', 'investDateMonth', 'investDateYear'];
-            ids.forEach(id => {
-                document.getElementById(id).addEventListener('change', () => {
-                    const day = document.getElementById('investDateDay').value;
-                    const month = document.getElementById('investDateMonth').value;
-                    const year = document.getElementById('investDateYear').value;
+        const derived = withDerivedDueDate(draftFields);
+        draftFields = derived.fields;
+        (derived.notes || []).forEach(n => { if (!notes.includes(n)) notes = [...notes, n]; });
+        renderDraft();
 
-                    if (day.length === 2 && month.length === 2 && year.length === 4) {
-                        const investDate = new Date(`${year}-${month}-${day}`);
-                        if (!isNaN(investDate.getTime())) {
-                            investDate.setFullYear(investDate.getFullYear() + 1);
-                            document.getElementById('dueDateDay').value = String(investDate.getDate()).padStart(2, '0');
-                            document.getElementById('dueDateMonth').value = String(investDate.getMonth() + 1).padStart(2, '0');
-                            document.getElementById('dueDateYear').value = investDate.getFullYear();
-                        }
-                    }
-                });
-            });
+        const missing = missingFields(draftFields);
+        if (!missing.length) {
+            bubble('That is everything. Check it below and tap Save.', 'ai');
+        } else {
+            // Let the chat model phrase the follow-up question naturally.
+            await ask(`I attached a receipt. From it we already know: ${JSON.stringify(draftFields)}. Ask me only for what is still missing.`, { silent: true });
         }
-        setupAutoDueDate();
+    } catch (err) {
+        t.remove();
+        bubble(friendlyError(err), 'err');
+    }
+}
 
-        function showStatus(message, isError = false) {
-            statusMessage.textContent = message;
-            statusMessage.className = `fixed bottom-6 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full text-center shadow-2xl z-50 text-sm font-bold tracking-wide min-w-[300px] backdrop-blur-md border border-white/10 ${isError ? 'bg-red-900/90 text-red-100' : 'bg-green-900/90 text-green-100'}`;
-            statusMessage.classList.remove('hidden');
-            setTimeout(() => statusMessage.classList.add('hidden'), 4000);
-        }
+// ---- draft card ----
+function renderDraft() {
+    const missing = missingFields(draftFields);
+    const ready = missing.length === 0;
+    $('draft').classList.toggle('hide', !ready);
+    if (!ready) return;
 
-        // Add Record
-        addRecordForm.addEventListener('submit', e => {
-            e.preventDefault();
-            shareBtn.classList.add('hidden'); 
-            function getFormattedDate(dayId, monthId, yearId) {
-                const day = document.getElementById(dayId).value.padStart(2, '0');
-                const month = document.getElementById(monthId).value.padStart(2, '0');
-                const year = document.getElementById(yearId).value;
-                if (!day || !month || !year || year.length < 4) return null;
-                return `${year}-${month}-${day}`;
+    const line = (k, v) =>
+        `<div style="color:#9fb3a6;">${esc(k)}</div><div style="text-align:right;font-weight:600;">${esc(v)}</div>`;
+
+    $('draftBody').innerHTML =
+        line('Who', `${draftFields.firstName} ${draftFields.lastName}`) +
+        line('What', draftFields.type === 'Real Estate' ? 'Property' : 'Farm') +
+        line('Paid', naira(draftFields.investSum)) +
+        line('Gets back', naira(draftFields.dueSum)) +
+        line('Starts', prettyDate(draftFields.investDate)) +
+        line('Due', prettyDate(draftFields.dueDate));
+
+    const note = $('draftNote');
+    if (notes.length) {
+        note.innerHTML = notes.map(esc).join('<br>');
+        note.classList.remove('hide');
+    } else note.classList.add('hide');
+}
+
+// ---- talk to the assistant ----
+async function ask(text, opts = {}) {
+    if (busy) return;
+    busy = true;
+    $('sendBtn').disabled = true;
+    if (!opts.silent) bubble(text, 'me');
+    history.push({ role: 'user', content: text });
+
+    const t = thinking();
+    try {
+        const turn = await askAssistant(history, draftFields);
+        t.remove();
+
+        draftFields = { ...draftFields, ...turn.fields };
+        if (turn.assumptions.length) notes = turn.assumptions;
+
+        const d = withDerivedDueDate(draftFields);
+        draftFields = d.fields;
+        (d.notes || []).forEach(n => { if (!notes.includes(n)) notes = [...notes, n]; });
+
+        bubble(turn.reply || 'Got it.', 'ai');
+        history.push({ role: 'assistant', content: JSON.stringify({ fields: turn.fields, reply: turn.reply }) });
+        renderDraft();
+    } catch (err) {
+        t.remove();
+        bubble(err.message, 'err');
+    } finally {
+        busy = false;
+        $('sendBtn').disabled = false;
+    }
+}
+
+$('chatForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = $('chatInput').value.trim();
+    if (!text) return;
+    $('chatInput').value = '';
+    $('startChoice').classList.add('hide');
+    ask(text);
+});
+
+// ---- save ----
+$('saveBtn').addEventListener('click', async () => {
+    if (missingFields(draftFields).length) return;
+    const btn = $('saveBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span>';
+
+    try {
+        if (chatMode === 'edit' && chatRecordId) {
+            await updateRecord(chatRecordId, draftFields);
+            toast('Updated');
+            showDash();
+        } else {
+            const id = await createRecord(draftFields);
+            if (receiptDataUrl) {
+                await saveReceiptImage(id, receiptDataUrl, receiptMeta || {});
             }
+            toast('Saved');
+            bubble('Saved. Would you like the document to send them?', 'ai');
+            $('draft').classList.add('hide');
 
-            const investDate = getFormattedDate('investDateDay', 'investDateMonth', 'investDateYear');
-            const dueDate = getFormattedDate('dueDateDay', 'dueDateMonth', 'dueDateYear');
-            if (!investDate || !dueDate) {
-                showStatus('Check date fields.', true);
-                return;
-            }
-
-            const button = e.target.querySelector('button[type="submit"]');
-            const originalText = button.textContent;
-            button.disabled = true;
-            button.innerHTML = '<div class="loader"></div>';
-
-            const formData = {
-                type: document.getElementById('type').value,
-                firstName: document.getElementById('firstName').value,
-                lastName: document.getElementById('lastName').value,
-                investDate, dueDate,
-                investSum: document.getElementById('investSum').value,
-                dueSum: document.getElementById('dueSum').value,
-            };
-
-            fetch(SCRIPT_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: 'addRecord', payload: formData, password: passwordInput.value })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    showStatus('DATABASE UPDATED');
-                    addRecordForm.reset();
-                    allRecords.unshift(data.data.newRecord);
-                    const validRecords = allRecords.filter(r => r && r.FirstName && r.LastName);
-                    clientNames = [...new Set(validRecords.map(r => `${r.FirstName} ${r.LastName}`))];
-                    lastEntryData = formData;
-                    shareBtn.classList.remove('hidden');
-                } else { throw new Error(data.message); }
-            })
-            .catch(error => showStatus(error.message, true))
-            .finally(() => { button.disabled = false; button.textContent = originalText; });
-        });
-
-        // Share Receipt
-        shareBtn.addEventListener('click', async () => {
-            if (!lastEntryData) return;
-            document.getElementById('receipt-name').textContent = `${lastEntryData.firstName} ${lastEntryData.lastName}`;
-            document.getElementById('receipt-type').textContent = lastEntryData.type;
-            document.getElementById('receipt-investDate').textContent = new Date(lastEntryData.investDate).toLocaleDateString();
-            document.getElementById('receipt-dueDate').textContent = new Date(lastEntryData.dueDate).toLocaleDateString();
-            document.getElementById('receipt-investSum').textContent = `₦${Number(lastEntryData.investSum).toLocaleString()}`;
-            document.getElementById('receipt-dueSum').textContent = `₦${Number(lastEntryData.dueSum).toLocaleString()}`;
-
-            const receiptElement = document.getElementById('receipt-template');
-            const canvas = await html2canvas(receiptElement, { useCORS: true, scale: 3 });
-            const dataUrl = canvas.toDataURL('image/png');
-            const blob = await (await fetch(dataUrl)).blob();
-            const file = new File([blob], 'PrastFarms_Receipt.png', { type: 'image/png' });
-            
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            // Offer the document straight away, on the fresh record.
+            const fresh = { id, ...draftFields };
+            const row = document.createElement('div');
+            row.style.marginTop = '4px';
+            row.innerHTML = `<button class="btn btn-gold tap" style="width:100%;padding:16px;font-size:15px;">
+                               <i class="fas fa-file-arrow-down" style="margin-right:8px;"></i>Send document
+                             </button>`;
+            row.firstElementChild.addEventListener('click', async (ev) => {
+                const b = ev.currentTarget;
+                b.disabled = true;
+                b.innerHTML = '<span class="spin"></span>';
                 try {
-                    await navigator.share({
-                        files: [file],
-                        title: 'Receipt',
-                        text: `Investment receipt for ${lastEntryData.firstName}.`,
-                    });
-                } catch (error) { console.log('Share closed'); }
-            } else { showStatus('Share not supported on this device.', true); }
+                    const receipt = receiptDataUrl
+                        ? { image: receiptDataUrl, ...(receiptMeta || {}) }
+                        : await getReceiptImage(id);
+                    const out = await shareDocument(fresh, receipt);
+                    if (out === 'downloaded') toast('Document saved to your files');
+                    else if (out === 'shared') toast('Document sent');
+                } catch (e2) {
+                    toast(e2.message || 'Could not make the document', true);
+                } finally {
+                    b.disabled = false;
+                    b.innerHTML = '<i class="fas fa-file-arrow-down" style="margin-right:8px;"></i>Send document';
+                }
+            });
+            $('chatScroll').appendChild(row);
+            $('chatScroll').scrollTop = $('chatScroll').scrollHeight;
+
+            draftFields = {};
+            receiptDataUrl = null;
+            receiptMeta = null;
+            history = [];
+        }
+    } catch (err) {
+        toast(err.message || 'Could not save', true);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save';
+    }
+});
+
+// If the assistant is not configured, chat cannot work — say so plainly.
+if (!isAssistantConfigured()) {
+    $('newBtn').addEventListener('click', (e) => {
+        e.stopImmediatePropagation();
+        toast('The assistant is not switched on yet.', true);
+    }, true);
+}
+
+
+// ================= BOOKKEEPING =================
+
+let transactions = [];
+let unsubTxn = null;
+let stmt = null;          // { account, transactions, proposedCategories, reconciliation }
+let askAnswers = {};      // payeeKey -> { role, defaultCategory }
+
+function showStmt() {
+    $('vizView').classList.add('hide');
+    $('dashView').classList.add('hide');
+    $('chatView').classList.add('hide');
+    $('setView').classList.add('hide');
+    $('stmtView').classList.remove('hide');
+    $('homeBtn').classList.remove('hide');
+}
+
+// Money summary under the investments list
+function renderMoney() {
+    $('txnCount').textContent = transactions.length ? `${transactions.length} recorded` : '';
+    const rows = summariseByCategory(transactions).slice(0, 8);
+
+    if (!rows.length) {
+        $('moneySummary').innerHTML = `
+          <div style="text-align:center;padding:26px 18px;color:#6d7f74;font-size:13px;
+                      border:1px dashed rgba(255,255,255,.14);border-radius:16px;">
+            Upload a bank statement and it will sort the transactions for you.
+          </div>`;
+        return;
+    }
+
+    $('moneySummary').innerHTML = rows.map(r => {
+        const isIn = r.in > r.out;
+        const total = isIn ? r.in : r.out;
+        return `
+        <div class="card" style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div style="min-width:0;">
+            <div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${esc(r.category)}
+            </div>
+            <div style="font-size:11px;color:#6d7f74;margin-top:2px;">${r.count} transaction${r.count===1?'':'s'}</div>
+          </div>
+          <div style="font-size:15px;font-weight:700;white-space:nowrap;color:${isIn ? '#7ee2a4' : '#f0d475'};">
+            ${isIn ? '+' : '−'}${esc(naira(total))}
+          </div>
+        </div>`;
+    }).join('');
+}
+
+// ---- upload ----
+$('stmtBtn').addEventListener('click', () => {
+    if (!isAssistantConfigured()) { toast('The assistant is not switched on yet.', true); return; }
+    $('stmtInput').click();
+});
+
+$('stmtInput').addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    stmt = null;
+    askAnswers = {};
+    $('stmtBody').classList.add('hide');
+    $('stmtLoading').classList.remove('hide');
+    $('stmtStage').textContent = 'Reading your statement…';
+    showStmt();
+
+    try {
+        const base64 = await fileToBase64(file);
+        const mimeType = file.type === 'application/pdf' ? 'application/pdf' : (file.type || 'application/pdf');
+
+        const { getFunctions, httpsCallable } =
+            await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-functions.js');
+        const { initializeApp, getApps } =
+            await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js');
+        const app = getApps()[0] || initializeApp(firebaseConfig);
+        const read = httpsCallable(getFunctions(app, 'us-central1'), 'readStatement');
+
+        const res = await read({ fileBase64: base64, mimeType });
+        const data = res?.data;
+        if (!data?.transactions?.length) throw new Error('No transactions were found in that file.');
+
+        $('stmtStage').textContent = 'Sorting the transactions…';
+
+        // Apply what we already know about these payees.
+        const payees = await fetchPayees();
+        const applied = applyPayeeRules(data.transactions, payees);
+
+        stmt = { ...data, transactions: applied.transactions, unknownPayees: applied.unknownPayees };
+        renderStatement();
+
+        $('stmtLoading').classList.add('hide');
+        $('stmtBody').classList.remove('hide');
+    } catch (err) {
+        $('stmtLoading').classList.add('hide');
+        toast(friendlyError(err), true);
+        showDash();
+    }
+});
+
+function pdfAsPayload(file) {
+    return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onerror = () => reject(new Error('Could not read that file.'));
+        r.onload = () => resolve({ base64: String(r.result).split(',')[1], mimeType: 'application/pdf' });
+        r.readAsDataURL(file);
+    });
+}
+
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onerror = () => reject(new Error('Could not read that file.'));
+        r.onload = () => resolve(String(r.result).split(',')[1]);
+        r.readAsDataURL(file);
+    });
+}
+
+// ---- review screen ----
+function renderStatement() {
+    const a = stmt.account, rc = stmt.reconciliation;
+
+    $('stmtAcct').textContent = [a.bank, a.accountNumber].filter(Boolean).join(' · ') || 'Bank statement';
+    $('stmtPeriod').textContent =
+        (a.periodStart && a.periodEnd)
+            ? `${prettyDate(a.periodStart)} to ${prettyDate(a.periodEnd)} · ${rc.count} transactions`
+            : `${rc.count} transactions`;
+
+    // The reconciliation result is the honest signal about whether the read
+    // was complete, so it is shown plainly rather than buried.
+    const box = $('stmtRecon');
+    if (rc.balances === true) {
+        box.style.background = 'rgba(41,158,82,.13)';
+        box.style.color = '#7ee2a4';
+        box.innerHTML = `<i class="fas fa-circle-check" style="margin-right:6px;"></i>
+            Everything adds up — in ${esc(naira(rc.totalIn))}, out ${esc(naira(rc.totalOut))}.`;
+    } else if (rc.balances === false) {
+        box.style.background = 'rgba(212,175,55,.13)';
+        box.style.color = '#f0d475';
+        box.innerHTML = `<i class="fas fa-triangle-exclamation" style="margin-right:6px;"></i>
+            The totals are off by ${esc(naira(Math.abs(rc.drift)))}, so a few rows may have been missed.
+            Worth checking against the paper statement before saving.`;
+    } else {
+        box.style.background = 'rgba(255,255,255,.06)';
+        box.style.color = '#9fb3a6';
+        box.innerHTML = `In ${esc(naira(rc.totalIn))}, out ${esc(naira(rc.totalOut))}.`;
+    }
+
+    renderAsks();
+    renderStmtCats();
+}
+
+// "Who is this?" — asked only for payees we have never seen before.
+function renderAsks() {
+    const unknown = (stmt.unknownPayees || []).slice(0, 8);
+    $('askWrap').classList.toggle('hide', !unknown.length);
+    if (!unknown.length) return;
+
+    const cats = [...new Set(stmt.transactions.map(t => t.category).filter(c => c && c !== 'Uncategorised'))];
+
+    $('askList').innerHTML = unknown.map(u => `
+      <div class="card" style="padding:15px;">
+        <div style="font-size:15px;font-weight:700;">${esc(u.name)}</div>
+        <div style="font-size:11px;color:#6d7f74;margin-top:3px;">
+          ${u.count} transaction${u.count===1?'':'s'} · e.g. ${esc((u.samples[0]||'').slice(0,44))}
+        </div>
+        <div style="font-size:12px;color:#9fb3a6;margin:11px 0 8px;">Who is this?</div>
+        <div style="display:flex;flex-wrap:wrap;gap:7px;">
+          ${PAYEE_ROLES.map(r => `
+            <button class="btn btn-plain roleBtn" data-key="${esc(u.key)}" data-name="${esc(u.name)}" data-role="${r.id}"
+                    style="padding:9px 13px;font-size:12px;">${esc(r.label)}</button>`).join('')}
+        </div>
+      </div>`).join('');
+}
+
+$('askList').addEventListener('click', (e) => {
+    const btn = e.target.closest('.roleBtn');
+    if (!btn) return;
+    const { key, name, role } = btn.dataset;
+
+    askAnswers[key] = { name, role };
+
+    // Show it as answered, and remember the choice for next time.
+    const card = btn.closest('.card');
+    const label = PAYEE_ROLES.find(r => r.id === role)?.label || role;
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div style="min-width:0;">
+          <div style="font-size:15px;font-weight:700;">${esc(name)}</div>
+          <div style="font-size:12px;color:#7ee2a4;margin-top:2px;">
+            <i class="fas fa-check" style="margin-right:5px;"></i>${esc(label)}
+          </div>
+        </div>
+      </div>`;
+});
+
+function renderStmtCats() {
+    const rows = summariseByCategory(stmt.transactions);
+    $('stmtCats').innerHTML = rows.map(r => {
+        const isIn = r.in > r.out;
+        const total = isIn ? r.in : r.out;
+        const flag = r.category === 'Uncategorised';
+        return `
+        <div class="card" style="padding:13px 15px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+             ${flag ? 'border-color:rgba(212,175,55,.4);' : ''}">
+          <div style="min-width:0;">
+            <div style="font-size:14px;font-weight:600;">${esc(r.category)}</div>
+            <div style="font-size:11px;color:#6d7f74;margin-top:2px;">${r.count} transaction${r.count===1?'':'s'}</div>
+          </div>
+          <div style="font-size:14px;font-weight:700;white-space:nowrap;color:${isIn ? '#7ee2a4' : '#f0d475'};">
+            ${isIn ? '+' : '−'}${esc(naira(total))}
+          </div>
+        </div>`;
+    }).join('');
+}
+
+$('stmtCancel').addEventListener('click', () => { stmt = null; showDash(); });
+
+// ---- save ----
+$('stmtSave').addEventListener('click', async () => {
+    if (!stmt) return;
+    const btn = $('stmtSave');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span>';
+
+    try {
+        // 1. Remember the category list so it grows with real use.
+        await ensureCategories(stmt.proposedCategories || []);
+
+        // 2. Remember who each new payee is, so we stop asking.
+        for (const [key, ans] of Object.entries(askAnswers)) {
+            const sample = stmt.transactions.find(t => t.payeeKey === key);
+            await savePayee(ans.name, {
+                role: ans.role,
+                defaultCategory: sample?.category || '',
+            });
+        }
+
+        // 3. Write the transactions, keyed by content so a repeat import
+        //    updates instead of duplicating.
+        const statementId = await saveStatement(stmt.account, stmt.reconciliation);
+        const result = await saveTransactions(stmt.transactions, statementId);
+
+        toast(result.repeated
+            ? `Saved ${result.added} new, ${result.repeated} already had`
+            : `Saved ${result.added} transactions`);
+
+        stmt = null;
+        showDash();
+    } catch (err) {
+        toast(err.message || 'Could not save', true);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save these transactions';
+    }
+});
+
+
+// ================= SETTINGS =================
+
+function showSet() {
+    $('vizView').classList.add('hide');
+    $('dashView').classList.add('hide'); $('chatView').classList.add('hide');
+    $('stmtView').classList.add('hide'); $('setView').classList.remove('hide');
+    $('homeBtn').classList.remove('hide');
+}
+
+let draftSet = null;   // working copy; nothing is written until Save
+
+$('settingsBtn').addEventListener('click', () => {
+    draftSet = JSON.parse(JSON.stringify(getSettings()));
+    renderSettings();
+    showSet();
+});
+
+const COMPANY_FIELDS = [
+    ['name', 'Business name'], ['business', 'What the business does'],
+    ['address', 'Address'], ['email', 'Email'], ['phone', 'Phone'],
+    ['rcNumber', 'RC number'], ['signatoryName', 'Who signs the agreement'],
+];
+
+function renderSettings() {
+    const roiPct = Math.round((Number(draftSet.roiMultiplier) || 1.4) * 100);
+    $('setRoi').value = roiPct;
+    updateRoiHint();
+
+    $('setTitle').value = draftSet.agreementTitle || '';
+    $('setPreamble').value = draftSet.preamble || '';
+
+    $('setCompany').innerHTML = COMPANY_FIELDS.map(([k, label]) => `
+        <div>
+          <label style="font-size:11px;color:#9fb3a6;">${esc(label)}</label>
+          <input type="text" class="input cField" data-k="${k}"
+                 value="${esc(draftSet.company?.[k] === '—' ? '' : (draftSet.company?.[k] || ''))}"
+                 style="width:100%;padding:12px;margin-top:5px;box-sizing:border-box;">
+        </div>`).join('');
+
+    renderBands();
+    renderClauses();
+}
+
+function updateRoiHint() {
+    const pct = Number($('setRoi').value) || 0;
+    const ex = Math.round(1_000_000 * pct / 100);
+    $('setRoiHint').textContent =
+        `So ₦1,000,000 invested pays back ${naira(ex)} — a profit of ${naira(ex - 1_000_000)}.`;
+}
+$('setRoi').addEventListener('input', () => {
+    draftSet.roiMultiplier = (Number($('setRoi').value) || 140) / 100;
+    updateRoiHint();
+});
+
+function renderBands() {
+    const bands = draftSet.termBands || [];
+    $('setBands').innerHTML = bands.map((b, i) => `
+      <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
+        <span style="font-size:12px;color:#9fb3a6;">₦</span>
+        <input type="number" class="input bMin" data-i="${i}" value="${Number(b.min) || 0}"
+               style="width:118px;padding:11px;font-size:14px;">
+        <span style="font-size:12px;color:#9fb3a6;">to ₦</span>
+        <input type="number" class="input bMax" data-i="${i}"
+               value="${b.max === null || b.max === undefined || b.max === '' || !Number.isFinite(Number(b.max)) ? '' : Number(b.max)}" placeholder="no limit"
+               style="width:118px;padding:11px;font-size:14px;">
+        <input type="number" class="input bMon" data-i="${i}" value="${Number(b.months) || 6}"
+               style="width:64px;padding:11px;font-size:14px;text-align:center;">
+        <span style="font-size:12px;color:#9fb3a6;">months</span>
+        ${bands.length > 1 ? `<button class="btn btn-plain bDel" data-i="${i}"
+             style="padding:9px 11px;font-size:11px;"><i class="fas fa-trash"></i></button>` : ''}
+      </div>`).join('');
+}
+
+$('setBands').addEventListener('input', (e) => {
+    const el = e.target, i = +el.dataset.i;
+    if (Number.isNaN(i)) return;
+    if (el.classList.contains('bMin')) draftSet.termBands[i].min = Number(el.value) || 0;
+    if (el.classList.contains('bMax')) draftSet.termBands[i].max = el.value === '' ? null : Number(el.value);
+    if (el.classList.contains('bMon')) draftSet.termBands[i].months = Number(el.value) || 6;
+});
+$('setBands').addEventListener('click', (e) => {
+    const b = e.target.closest('.bDel'); if (!b) return;
+    draftSet.termBands.splice(+b.dataset.i, 1); renderBands();
+});
+$('setAddBand').addEventListener('click', () => {
+    const last = draftSet.termBands[draftSet.termBands.length - 1];
+    const min = Number.isFinite(Number(last?.max)) ? Number(last.max) + 1 : (Number(last?.min) || 0) + 1;
+    draftSet.termBands.push({ min, max: null, months: 12 });
+    renderBands();
+});
+
+function renderClauses() {
+    $('setClauses').innerHTML = (draftSet.clauses || []).map((c, i) => `
+      <div style="background:rgba(0,0,0,.22);border-radius:12px;padding:13px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-size:12px;color:#7ee2a4;font-weight:700;">${i + 1}.</span>
+          <input type="text" class="input clH" data-i="${i}" value="${esc(c.heading || '')}"
+                 placeholder="Section heading" style="flex:1;padding:10px;font-size:13px;">
+          <button class="btn btn-plain clUp" data-i="${i}" style="padding:8px 10px;font-size:11px;">↑</button>
+          <button class="btn btn-plain clDel" data-i="${i}" style="padding:8px 10px;font-size:11px;"><i class="fas fa-trash"></i></button>
+        </div>
+        <textarea rows="3" class="input clB" data-i="${i}" placeholder="What this section says"
+                  style="width:100%;padding:10px;font-size:13px;box-sizing:border-box;resize:vertical;">${esc(c.body || '')}</textarea>
+      </div>`).join('');
+}
+$('setClauses').addEventListener('input', (e) => {
+    const el = e.target, i = +el.dataset.i;
+    if (Number.isNaN(i)) return;
+    if (el.classList.contains('clH')) draftSet.clauses[i].heading = el.value;
+    if (el.classList.contains('clB')) draftSet.clauses[i].body = el.value;
+});
+$('setClauses').addEventListener('click', (e) => {
+    const up = e.target.closest('.clUp'), del = e.target.closest('.clDel');
+    if (up) { const i = +up.dataset.i; if (i > 0) { const a = draftSet.clauses;
+        [a[i - 1], a[i]] = [a[i], a[i - 1]]; renderClauses(); } }
+    if (del) { draftSet.clauses.splice(+del.dataset.i, 1); renderClauses(); }
+});
+$('setAddClause').addEventListener('click', () => {
+    draftSet.clauses.push({ heading: '', body: '' }); renderClauses();
+});
+
+$('setSave').addEventListener('click', async () => {
+    const btn = $('setSave'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
+    try {
+        document.querySelectorAll('.cField').forEach(el => {
+            draftSet.company[el.dataset.k] = el.value.trim() || '—';
         });
+        draftSet.agreementTitle = $('setTitle').value.trim();
+        draftSet.preamble = $('setPreamble').value;
+        draftSet.clauses = (draftSet.clauses || []).filter(c => (c.heading || '').trim() || (c.body || '').trim());
+        // Bands must be ordered for the lookup to pick the right one.
+        draftSet.termBands = (draftSet.termBands || []).sort((a, b) => Number(a.min) - Number(b.min));
 
-        // Unlock
-        function unlockApp() {
-            const password = passwordInput.value;
-            if (!password) { showStatus('Enter Password', true); return; }
-            
-            unlockBtn.textContent = "VERIFYING...";
-            unlockBtn.disabled = true;
+        await saveSettings({
+            company: draftSet.company, roiMultiplier: draftSet.roiMultiplier,
+            termBands: draftSet.termBands, agreementTitle: draftSet.agreementTitle,
+            preamble: draftSet.preamble, clauses: draftSet.clauses, closing: draftSet.closing || '',
+        });
+        toast('Saved — all new documents will use this');
+        showDash();
+    } catch (err) { toast(err.message || 'Could not save', true); }
+    finally { btn.disabled = false; btn.textContent = 'Save changes'; }
+});
 
-            fetch(SCRIPT_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: 'getRecords', payload: { password } })
-            })
-            .then(res => res.json())
-            .then(response => {
-                if (response.status === 'success') {
-                    passwordWall.style.opacity = '0';
-                    setTimeout(() => {
-                        passwordWall.classList.add('hidden');
-                        appContent.classList.remove('hidden');
-                        allRecords = response.data.reverse();
-                        
-                        const validRecords = allRecords.filter(r => r && r.FirstName && r.LastName);
-                        const firstNames = [...new Set(validRecords.map(r => r.FirstName).filter(name => name))];
-                        const lastNames = [...new Set(validRecords.map(r => r.LastName).filter(name => name))];
-                        
-                        setupAutocomplete(document.getElementById("firstName"), firstNames);
-                        setupAutocomplete(document.getElementById("lastName"), lastNames);
-                        viewTabBtn.click();
-                    }, 500);
-                } else { throw new Error(response.message); }
-            })
-            .catch(error => {
-                showStatus('ACCESS DENIED', true);
-                unlockBtn.textContent = "AUTHENTICATE";
-                unlockBtn.disabled = false;
-            });
+$('setReset').addEventListener('click', async () => {
+    const btn = $('setReset'); btn.disabled = true;
+    try { draftSet = JSON.parse(JSON.stringify(await resetSettings())); renderSettings(); toast('Put back to the original wording'); }
+    catch (err) { toast(err.message || 'Could not undo', true); }
+    finally { btn.disabled = false; }
+});
+
+// Sample document built from the UNSAVED draft, so she can look before committing.
+$('setPreview').addEventListener('click', async () => {
+    const btn = $('setPreview'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
+    const original = JSON.parse(JSON.stringify(getSettings()));
+    try {
+        document.querySelectorAll('.cField').forEach(el => { draftSet.company[el.dataset.k] = el.value.trim() || '—'; });
+        draftSet.agreementTitle = $('setTitle').value.trim();
+        draftSet.preamble = $('setPreamble').value;
+        Object.assign(getSettings(), draftSet);          // temporary, in memory only
+
+        const amount = 1_000_000;
+        const start = todayISO();
+        const sample = {
+            id: 'sample00', type: 'Farm Investment', firstName: 'Sample', lastName: 'Investor',
+            investDate: start, dueDate: addMonthsISO(start, liveTermMonthsFor(amount)),
+            investSum: amount, dueSum: liveExpectedPayout(amount), totalYears: 0, renewDate: '', paidDate: '',
+        };
+        const out = await shareDocument(sample, null);
+        if (out === 'downloaded') toast('Sample saved to your files');
+    } catch (err) { toast(err.message || 'Could not make a sample', true); }
+    finally { Object.assign(getSettings(), original); btn.disabled = false;
+             btn.innerHTML = '<i class="fas fa-eye" style="margin-right:6px;"></i>See a sample'; }
+});
+
+// ================= GET HELP =================
+//  Site-wide assistant. Uses the same Cloud Function as record entry but with a
+//  help prompt, so it explains the app instead of trying to log a transaction.
+
+// Built at open time so the wording follows the live ROI rather than going
+// stale the moment she changes it.
+const helpChips = () => {
+    const pct = Math.round((Number(getSettings().roiMultiplier) || 1.4) * 100);
+    return [
+        'How do I add an investment?',
+        'How do I mark someone as paid?',
+        'How do I send the document?',
+        `How do I change the ${pct}%?`,
+        'What does "due soon" mean?',
+    ];
+};
+let helpHistory = [];
+let helpBusy = false;
+
+function helpPrompt() {
+    const s = getSettings();
+    const pct = Math.round((Number(s.roiMultiplier) || 1.4) * 100);
+    return `You are the built-in help assistant for the Prast Farms staff app. The person asking is the business owner. She is not technical, so answer in plain, warm, short sentences. Never mention code, files, JSON, Firebase or settings files.
+
+What the app can do:
+- The Dashboard shows money received, money still to pay out, and counts of investments that are on track, due soon, overdue or paid. Investments are listed below, with the ones needing attention first.
+- "Add an investment" starts a chat. It asks for a photo of the investor's payment receipt first and reads the name, amount and date off it, then asks for anything still missing. Nothing is saved until she taps Save.
+- Tapping an investment opens its actions: Send document, Mark as paid, Change something (which reopens the chat), Renew, and Delete.
+- "Send document" makes one PDF with three pages: the invoice, the agreement letter, and the payment receipt with the investor's own receipt photo. It shares through the phone's share sheet, or downloads on a computer.
+- "Upload a bank statement" reads a bank statement PDF, sorts the transactions into categories, and asks who unfamiliar people are. It checks the totals add up and says so.
+- "Agreement & rates" is where she changes the return percentage, how long investments run, her business details on the document, and the agreement wording itself. Changes apply to all future documents; ones already sent do not change.
+- Export downloads a spreadsheet of the records.
+
+Current settings: the return is ${pct}% of the amount invested. Investments run for different lengths depending on size.
+
+Rules:
+- Answer only about using this app. If asked something unrelated, say kindly that you can only help with the app.
+- Be specific about which button to tap and where it is.
+- Keep answers under about 60 words unless she asks for more detail.
+- If you genuinely do not know, say so and suggest she ask Chim.
+
+Reply with JSON only: {"reply":"your answer"}`;
+}
+
+function helpBubble(text, kind) {
+    const row = document.createElement('div'); row.style.display = 'flex';
+    const b = document.createElement('div');
+    b.className = 'bubble ' + (kind === 'me' ? 'b-me' : kind === 'err' ? 'b-err' : 'b-ai');
+    b.style.fontSize = '14px';
+    b.textContent = text;
+    row.appendChild(b);
+    $('helpScroll').appendChild(row);
+    $('helpScroll').scrollTop = $('helpScroll').scrollHeight;
+    return row;
+}
+
+function openHelp() {
+    $('helpPanel').classList.remove('hide');
+    if (!helpHistory.length) {
+        helpBubble('Hello! Ask me anything about using this app.', 'ai');
+        $('helpChips').innerHTML = helpChips().map(q =>
+            `<button class="btn btn-plain helpChip" style="padding:9px 12px;font-size:12px;">${esc(q)}</button>`).join('');
+    }
+    setTimeout(() => $('helpInput').focus(), 80);
+}
+$('helpBtn').addEventListener('click', openHelp);
+$('helpClose').addEventListener('click', () => $('helpPanel').classList.add('hide'));
+$('helpPanel').addEventListener('click', (e) => { if (e.target === $('helpPanel')) $('helpPanel').classList.add('hide'); });
+$('helpChips').addEventListener('click', (e) => {
+    const c = e.target.closest('.helpChip'); if (!c) return;
+    askHelp(c.textContent);
+});
+
+async function askHelp(text) {
+    if (helpBusy) return;
+    if (!isAssistantConfigured()) { helpBubble('Help chat is not switched on yet.', 'err'); return; }
+    helpBusy = true; $('helpSend').disabled = true;
+    $('helpChips').innerHTML = '';
+    helpBubble(text, 'me');
+    helpHistory.push({ role: 'user', content: text });
+
+    const row = document.createElement('div'); row.style.display = 'flex';
+    row.innerHTML = '<div class="bubble b-ai dots"><span></span><span></span><span></span></div>';
+    $('helpScroll').appendChild(row); $('helpScroll').scrollTop = $('helpScroll').scrollHeight;
+
+    try {
+        const { getFunctions, httpsCallable } =
+            await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-functions.js');
+        const { initializeApp, getApps } =
+            await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js');
+        const app = getApps()[0] || initializeApp(firebaseConfig);
+        const call = httpsCallable(getFunctions(app, 'us-central1'), 'assistant');
+
+        const res = await call({ messages: [{ role: 'system', content: helpPrompt() },
+                                            ...helpHistory.slice(-8)] });
+        row.remove();
+        let reply = 'Sorry, I did not catch that.';
+        try { reply = JSON.parse(res.data.content).reply || reply; } catch { reply = String(res.data.content).slice(0, 500); }
+        helpBubble(reply, 'ai');
+        helpHistory.push({ role: 'assistant', content: JSON.stringify({ reply }) });
+    } catch (err) {
+        row.remove();
+        helpBubble(friendlyError(err), 'err');
+    } finally { helpBusy = false; $('helpSend').disabled = false; $('helpInput').focus(); }
+}
+
+$('helpForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const t = $('helpInput').value.trim(); if (!t) return;
+    $('helpInput').value = ''; askHelp(t);
+});
+
+
+// ================= CALENDAR & CHARTS =================
+//
+//  Reads the pre-computed monthly summaries, so a chart costs ~70 document
+//  reads rather than ten thousand. Months with no statement are drawn as
+//  explicit gaps — never as zero, which would read as "a month with no trade".
+
+let summaries = [];
+let vizMeasure = 'net';
+let vizAccount = '';           // '' = all accounts
+let vizYear = '';              // '' = every year
+let calMonth = null;
+
+const VIZ = {
+    net: { label: 'Profit',    head: 'Profit' },
+    in:  { label: 'Money in',  head: 'Money in' },
+    out: { label: 'Money out', head: 'Money out' },
+};
+
+function showViz() {
+    $('dashView').classList.add('hide'); $('chatView').classList.add('hide');
+    $('stmtView').classList.add('hide'); $('setView').classList.add('hide');
+    $('vizView').classList.remove('hide'); $('homeBtn').classList.remove('hide');
+}
+
+$('moneyBtn').addEventListener('click', async () => {
+    showViz();
+    if (!summaries.length) {
+        $('vizChart').innerHTML = '<div style="padding:26px;text-align:center;color:#6d7f74;font-size:13px;">Loading…</div>';
+        try { summaries = await fetchSummaries(); }
+        catch (e) { $('vizChart').innerHTML = '<div style="padding:22px;text-align:center;color:#fca5a5;font-size:13px;">Could not load.</div>'; return; }
+        buildAccountChips();
+        buildYearChips();
+        // Default to the business account: mixing the personal accounts in
+        // makes "profit" meaningless and hides that account's own gaps.
+        const biz = summaries.find(x => x.bank === 'UBA');
+        if (biz) {
+            vizAccount = `${biz.bank}|${biz.account}`;
+            document.querySelectorAll('.acctBtn').forEach(b => b.classList.toggle('on', b.dataset.a === vizAccount));
         }
-        unlockBtn.addEventListener('click', unlockApp);
-        passwordInput.addEventListener('keyup', (e) => { if(e.key === 'Enter') unlockApp(); });
+        const months = [...new Set(summaries.map(s => s.month))].sort();
+        calMonth = months[months.length - 1] || todayISO().slice(0, 7);
+    }
+    renderViz();
+});
 
-        // Render List
-        function renderRecords(records) {
-            recordList.innerHTML = '';
-            if (!records || records.length === 0) {
-                recordList.innerHTML = '<div class="text-center text-gray-500 mt-10 p-4 border border-dashed border-gray-600 rounded-lg">No records found.</div>';
-                return;
-            }
-            records.forEach(record => {
-                if (!record || !record.FirstName || !record.LastName) return; 
-                
-                const recordDiv = document.createElement('div');
-                recordDiv.className = 'p-4 rounded-xl bg-white/5 border border-white/5 hover:border-green-500/30 transition-all duration-200';
-                const investDate = record.InvestDate ? new Date(record.InvestDate).toLocaleDateString() : '-';
-                const dueDate = record.DueDate ? new Date(record.DueDate).toLocaleDateString() : '-';
-                const dueSum = record.DueSum ? Number(record.DueSum).toLocaleString() : '0';
-                const typeColor = record.Type === 'Farm Investment' ? 'text-green-400' : 'text-blue-400';
-                
-                recordDiv.innerHTML = `
-                    <div class="flex justify-between items-start mb-2">
-                        <div>
-                            <h3 class="font-bold text-white text-base">${record.FirstName} ${record.LastName}</h3>
-                            <div class="text-[10px] uppercase tracking-wider ${typeColor}">${record.Type || 'Unknown'}</div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-xs text-gray-400 uppercase">Payout</div>
-                            <div class="font-mono text-yellow-500 font-bold">₦${dueSum}</div>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2 text-xs border-t border-white/10 pt-2 mt-2">
-                        <div class="text-gray-400">IN: <span class="text-gray-300 font-mono">${investDate}</span></div>
-                        <div class="text-gray-400 text-right">OUT: <span class="text-gray-300 font-mono">${dueDate}</span></div>
-                    </div>`;
-                recordList.appendChild(recordDiv);
-            });
-        }
-        
-        // Filter
-        function filterAndSortRecords() {
-            let filtered = [...allRecords];
-            const searchTerm = searchInput.value.toLowerCase();
-            if (searchTerm) {
-                filtered = filtered.filter(record => {
-                    if (!record) return false;
-                    return Object.values(record).some(value => String(value).toLowerCase().includes(searchTerm));
-                });
-            }
-            const sortBy = sortFilter.value;
-            if (sortBy === 'soonest') {
-                filtered.sort((a, b) => (a.DueDate ? new Date(a.DueDate) : new Date('9999-12-31')) - (b.DueDate ? new Date(b.DueDate) : new Date('9999-12-31')));
-            } else if (sortBy === 'recent') {
-                filtered.sort((a, b) => (a.InvestDate ? new Date(a.InvestDate) : new Date(0)) - (b.InvestDate ? new Date(b.InvestDate) : new Date(0)));
-            } else if (sortBy === 'asc') {
-                filtered.sort((a, b) => (a?.FirstName || '').localeCompare(b?.FirstName || ''));
-            }
-            renderRecords(filtered);
-        }
+function buildYearChips() {
+    const years = [...new Set(summaries.map(s => s.month.slice(0, 4)))].sort();
+    $('yearRow').innerHTML =
+        `<button class="btn btn-plain segBtn yearBtn on" data-y="">All years</button>` +
+        years.map(y => `<button class="btn btn-plain segBtn yearBtn" data-y="${y}">${y}</button>`).join('');
+}
 
-        searchInput.addEventListener('input', filterAndSortRecords);
-        sortFilter.addEventListener('change', filterAndSortRecords);
+function buildAccountChips() {
+    const accts = [...new Map(summaries.map(s => [`${s.bank}|${s.account}`, s])).values()];
+    const row = $('acctRow');
+    row.innerHTML = `<button class="btn btn-plain segBtn acctBtn on" data-a="">All accounts</button>` +
+        accts.map(a => `<button class="btn btn-plain segBtn acctBtn" data-a="${esc(a.bank + '|' + a.account)}"
+            style="white-space:nowrap;">${esc(a.bank)} ${esc(a.account)}</button>`).join('');
+}
 
-        // Autocomplete
-        function setupAutocomplete(inp, arr) {
-            if (!inp || !arr || arr.length === 0) return;
-            inp.addEventListener("input", function(e) {
-                let a, b, i, val = this.value;
-                closeAllLists();
-                if (!val) { return false;}
-                a = document.createElement("DIV");
-                a.setAttribute("id", this.id + "autocomplete-list");
-                a.setAttribute("class", "autocomplete-items rounded-b-lg shadow-xl");
-                this.parentNode.appendChild(a);
-                for (i = 0; i < arr.length; i++) {
-                    if (arr[i] && arr[i].substr(0, val.length).toUpperCase() == val.toUpperCase()) {
-                        b = document.createElement("DIV");
-                        b.innerHTML = "<span class='text-white font-bold'>" + arr[i].substr(0, val.length) + "</span>";
-                        b.innerHTML += "<span class='text-gray-500'>" + arr[i].substr(val.length) + "</span>";
-                        b.innerHTML += "<input type='hidden' value='" + arr[i] + "'>";
-                        b.addEventListener("click", function(e) {
-                            inp.value = this.getElementsByTagName("input")[0].value;
-                            closeAllLists();
-                        });
-                        a.appendChild(b);
-                    }
-                }
-            });
-            function closeAllLists(elmnt) {
-                var x = document.getElementsByClassName("autocomplete-items");
-                for (var i = 0; i < x.length; i++) {
-                    if (elmnt != x[i] && elmnt != inp) x[i].parentNode.removeChild(x[i]);
-                }
-            }
-            document.addEventListener("click", function (e) { closeAllLists(e.target); });
+document.addEventListener('click', (e) => {
+    const m = e.target.closest('.measBtn'), a = e.target.closest('.acctBtn'), yb = e.target.closest('.yearBtn');
+    if (m) { vizMeasure = m.dataset.m;
+        document.querySelectorAll('.measBtn').forEach(b => b.classList.toggle('on', b === m)); renderViz(); }
+    if (a) { vizAccount = a.dataset.a;
+        document.querySelectorAll('.acctBtn').forEach(b => b.classList.toggle('on', b === a)); renderViz(); }
+    if (yb) { vizYear = yb.dataset.y;
+        document.querySelectorAll('.yearBtn').forEach(b => b.classList.toggle('on', b === yb)); renderViz(); }
+});
+
+/** Summaries for the current account filter, keyed by month. */
+function vizRows() {
+    const rows = vizAccount
+        ? summaries.filter(s => `${s.bank}|${s.account}` === vizAccount)
+        : summaries;
+    const byMonth = new Map();
+    rows.forEach(s => {
+        const cur = byMonth.get(s.month) || { month: s.month, in: 0, out: 0, net: 0, count: 0, days: {} };
+        cur.in += s.in; cur.out += s.out; cur.net += s.net; cur.count += s.count;
+        // merge per-day maps across accounts
+        Object.entries(s.days || {}).forEach(([d, v]) => {
+            const t = cur.days[d] || { in: 0, out: 0, n: 0 };
+            t.in += Number(v.in) || 0; t.out += Number(v.out) || 0; t.n += Number(v.n) || 0;
+            cur.days[d] = t;
+        });
+        byMonth.set(s.month, cur);
+    });
+    return byMonth;
+}
+
+function renderViz() {
+    const byMonth = vizRows();
+    const have = [...byMonth.keys()].sort();
+    if (!have.length) { $('vizChart').innerHTML = '<div style="padding:26px;text-align:center;color:#6d7f74;">Nothing yet.</div>'; return; }
+
+    let all = monthRange(have[0], have[have.length - 1]);
+    if (vizYear) all = all.filter(m => m.startsWith(vizYear));
+    if (!all.length) all = monthRange(have[0], have[have.length - 1]);
+    const missing = all.filter(m => !byMonth.has(m));
+
+    // headline
+    const tot = all.reduce((acc, m) => { const r = byMonth.get(m); if (r) acc += r[vizMeasure]; return acc; }, 0);
+    $('vizHeadLabel').textContent = `${VIZ[vizMeasure].head} — ${vizAccount ? vizAccount.replace('|', ' ') : 'all accounts'}`;
+    $('vizHead').textContent = naira(Math.abs(tot));
+    $('vizHead').style.color = vizMeasure === 'net' ? (tot >= 0 ? 'var(--viz-pos)' : 'var(--viz-neg)')
+                             : vizMeasure === 'in'  ? 'var(--viz-in)' : 'var(--viz-out)';
+    $('vizHeadSub').textContent =
+        `${prettyMonth(all[0])} to ${prettyMonth(all[all.length - 1])} · ` +
+        `${all.length - missing.length} of ${all.length} months on record` +
+        (tot < 0 && vizMeasure === 'net' ? ' · this is a loss' : '');
+
+    $('vizLegend').innerHTML = vizMeasure === 'net'
+        ? `<span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--viz-pos);margin-right:5px;"></span>profit</span>
+           <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--viz-neg);margin-right:5px;"></span>loss</span>
+           <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;" class="gapBar"></span> no statement</span>`
+        : `<span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--viz-${vizMeasure});margin-right:5px;"></span>${esc(VIZ[vizMeasure].label.toLowerCase())}</span>
+           <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;" class="gapBar"></span> no statement</span>`;
+
+    drawChart(all, byMonth, missing);
+
+    const who = vizAccount ? vizAccount.replace('|', ' ') : 'any account';
+    $('vizGapNote').innerHTML = missing.length
+        ? `<i class="fas fa-circle-info" style="margin-right:6px;color:#f0d475;"></i>
+           No statement for ${esc(who)} in ${missing.length} month${missing.length === 1 ? '' : 's'},
+           drawn as striped gaps: ${esc(missing.map(prettyMonth).join(', '))}.`
+        : (vizAccount ? '' :
+           `<i class="fas fa-circle-info" style="margin-right:6px;color:#f0d475;"></i>
+            With every account combined, one account's missing month can be hidden by another.
+            Pick a single account above to see its own gaps.`);
+
+    if (!byMonth.has(calMonth)) calMonth = have[have.length - 1];
+    drawCalendar(byMonth);
+}
+
+// ---- monthly bars, gaps drawn as gaps ----
+function drawChart(all, byMonth, missing) {
+    const W = Math.max(all.length * 34 + 46, 320), H = 240;
+    const padL = 44, padB = 30, padT = 12;
+    const plotH = H - padB - padT;
+    const bw = Math.max(12, (W - padL - 8) / all.length - 8);
+
+    const vals = all.map(m => byMonth.has(m) ? byMonth.get(m)[vizMeasure] : null);
+    const finite = vals.filter(v => v !== null);
+    const maxV = Math.max(...finite.map(v => Math.max(v, 0)), 0);
+    const minV = Math.min(...finite.map(v => Math.min(v, 0)), 0);
+    const span = (maxV - minV) || 1;
+    const y0 = padT + (maxV / span) * plotH;               // baseline (zero)
+
+    const short = (n) => {
+        const a = Math.abs(n);
+        if (a >= 1e9) return (n/1e9).toFixed(1).replace(/\.0$/,'') + 'b';
+        if (a >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + 'm';
+        if (a >= 1e3) return Math.round(n/1e3) + 'k';
+        return String(Math.round(n));
+    };
+
+    let bars = '', ticks = '';
+    // recessive gridlines + value axis
+    [maxV, (maxV+minV)/2, minV].forEach(v => {
+        const y = padT + ((maxV - v) / span) * plotH;
+        ticks += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-6}" y2="${y.toFixed(1)}"
+                    stroke="var(--viz-grid)" stroke-width="1"/>
+                  <text x="${padL-7}" y="${(y+3.5).toFixed(1)}" text-anchor="end">₦${short(v)}</text>`;
+    });
+
+    all.forEach((m, i) => {
+        const x = padL + 4 + i * ((W - padL - 8) / all.length);
+        const r = byMonth.get(m);
+        if (!r) {
+            // No statement: a striped placeholder sitting on the baseline, so the
+            // month is visibly absent rather than silently flat.
+            bars += `<rect x="${x.toFixed(1)}" y="${(y0-16).toFixed(1)}" width="${bw.toFixed(1)}" height="16"
+                       fill="url(#gapHatch)" stroke="rgba(255,255,255,.22)" stroke-dasharray="2 2"
+                       stroke-width="1" rx="3" data-gap="${m}"></rect>`;
+            return;
         }
-    </script>
+        const v = r[vizMeasure];
+        const h = Math.max(3, Math.abs(v) / span * plotH);
+        const y = v >= 0 ? y0 - h : y0;
+        const fill = vizMeasure === 'net' ? (v >= 0 ? 'var(--viz-pos)' : 'var(--viz-neg)')
+                   : vizMeasure === 'in' ? 'var(--viz-in)' : 'var(--viz-out)';
+        bars += `<rect class="vBar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}"
+                   height="${h.toFixed(1)}" fill="${fill}" rx="4"
+                   data-m="${m}" data-v="${v}" style="cursor:pointer"></rect>`;
+    });
+
+    // month labels: only January and the last month, so they never collide
+    let labels = '';
+    all.forEach((m, i) => {
+        const x = padL + 4 + i * ((W - padL - 8) / all.length) + bw / 2;
+        const isJan = m.endsWith('-01');
+        const showAll = all.length <= 13;
+        if (showAll || isJan || i === all.length - 1) {
+            labels += `<text x="${x.toFixed(1)}" y="${H-10}" text-anchor="middle">${
+                showAll ? MONTH_NAMES[+m.slice(5,7)-1][0] : (isJan ? m.slice(0,4) : MONTH_NAMES[+m.slice(5,7)-1])}</text>`;
+        }
+    });
+
+    $('vizChart').innerHTML = `
+      <svg width="${W}" height="${H}" role="img" aria-label="${esc(VIZ[vizMeasure].label)} by month">
+        <defs>
+          <pattern id="gapHatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+            <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(255,255,255,.16)" stroke-width="3"/>
+          </pattern>
+        </defs>
+        ${ticks}
+        <line x1="${padL}" y1="${y0.toFixed(1)}" x2="${W-6}" y2="${y0.toFixed(1)}" stroke="var(--viz-grid)" stroke-width="1.5"/>
+        ${bars}${labels}
+      </svg>`;
+}
+
+// ---- hover ----
+document.addEventListener('mousemove', (e) => {
+    const bar = e.target.closest('.vBar'), gap = e.target.closest('[data-gap]');
+    const tip = $('vizTip');
+    if (!bar && !gap) { tip.classList.add('hide'); return; }
+    const html = bar
+        ? `<strong style="color:#f4f1ea">${esc(prettyMonth(bar.dataset.m))}</strong><br>
+           ${esc(VIZ[vizMeasure].label)}: ${esc(naira(Math.abs(+bar.dataset.v)))}${+bar.dataset.v < 0 ? ' (loss)' : ''}`
+        : `<strong style="color:#f4f1ea">${esc(prettyMonth(gap.dataset.gap))}</strong><br>No statement for this month`;
+    tip.innerHTML = html;
+    tip.classList.remove('hide');
+    tip.style.left = Math.min(e.clientX + 14, window.innerWidth - 190) + 'px';
+    tip.style.top = Math.max(e.clientY - 60, 8) + 'px';
+});
+
+// ---- calendar ----
+$('calPrev').addEventListener('click', () => stepMonth(-1));
+$('calNext').addEventListener('click', () => stepMonth(1));
+function stepMonth(d) {
+    let [y, m] = calMonth.split('-').map(Number);
+    m += d; if (m === 0) { m = 12; y--; } if (m === 13) { m = 1; y++; }
+    calMonth = `${y}-${String(m).padStart(2,'0')}`;
+    drawCalendar(vizRows());
+}
+
+function drawCalendar(byMonth) {
+    const [y, m] = calMonth.split('-').map(Number);
+    const row = byMonth.get(calMonth);
+    $('calTitle').textContent = prettyMonth(calMonth);
+
+    const first = new Date(y, m - 1, 1);
+    const lead = (first.getDay() + 6) % 7;               // Monday-first
+    const days = new Date(y, m, 0).getDate();
+
+    if (!row) {
+        $('calSub').textContent = 'No statement for this month';
+        $('calGrid').innerHTML =
+            Array.from({length: lead}, () => `<div class="calCell blank"></div>`).join('') +
+            Array.from({length: days}, (_, i) =>
+                `<div class="calCell gapBar" title="No statement"><span class="d">${i+1}</span></div>`).join('');
+        $('calNote').innerHTML = `<i class="fas fa-circle-info" style="margin-right:6px;color:#f0d475;"></i>
+            We do not have the statement for ${esc(prettyMonth(calMonth))}, so these days are blank rather than zero.`;
+        $('calScale').innerHTML = '';
+        return;
+    }
+
+    const vals = Object.values(row.days).map(d => (Number(d.in)||0) - (Number(d.out)||0));
+    const peak = Math.max(...vals.map(Math.abs), 1);
+    $('calSub').textContent = `${row.count} transactions · ${naira(row.in)} in · ${naira(row.out)} out`;
+
+    let cells = Array.from({length: lead}, () => `<div class="calCell blank"></div>`).join('');
+    for (let d = 1; d <= days; d++) {
+        const key = String(d).padStart(2,'0');
+        const rec = row.days[key];
+        if (!rec) { cells += `<div class="calCell empty"><span class="d">${d}</span></div>`; continue; }
+        const net = (Number(rec.in)||0) - (Number(rec.out)||0);
+        const t = Math.min(1, Math.abs(net) / peak);
+        const col = net >= 0 ? '57,135,229' : '230,103,103';
+        const alpha = (0.16 + t * 0.72).toFixed(2);
+        cells += `<div class="calCell" style="background:rgba(${col},${alpha});"
+                    title="${prettyDate(`${calMonth}-${key}`)} — ${net>=0?'up':'down'} ${naira(Math.abs(net))} across ${rec.n} transaction${rec.n===1?'':'s'}">
+                    <span class="d">${d}</span></div>`;
+    }
+    $('calGrid').innerHTML = cells;
+    $('calNote').innerHTML = `Each day is shaded by how much the money moved. Tap and hold a day for the figures.`;
+    $('calScale').innerHTML = `
+        <span>loss</span>
+        <span style="flex:1;height:9px;border-radius:5px;
+          background:linear-gradient(90deg, rgba(230,103,103,.88), var(--viz-mid), rgba(57,135,229,.88));"></span>
+        <span>profit</span>
+        <span style="margin-left:8px;display:inline-flex;align-items:center;gap:5px;">
+          <span style="width:11px;height:11px;border-radius:3px;background:rgba(255,255,255,.03);
+                border:1px solid rgba(255,255,255,.12);"></span> no activity</span>`;
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!$('helpPanel').classList.contains('hide')) { $('helpPanel').classList.add('hide'); return; }
+    if (!$('confirm').classList.contains('hide')) $('confirm').classList.add('hide');
+    else if (!$('sheet').classList.contains('hide')) closeSheet();
+});
+
+boot();
+</script>
 </body>
 </html>

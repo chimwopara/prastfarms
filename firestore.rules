@@ -1,0 +1,104 @@
+rules_version = '2';
+
+// =============================================================================
+//  PRAST FARMS — FIRESTORE SECURITY RULES
+//
+//  Deploy from the Firebase console:
+//    Firestore Database -> Rules -> paste -> Publish
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /records/{recordId} {
+
+      // -----------------------------------------------------------------
+      //  TESTING RULES — matches DEV_MODE = true in firebase-config.js
+      //
+      //  Anyone who knows the project URL can read and write client
+      //  financial records while this block is active. It is deliberately
+      //  set to expire so it cannot be left open indefinitely by accident.
+      //
+      //  Bump the date only if you are still testing.
+      // -----------------------------------------------------------------
+      allow read, write: if request.time < timestamp.date(2026, 9, 30);
+
+      // -----------------------------------------------------------------
+      //  PRODUCTION RULES
+      //
+      //  To go live:
+      //    1. Firebase console -> Authentication -> Sign-in method
+      //       -> enable Email/Password, then add each staff member.
+      //    2. Set DEV_MODE = false in assets/js/firebase-config.js
+      //    3. Comment out the testing rule above and uncomment these two.
+      //
+      //  Staff sign in to read and edit; the public renewal page is left
+      //  able to read a single record so clients can open their link.
+      // -----------------------------------------------------------------
+      // allow read: if true;
+      // allow write: if request.auth != null;
+
+      // -----------------------------------------------------------------
+      //  STRICTEST OPTION
+      //
+      //  Locks the renewal page out too — use this if you move renewals
+      //  behind a Cloud Function instead of client-side writes.
+      // -----------------------------------------------------------------
+      // allow read, write: if request.auth != null;
+    }
+
+    // Receipt photos, keyed by record id. Held in their own collection so the
+    // dashboard's record listener never downloads image data.
+    match /receipts/{recordId} {
+      // Same testing window as records above.
+      allow read, write: if request.time < timestamp.date(2026, 9, 30);
+
+      // Production: staff only. Receipt photos are not public — unlike a
+      // record, there is no client-facing page that needs to read one.
+      // allow read, write: if request.auth != null;
+    }
+
+    // -------------------------------------------------------------------
+    //  BOOKKEEPING
+    //  Statement imports, the transactions read out of them, the evolving
+    //  category list, and what we have learned about who each payee is.
+    //  All staff-only in production — none of this is client-facing.
+    // -------------------------------------------------------------------
+    match /transactions/{txnId} {
+      allow read, write: if request.time < timestamp.date(2026, 9, 30);
+      // allow read, write: if request.auth != null;
+    }
+
+    match /categories/{categoryId} {
+      allow read, write: if request.time < timestamp.date(2026, 9, 30);
+      // allow read, write: if request.auth != null;
+    }
+
+    match /payees/{payeeId} {
+      allow read, write: if request.time < timestamp.date(2026, 9, 30);
+      // allow read, write: if request.auth != null;
+    }
+
+    match /statements/{statementId} {
+      allow read, write: if request.time < timestamp.date(2026, 9, 30);
+      // allow read, write: if request.auth != null;
+    }
+
+    // Pre-computed monthly totals with a per-day breakdown, so the calendar
+    // and charts read a handful of documents instead of ten thousand.
+    match /summaries/{summaryId} {
+      allow read, write: if request.time < timestamp.date(2026, 9, 30);
+      // allow read, write: if request.auth != null;
+    }
+
+    // Owner-editable agreement wording, ROI and term bands. One document.
+    // Readable by the renew page (it quotes the terms); writable by staff only.
+    match /settings/{settingId} {
+      allow read, write: if request.time < timestamp.date(2026, 9, 30);
+      // allow read: if true;
+      // allow write: if request.auth != null;
+    }
+
+    // Anything not matched above is denied by default.
+  }
+}

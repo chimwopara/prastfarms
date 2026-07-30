@@ -1,0 +1,31 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Local secrets — never commit real credentials
+assets/js/firebase-config.local.js
+.env
+.dev.vars
+
+# BANK STATEMENTS AND OTHER PRIVATE DOCUMENTS — NEVER COMMIT.
+# This repo is published to prastfarms.com by GitHub Pages, so anything
+# committed here becomes a publicly downloadable URL.
+statements/
+*.pdf
+!assets/**/*.pdf
+
+# Office documents (agreements, spreadsheets) and their lock files
+*.docx
+*.doc
+*.xlsx
+*.xls
+~$*
+
+
+# Cloud Functions
+functions/node_modules/
