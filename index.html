@@ -10,6 +10,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
+    <!-- Marks that scripts are running, so the reveal animations only ever hide
+         content on a page that can actually un-hide it again. -->
+    <script>document.documentElement.classList.add('js');</script>
+
     <style>
         :root {
             --primary-dark: #0f2e1a;
@@ -22,17 +26,22 @@
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        html { scroll-behavior: smooth; height: 100%; overflow: hidden; }
+
+        /* The page scrolls normally on the document — no snap points, no fixed
+           height container. Every section is as tall as its own content. */
+        html { scroll-behavior: smooth; }
+        @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
         body {
             font-family: 'Montserrat', sans-serif;
             background-color: var(--primary-dark);
             color: var(--cream);
             width: 100%;
-            height: 100%;
-            overflow-y: scroll;
+            overflow-x: hidden;
         }
+
+        /* Used while a modal is open so the page behind it stays put. */
+        html.no-scroll, body.no-scroll { overflow: hidden; }
 
         h1, h2, h3, h4 { font-family: 'Playfair Display', serif; }
         a { text-decoration: none; color: inherit; transition: 0.4s ease; }
@@ -92,7 +101,10 @@
         .btn-invest { background: var(--accent-gold); color: var(--primary-dark); border: none; }
         .btn-apply-prod { background: transparent; border: 1px solid white; color: white; }
 
-        nav {
+        /* Scoped to a class, not the bare `nav` element — the product shortcut
+           bar is also a <nav> and was being turned into a second floating
+           header by this rule. */
+        .site-nav {
             position: fixed;
             top: 20px;
             left: 50%;
@@ -108,35 +120,57 @@
         .nav-logo { font-weight: 700; font-size: 1.5rem; color: white; display: flex; align-items: center; gap: 10px; z-index: 1001; }
         .nav-logo img { height: 40px; }
         .nav-links { display: flex; gap: 30px; align-items: center; }
-        .nav-links a { font-size: 0.95rem; font-weight: 500; color: rgba(255,255,255,0.8); }
+        .nav-links a { font-size: 0.95rem; font-weight: 500; color: rgba(255,255,255,0.8); position: relative; }
+        .nav-links a:hover { color: #fff; }
+
+        /* Scroll-spy: on a page this tall you should always know where you are. */
+        .nav-links a.current { color: #fff; }
+        .nav-links a.current:not(.btn-portal)::after {
+            content: '';
+            position: absolute;
+            left: 0; right: 0; bottom: -7px;
+            height: 2px;
+            border-radius: 2px;
+            background: var(--accent-gold);
+        }
         .mobile-toggle { display: none; color: white; font-size: 1.5rem; cursor: pointer; z-index: 1001; }
 
+        /* Fixed, so it stays behind the content now that the document scrolls. */
         #canvas-container {
-            position: absolute;
+            position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100vh;
             z-index: -1;
             background: #0f2e1a;
             overflow: hidden;
+            pointer-events: none;
         }
 
         section {
-            padding: 40px 5%;
+            padding: 90px 5%;
             position: relative;
-            min-height: 100vh;
             display: flex;
             flex-direction: column;
             justify-content: center;
+            /* Anchor links land clear of the floating nav instead of under it. */
+            scroll-margin-top: 120px;
         }
 
-        .fade-in-section { opacity: 0; transform: translateY(20px); transition: opacity 1s ease-out, transform 1s ease-out; }
-        .fade-in-section.is-visible { opacity: 1; transform: none; }
+        /* Scoped to .js so the page is never blank when scripts are blocked,
+           slow, or still loading — without it a failed observer hides the site. */
+        .js .fade-in-section { opacity: 0; transform: translateY(18px); transition: opacity .6s ease-out, transform .6s ease-out; }
+        .js .fade-in-section.is-visible { opacity: 1; transform: none; }
+        @media (prefers-reduced-motion: reduce) {
+            .js .fade-in-section { opacity: 1; transform: none; transition: none; }
+        }
 
         .hero {
             flex-direction: row;
             align-items: center;
             justify-content: center;
             gap: 60px;
+            min-height: 100vh;
+            padding-top: 120px;
         }
         .hero-content { flex: 1; max-width: 600px; z-index: 2; }
         .hero h1 {
@@ -165,19 +199,86 @@
             object-fit: cover;
             aspect-ratio: 4/5;
         }
+        /* A link, not decoration — the arrow at the bottom of a screen reads as
+           "tap me", so it should actually take you somewhere. */
         .scroll-indicator {
             position: absolute;
             bottom: 20px; left: 50%;
             transform: translateX(-50%);
             animation: bounce 2s infinite;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 18px;
+            color: rgba(255,255,255,0.5);
+            font-size: 0.7rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
         }
+        .scroll-indicator:hover { color: var(--accent-gold); }
+        @media (prefers-reduced-motion: reduce) { .scroll-indicator { animation: none; } }
+
+        #backToTop {
+            position: fixed;
+            right: 24px; bottom: 24px;
+            width: 48px; height: 48px;
+            border-radius: 50%;
+            border: 1px solid var(--glass-border);
+            background: rgba(15, 46, 26, 0.85);
+            backdrop-filter: blur(10px);
+            color: var(--cream);
+            font-size: 1rem;
+            cursor: pointer;
+            z-index: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(12px);
+            transition: opacity .3s, transform .3s, visibility .3s, background .3s;
+        }
+        #backToTop.show { opacity: 1; visibility: visible; transform: none; }
+        #backToTop:hover { background: var(--primary-green); }
 
         .section-header { margin-bottom: 15px; max-width: 600px; }
         .section-header h2 { font-size: 2.5rem; margin-bottom: 10px; color: var(--accent-gold); }
 
+        /* ---------- Products: a signpost and a shortcut bar ---------- */
+        .products-intro { width: 100%; max-width: 1000px; margin: 0 auto 45px; text-align: center; }
+        .products-intro h2 { font-size: 2.6rem; color: var(--accent-gold); margin-bottom: 12px; }
+        .products-intro > p { color: rgba(255,255,255,0.7); max-width: 620px; margin: 0 auto; line-height: 1.7; }
+
+        .product-jump { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 28px; }
+        .product-jump a {
+            padding: 9px 18px;
+            border-radius: 50px;
+            border: 1px solid rgba(255,255,255,0.22);
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.75);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .product-jump a:hover { border-color: var(--accent-gold); color: var(--accent-gold); }
+        .product-jump a.current { background: var(--accent-gold); border-color: var(--accent-gold); color: var(--primary-dark); font-weight: 600; }
+
+        /* Two actions that mean different things, so say which is which. */
+        .action-hint {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 18px;
+            font-size: 0.78rem;
+            color: rgba(255,255,255,0.5);
+            margin-bottom: 10px;
+        }
+        .action-hint span { display: flex; align-items: center; gap: 6px; }
+        .action-hint b { color: rgba(255,255,255,0.8); font-weight: 600; }
+
         .map-container {
             width: 100%;
-            height: 50vh;
+            height: 420px;
             margin-bottom: 20px;
             border-radius: 15px;
             overflow: hidden;
@@ -257,6 +358,138 @@
         .course-card p { font-size: 0.9rem; opacity: 0.9; margin: 0; }
 
         .bottom-sections-wrapper { display: block; }
+
+        /* ---------- PRAST PORTAL — subscription plans for other farms ---------- */
+        .portal-section {
+            background: linear-gradient(to bottom, rgba(5, 22, 12, 0.6), rgba(15, 46, 26, 0.85));
+            align-items: center;
+        }
+        .plan-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 22px;
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+            align-items: stretch;
+        }
+        .plan-card {
+            padding: 32px 26px;
+            display: flex;
+            flex-direction: column;
+            text-align: left;
+            transition: transform 0.3s, box-shadow 0.3s;
+            position: relative;
+        }
+        .plan-card:hover { transform: translateY(-6px); box-shadow: 0 20px 40px rgba(0,0,0,0.35); }
+        .plan-card.featured {
+            border-color: var(--accent-gold);
+            background: rgba(212, 175, 55, 0.08);
+            transform: scale(1.04);
+        }
+        .plan-card.featured:hover { transform: scale(1.04) translateY(-6px); }
+        .plan-badge {
+            position: absolute;
+            top: -13px; left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent-gold);
+            color: var(--primary-dark);
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            padding: 6px 16px;
+            border-radius: 50px;
+            white-space: nowrap;
+        }
+        .plan-term { font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-gold); margin-bottom: 12px; }
+        .plan-price { font-family: 'Playfair Display', serif; font-size: 2.6rem; font-weight: 700; line-height: 1; }
+        .plan-per { font-size: 0.85rem; color: rgba(255,255,255,0.55); margin-top: 8px; }
+        .plan-feats { margin: 22px 0 26px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+        .plan-feats li { font-size: 0.9rem; color: rgba(255,255,255,0.8); display: flex; gap: 10px; align-items: flex-start; }
+        .plan-feats i { color: var(--primary-green); margin-top: 4px; }
+        .btn-plan {
+            width: 100%;
+            padding: 15px 20px;
+            border-radius: 50px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.35);
+            background: transparent;
+            color: var(--cream);
+            transition: 0.3s;
+        }
+        .btn-plan:hover { background: rgba(255,255,255,0.12); }
+        .plan-card.featured .btn-plan {
+            background: var(--accent-gold);
+            border-color: var(--accent-gold);
+            color: var(--primary-dark);
+        }
+        .plan-card.featured .btn-plan:hover { box-shadow: 0 12px 25px rgba(212, 175, 55, 0.35); }
+        .plan-note {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.6);
+            max-width: 620px;
+            line-height: 1.7;
+        }
+
+        /* ---------- Sign-up form extras ---------- */
+        .plan-picker { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+        .plan-option {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 16px 20px;
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 16px;
+            background: transparent;
+            color: var(--cream);
+            font-family: inherit;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.25s;
+            text-align: left;
+        }
+        .plan-option:hover { border-color: rgba(255,255,255,0.6); }
+        .plan-option.selected { border-color: var(--accent-gold); background: rgba(212, 175, 55, 0.12); }
+        .plan-option .po-term { font-weight: 600; }
+        .plan-option .po-price { color: var(--accent-gold); font-weight: 700; white-space: nowrap; }
+
+        .pay-box {
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 16px;
+            padding: 20px;
+            background: rgba(0,0,0,0.2);
+            text-align: left;
+            margin-bottom: 22px;
+        }
+        .pay-row { display: flex; justify-content: space-between; gap: 14px; font-size: 0.95rem; padding: 7px 0; }
+        .pay-row span:first-child { color: rgba(255,255,255,0.55); }
+        .pay-row span:last-child { font-weight: 600; text-align: right; }
+
+        /* Written as `label.upload-drop` so it outranks the big serif styling
+           that .form-step label gives every other label in these forms. */
+        .form-step label.upload-drop {
+            border: 2px dashed rgba(255,255,255,0.3);
+            border-radius: 16px;
+            padding: 28px 20px;
+            cursor: pointer;
+            transition: 0.25s;
+            display: block;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1rem;
+            font-weight: 400;
+            margin-bottom: 0;
+        }
+        .upload-drop:hover { border-color: var(--primary-green); background: rgba(41,158,82,0.07); }
+        .upload-drop i { font-size: 1.8rem; color: var(--primary-green); margin-bottom: 10px; display: block; }
+        .upload-drop span { font-size: 0.9rem; color: rgba(255,255,255,0.7); }
+        #suReceiptPreview { max-height: 220px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.2); margin-top: 6px; }
 
         footer {
             background: #050f08;
@@ -413,6 +646,26 @@
         .progress-dot.active { background: var(--primary-green); transform: scale(1.2); }
         .progress-dot.completed { background: var(--accent-gold); }
 
+        /* Dots alone don't tell you how much is left. Words do. */
+        .step-count {
+            position: absolute;
+            top: 52px; left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.72rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.45);
+        }
+
+        /* A field that flashes red says something is wrong but not what. */
+        .field-error {
+            display: none;
+            margin-top: 12px;
+            font-size: 0.85rem;
+            color: #ff9b9b;
+        }
+        .field-error.show { display: block; }
+
         .modal-title {
             position: absolute;
             top: 25px; left: 30px;
@@ -444,9 +697,7 @@
 
         /* MOBILE STYLES */
         @media (max-width: 900px) {
-            body { scroll-snap-type: y mandatory; }
-
-            nav { width: 95%; padding: 10px 20px; border-radius: 12px; }
+            .site-nav { width: 95%; padding: 10px 20px; border-radius: 12px; }
             .nav-links {
                 position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
                 background: rgba(15, 46, 26, 0.95); backdrop-filter: blur(15px);
@@ -457,36 +708,37 @@
             .nav-links a { font-size: 1.8rem; }
             .mobile-toggle { display: block; }
 
-            section { height: 100vh; min-height: unset; padding: 70px 20px 20px; scroll-snap-align: start; scroll-snap-stop: always; overflow: hidden; }
+            section { padding: 60px 20px; scroll-margin-top: 80px; }
 
             .hero {
                 flex-direction: column;
                 justify-content: center;
-                padding-top: 60px;
-                padding-bottom: 30px;
+                min-height: auto;
+                padding-top: 110px;
+                padding-bottom: 50px;
                 gap: 20px;
                 align-items: center;
             }
             .hero-img-wrapper { order: 1; width: 100%; justify-content: center; }
-            .hero-staff-img { max-width: 80%; max-height: 32vh; border-radius: 30px; }
+            .hero-staff-img { max-width: 80%; max-height: 320px; border-radius: 30px; }
             .hero-content { order: 2; text-align: center; margin-top: 10px; }
             .hero h1 { font-size: 2.2rem; margin-bottom: 10px; }
             .hero p { font-size: 0.95rem; margin-bottom: 15px; max-width: 90%; margin-left: auto; margin-right: auto; }
             .hero-content div { justify-content: center !important; }
 
-            #branches { padding: 70px 15px 15px; }
-            #branches .section-header { margin-bottom: 8px; }
-            #branches .section-header h2 { font-size: 1.6rem; margin-bottom: 4px; }
-            #branches .section-header p { font-size: 0.75rem; }
-            .map-container { height: 45vh; margin-bottom: 10px; }
-            .branch-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
-            .branch-card { padding: 10px 6px; }
-            .branch-card h3 { font-size: 0.75rem; }
-            .branch-card p { font-size: 0.65rem; }
-            .branch-icon { font-size: 1.3rem; margin-bottom: 6px; }
+            #branches { padding: 60px 15px; }
+            #branches .section-header { margin-bottom: 14px; }
+            #branches .section-header h2 { font-size: 1.8rem; margin-bottom: 6px; }
+            #branches .section-header p { font-size: 0.85rem; }
+            .map-container { height: 300px; margin-bottom: 14px; }
+            .branch-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+            .branch-card { padding: 16px 10px; }
+            .branch-card h3 { font-size: 0.95rem; }
+            .branch-card p { font-size: 0.75rem; }
+            .branch-icon { font-size: 1.6rem; margin-bottom: 8px; }
 
-            .product-showcase { display: flex; flex-direction: column; height: 100%; justify-content: center; gap: 15px; padding-top: 20px; }
-            .image-cluster { order: 1; height: 32vh; }
+            .product-showcase { display: flex; flex-direction: column; gap: 20px; }
+            .image-cluster { order: 1; height: 320px; }
             .showcase-text { order: 2; text-align: center; padding: 0 10px; }
             .showcase-text h3 { font-size: 1.8rem; margin-bottom: 10px; }
             .showcase-text p { font-size: 0.9rem; margin-bottom: 10px; }
@@ -494,36 +746,30 @@
             .img-main { height: 100%; width: auto; max-width: 90%; }
             .img-sub { width: 80px; height: 80px; }
 
-            .bottom-sections-wrapper {
-                scroll-snap-align: start;
-                scroll-snap-stop: always;
-                height: 100vh;
-                min-height: 100vh;
-                overflow-y: auto;
-                -webkit-overflow-scrolling: touch;
-                padding-top: 70px;
-            }
-            .academy-section {
-                height: auto !important;
-                min-height: auto !important;
-                padding: 20px 20px 40px;
-                overflow: visible !important;
-                scroll-snap-align: none !important;
-            }
+            .academy-section { padding: 60px 20px; }
             .academy-section .section-header { margin-bottom: 15px; }
             .academy-section .section-header h2 { font-size: 2rem; }
             .video-container { margin-top: 10px; }
-            .academy-grid { overflow: visible; max-height: none; margin-top: 20px; }
-            .course-card { padding: 15px 20px; }
+            .academy-grid { margin-top: 20px; }
+            .course-card { padding: 15px 20px; max-width: 100%; }
 
-            footer {
-                scroll-snap-align: none !important;
-                height: auto !important;
-                min-height: auto !important;
-                padding: 40px 5% 20px;
-                overflow: visible !important;
-            }
+            footer { padding: 50px 5% 20px; }
             .footer-grid { gap: 25px; margin-bottom: 25px; }
+
+            .plan-grid { grid-template-columns: 1fr; gap: 16px; }
+            .plan-card.featured { transform: none; }
+            .plan-card.featured:hover { transform: translateY(-6px); }
+
+            .products-intro { margin-bottom: 30px; }
+            .products-intro h2 { font-size: 2rem; }
+            .products-intro > p { font-size: 0.9rem; }
+            .product-jump { gap: 8px; margin-top: 20px; }
+            .product-jump a { padding: 8px 14px; font-size: 0.78rem; }
+            .action-hint { justify-content: center; font-size: 0.72rem; }
+
+            #backToTop { right: 16px; bottom: 16px; width: 44px; height: 44px; }
+            .nav-links a.current::after { display: none; }
+            .nav-links a.current { color: var(--accent-gold); }
         }
     </style>
 </head>
@@ -531,18 +777,27 @@
 
     <div id="canvas-container"></div>
 
-    <nav class="glass-panel">
+    <button id="backToTop" type="button" aria-label="Back to top">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <nav class="site-nav glass-panel">
         <a href="#" class="nav-logo">
             <img src="assets/img/logo.png" alt="PF" onerror="this.src='https://placehold.co/50x50/299e52/FFF?text=PF'">
             <span>PRAST FARMS</span>
         </a>
-        <div class="mobile-toggle"><i class="fas fa-bars"></i></div>
+        <button class="mobile-toggle" aria-label="Menu" aria-expanded="false"
+                style="background:none;border:none;font-family:inherit;">
+            <i class="fas fa-bars"></i>
+        </button>
         <ul class="nav-links">
             <li><a href="#home">Home</a></li>
             <li><a href="#branches">Locations</a></li>
-            <li><a href="#livestock">Livestock</a></li>
+            <li><a href="#products">Products</a></li>
             <li><a href="#academy">Academy</a></li>
-            <li><a href="portal.html" class="btn-portal"><i class="fas fa-lock"></i> Staff Portal</a></li>
+            <li><a href="#portal">Software</a></li>
+            <li><a href="apply.html">Work With Us</a></li>
+            <li><a href="portal.html" class="btn-portal"><i class="fas fa-lock"></i> Prast Portal</a></li>
         </ul>
     </nav>
 
@@ -551,17 +806,19 @@
             <h4>Welcome to the Future</h4>
             <h1>Precision Farming <br>in Port Harcourt.</h1>
             <p>From Atali to Eneka, we are redefining agriculture with premium livestock, sustainable feed, and next-gen education.</p>
-            <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: flex-start;">
-                <a href="#livestock" class="btn-primary">Explore Products</a>
-                <button type="button" onclick="openContactModal()" class="btn-portal" style="border-color: white; color: white; cursor: pointer; background: transparent;">Contact Us</button>
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: flex-start; align-items: center;">
+                <a href="#products" class="btn-primary">Explore Products</a>
+                <a href="portal.html" class="btn-portal"><i class="fas fa-lock"></i> Prast Portal</a>
+                <button type="button" onclick="openContactModal()" class="btn-portal" style="border-color: white; color: white; cursor: pointer; background: transparent; font-family: inherit;">Contact Us</button>
             </div>
         </div>
         <div class="hero-img-wrapper">
             <img src="assets/img/staff.jpeg" alt="Prast Farms Staff" class="hero-staff-img" onerror="this.src='https://placehold.co/400x500/1a4d2e/FFF?text=Our+Staff'">
         </div>
-        <div class="scroll-indicator">
-            <i class="fas fa-chevron-down" style="color: rgba(255,255,255,0.5);"></i>
-        </div>
+        <a href="#branches" class="scroll-indicator" aria-label="Scroll to our locations">
+            <span>Scroll</span>
+            <i class="fas fa-chevron-down"></i>
+        </a>
     </section>
 
     <section id="branches" class="fade-in-section">
@@ -596,8 +853,21 @@
         </div>
     </section>
 
-    <section id="livestock" class="fade-in-section">
-        <div class="product-showcase">
+    <section id="products" class="fade-in-section">
+        <div class="products-intro">
+            <h2>Our Products</h2>
+            <p>Five things we raise and grow across Rivers State. Buy any of them outright,
+               or put money behind one and share in what it returns.</p>
+            <nav class="product-jump" aria-label="Jump to a product">
+                <a href="#pigs"><i class="fas fa-piggy-bank"></i> Pigs</a>
+                <a href="#poultry"><i class="fas fa-kiwi-bird"></i> Poultry</a>
+                <a href="#turkey"><i class="fas fa-drumstick-bite"></i> Turkey</a>
+                <a href="#eggs"><i class="fas fa-egg"></i> Eggs</a>
+                <a href="#plantain"><i class="fas fa-seedling"></i> Plantain</a>
+            </nav>
+        </div>
+
+        <div id="pigs" class="product-showcase" style="scroll-margin-top: 120px;">
             <div class="image-cluster">
                 <img src="assets/img/pig1.png" class="blob-img img-main" alt="Pigs" onerror="this.src='https://placehold.co/400x500/222/FFF?text=High+Grade+Pigs'">
                 <img src="assets/img/pig2.png" class="blob-img img-sub" alt="Piglet" onerror="this.src='https://placehold.co/300x300/333/FFF?text=Piglets'">
@@ -609,16 +879,21 @@
                     <li><i class="fas fa-check" style="color: var(--primary-green);"></i> Rapid Growth Breeds</li>
                     <li><i class="fas fa-check" style="color: var(--primary-green);"></i> Veterinary Certified</li>
                 </ul>
+                <div class="action-hint">
+                    <span><b>Buy</b> — order for yourself</span>
+                    <span><b>Invest</b> — put money in for a return</span>
+                </div>
                 <div class="action-btn-group">
-                    <button class="btn-action btn-buy" onclick="openProductActionModal('Buy', 'Pigs')">Buy</button>
-                    <button class="btn-action btn-invest" onclick="openProductActionModal('Invest', 'Pigs')">Invest</button>
-                    <button class="btn-action btn-apply-prod" onclick="openProductActionModal('Apply', 'Pigs')">Apply</button>
+                    <button class="btn-action btn-buy" onclick="openProductActionModal('Buy', 'Pigs')">
+                        <i class="fas fa-basket-shopping" style="margin-right:8px;"></i>Buy</button>
+                    <button class="btn-action btn-invest" onclick="openProductActionModal('Invest', 'Pigs')">
+                        <i class="fas fa-arrow-trend-up" style="margin-right:8px;"></i>Invest</button>
                 </div>
             </div>
         </div>
     </section>
 
-    <section class="fade-in-section">
+    <section id="poultry" class="fade-in-section">
         <div class="product-showcase">
             <div class="showcase-text">
                 <h3>Poultry Excellence</h3>
@@ -627,10 +902,15 @@
                     <li><i class="fas fa-check" style="color: var(--primary-green);"></i> Day-Old Chicks Available</li>
                     <li><i class="fas fa-check" style="color: var(--primary-green);"></i> Organic Feed Supplied</li>
                 </ul>
+                <div class="action-hint">
+                    <span><b>Buy</b> — order for yourself</span>
+                    <span><b>Invest</b> — put money in for a return</span>
+                </div>
                 <div class="action-btn-group">
-                    <button class="btn-action btn-buy" onclick="openProductActionModal('Buy', 'Poultry')">Buy</button>
-                    <button class="btn-action btn-invest" onclick="openProductActionModal('Invest', 'Poultry')">Invest</button>
-                    <button class="btn-action btn-apply-prod" onclick="openProductActionModal('Apply', 'Poultry')">Apply</button>
+                    <button class="btn-action btn-buy" onclick="openProductActionModal('Buy', 'Poultry')">
+                        <i class="fas fa-basket-shopping" style="margin-right:8px;"></i>Buy</button>
+                    <button class="btn-action btn-invest" onclick="openProductActionModal('Invest', 'Poultry')">
+                        <i class="fas fa-arrow-trend-up" style="margin-right:8px;"></i>Invest</button>
                 </div>
             </div>
             <div class="image-cluster reverse">
@@ -640,7 +920,7 @@
         </div>
     </section>
 
-    <section class="fade-in-section">
+    <section id="turkey" class="fade-in-section">
         <div class="product-showcase">
             <div class="image-cluster">
                 <img src="assets/img/turkey1.png" class="blob-img img-main" alt="Turkeys" onerror="this.src='https://placehold.co/400x500/222/FFF?text=Turkeys'">
@@ -653,16 +933,21 @@
                     <li><i class="fas fa-check" style="color: var(--primary-green);"></i> Premium Meat Quality</li>
                     <li><i class="fas fa-check" style="color: var(--primary-green);"></i> Raised Free-Range</li>
                 </ul>
+                <div class="action-hint">
+                    <span><b>Buy</b> — order for yourself</span>
+                    <span><b>Invest</b> — put money in for a return</span>
+                </div>
                 <div class="action-btn-group">
-                    <button class="btn-action btn-buy" onclick="openProductActionModal('Buy', 'Turkeys')">Buy</button>
-                    <button class="btn-action btn-invest" onclick="openProductActionModal('Invest', 'Turkeys')">Invest</button>
-                    <button class="btn-action btn-apply-prod" onclick="openProductActionModal('Apply', 'Turkeys')">Apply</button>
+                    <button class="btn-action btn-buy" onclick="openProductActionModal('Buy', 'Turkeys')">
+                        <i class="fas fa-basket-shopping" style="margin-right:8px;"></i>Buy</button>
+                    <button class="btn-action btn-invest" onclick="openProductActionModal('Invest', 'Turkeys')">
+                        <i class="fas fa-arrow-trend-up" style="margin-right:8px;"></i>Invest</button>
                 </div>
             </div>
         </div>
     </section>
 
-    <section class="fade-in-section">
+    <section id="eggs" class="fade-in-section">
         <div class="product-showcase">
             <div class="showcase-text">
                 <h3>Farm Fresh Eggs</h3>
@@ -671,10 +956,15 @@
                     <li><i class="fas fa-check" style="color: var(--primary-green);"></i> Quality Assured</li>
                     <li><i class="fas fa-check" style="color: var(--primary-green);"></i> Bulk Supply Available</li>
                 </ul>
+                <div class="action-hint">
+                    <span><b>Buy</b> — order for yourself</span>
+                    <span><b>Invest</b> — put money in for a return</span>
+                </div>
                 <div class="action-btn-group">
-                    <button class="btn-action btn-buy" onclick="openProductActionModal('Buy', 'Eggs')">Buy</button>
-                    <button class="btn-action btn-invest" onclick="openProductActionModal('Invest', 'Eggs')">Invest</button>
-                    <button class="btn-action btn-apply-prod" onclick="openProductActionModal('Apply', 'Eggs')">Apply</button>
+                    <button class="btn-action btn-buy" onclick="openProductActionModal('Buy', 'Eggs')">
+                        <i class="fas fa-basket-shopping" style="margin-right:8px;"></i>Buy</button>
+                    <button class="btn-action btn-invest" onclick="openProductActionModal('Invest', 'Eggs')">
+                        <i class="fas fa-arrow-trend-up" style="margin-right:8px;"></i>Invest</button>
                 </div>
             </div>
             <div class="image-cluster reverse">
@@ -684,7 +974,7 @@
         </div>
     </section>
 
-    <section class="fade-in-section">
+    <section id="plantain" class="fade-in-section">
         <div class="product-showcase">
             <div class="image-cluster">
                 <img src="assets/img/plantain.png" class="blob-img img-main" alt="Plantain" onerror="this.src='https://placehold.co/400x500/222/FFF?text=Plantains'">
@@ -697,13 +987,74 @@
                     <li><i class="fas fa-check" style="color: var(--primary-green);"></i> 100% Organic</li>
                     <li><i class="fas fa-check" style="color: var(--primary-green);"></i> Harvested at Maturity</li>
                 </ul>
+                <div class="action-hint">
+                    <span><b>Buy</b> — order for yourself</span>
+                    <span><b>Invest</b> — put money in for a return</span>
+                </div>
                 <div class="action-btn-group">
-                    <button class="btn-action btn-buy" onclick="openProductActionModal('Buy', 'Plantains')">Buy</button>
-                    <button class="btn-action btn-invest" onclick="openProductActionModal('Invest', 'Plantains')">Invest</button>
-                    <button class="btn-action btn-apply-prod" onclick="openProductActionModal('Apply', 'Plantains')">Apply</button>
+                    <button class="btn-action btn-buy" onclick="openProductActionModal('Buy', 'Plantains')">
+                        <i class="fas fa-basket-shopping" style="margin-right:8px;"></i>Buy</button>
+                    <button class="btn-action btn-invest" onclick="openProductActionModal('Invest', 'Plantains')">
+                        <i class="fas fa-arrow-trend-up" style="margin-right:8px;"></i>Invest</button>
                 </div>
             </div>
         </div>
+    </section>
+
+    <!-- ============ PRAST PORTAL — software for other farms ============ -->
+    <section id="portal" class="portal-section fade-in-section">
+        <div class="section-header" style="max-width: 720px; margin: 0 auto 40px; text-align: center;">
+            <h2>Prast Portal for Your Farm</h2>
+            <p>The same software we run Prast Farms on — investor records, receipts, bank statements
+               and a plain-English assistant. Now open to other farms.</p>
+        </div>
+
+        <div class="plan-grid">
+            <div class="plan-card glass-panel">
+                <div class="plan-term">1 Year</div>
+                <div class="plan-price">₦40,000</div>
+                <div class="plan-per">₦40,000 per year</div>
+                <ul class="plan-feats">
+                    <li><i class="fas fa-check"></i> Investor &amp; payout records</li>
+                    <li><i class="fas fa-check"></i> Snap a receipt, it reads itself</li>
+                    <li><i class="fas fa-check"></i> Bank statement import</li>
+                    <li><i class="fas fa-check"></i> Charts and monthly summaries</li>
+                </ul>
+                <button type="button" class="btn-plan" onclick="openSignupModal('1y')">Get started</button>
+            </div>
+
+            <div class="plan-card glass-panel featured">
+                <span class="plan-badge">Most popular</span>
+                <div class="plan-term">3 Years</div>
+                <div class="plan-price">₦100,000</div>
+                <div class="plan-per">₦33,333 per year — save 17%</div>
+                <ul class="plan-feats">
+                    <li><i class="fas fa-check"></i> Everything in the 1 year plan</li>
+                    <li><i class="fas fa-check"></i> Plain-English assistant</li>
+                    <li><i class="fas fa-check"></i> Export to spreadsheet anytime</li>
+                    <li><i class="fas fa-check"></i> Support by phone and email</li>
+                </ul>
+                <button type="button" class="btn-plan" onclick="openSignupModal('3y')">Get started</button>
+            </div>
+
+            <div class="plan-card glass-panel">
+                <div class="plan-term">10 Years</div>
+                <div class="plan-price">₦250,000</div>
+                <div class="plan-per">₦25,000 per year — save 38%</div>
+                <ul class="plan-feats">
+                    <li><i class="fas fa-check"></i> Everything in the 3 year plan</li>
+                    <li><i class="fas fa-check"></i> A decade of price protection</li>
+                    <li><i class="fas fa-check"></i> Every future update included</li>
+                    <li><i class="fas fa-check"></i> Priority support</li>
+                </ul>
+                <button type="button" class="btn-plan" onclick="openSignupModal('10y')">Get started</button>
+            </div>
+        </div>
+
+        <p class="plan-note">
+            Pay by bank transfer, upload your receipt, and we activate your farm as soon as the
+            payment is confirmed. You will hear back within one working day.
+        </p>
     </section>
 
     <div class="bottom-sections-wrapper">
@@ -733,7 +1084,10 @@
             </div>
             <div style="text-align: center; margin-top: 50px;">
                 <p style="color: var(--accent-gold); font-size: 1.5rem; margin-bottom: 15px; font-weight: 600;">Tuition: ₦300,000</p>
-                <button type="button" onclick="openApplyModal()" class="btn-primary" style="cursor: pointer;">Apply for Summer Class</button>
+                <a href="apply.html#academy" class="btn-primary">Apply for Summer Class</a>
+                <p style="font-size: 0.85rem; color: rgba(255,255,255,0.5); margin-top: 14px;">
+                    Takes about a minute — no payment needed to apply.
+                </p>
             </div>
         </section>
 
@@ -758,8 +1112,10 @@
                 </div>
                 <div class="footer-col">
                     <h4>Links</h4>
-                    <a href="portal.html">Staff Login</a>
-                    <a href="#academy">Academy</a>
+                    <a href="apply.html">Work with us</a>
+                    <a href="apply.html#academy">Apply to the Academy</a>
+                    <a href="portal.html">Prast Portal</a>
+                    <a href="#portal">Portal for your farm</a>
                     <a href="privacy.html">Privacy Policy</a>
                     <a href="terms.html">Terms & Conditions</a>
                 </div>
@@ -789,53 +1145,6 @@
         </div>
     </div>
 
-    <!-- APPLY MODAL -->
-    <div id="applyModal" class="modal-overlay">
-        <div class="modal-content">
-            <span class="close-modal" onclick="closeApplyModal()">&times;</span>
-            <span class="modal-title">Academy Application</span>
-            <div class="form-progress" id="applyProgress">
-                <span class="progress-dot active"></span>
-                <span class="progress-dot"></span>
-                <span class="progress-dot"></span>
-                <span class="progress-dot"></span>
-            </div>
-            <div class="form-steps-container">
-                <div class="form-step active" data-step="1">
-                    <label>What's your full name?</label>
-                    <input type="text" id="appName" placeholder="Enter your name">
-                    <div class="form-nav">
-                        <button type="button" class="btn-form-nav btn-next" onclick="nextApplyStep(1)">Next →</button>
-                    </div>
-                </div>
-                <div class="form-step" data-step="2">
-                    <label>When were you born?</label>
-                    <input type="date" id="appDob">
-                    <div class="form-nav">
-                        <button type="button" class="btn-form-nav btn-back" onclick="prevApplyStep(2)">← Back</button>
-                        <button type="button" class="btn-form-nav btn-next" onclick="nextApplyStep(2)">Next →</button>
-                    </div>
-                </div>
-                <div class="form-step" data-step="3">
-                    <label>What's your home address?</label>
-                    <textarea id="appAddress" placeholder="Enter your full address"></textarea>
-                    <div class="form-nav">
-                        <button type="button" class="btn-form-nav btn-back" onclick="prevApplyStep(3)">← Back</button>
-                        <button type="button" class="btn-form-nav btn-next" onclick="nextApplyStep(3)">Next →</button>
-                    </div>
-                </div>
-                <div class="form-step" data-step="4">
-                    <label>What's your phone number?</label>
-                    <input type="tel" id="appPhone" placeholder="+234...">
-                    <div class="form-nav">
-                        <button type="button" class="btn-form-nav btn-back" onclick="prevApplyStep(4)">← Back</button>
-                        <button type="button" class="btn-form-nav btn-submit" onclick="submitApplication()">Submit Application</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- PRODUCT ACTION MODAL -->
     <div id="productActionModal" class="modal-overlay">
         <div class="modal-content">
@@ -843,12 +1152,8 @@
             <span class="modal-title" id="productActionTitle">Request</span>
             <input type="hidden" id="actionType">
             <input type="hidden" id="productContext">
-            <div class="form-progress" id="productProgress">
-                <span class="progress-dot active"></span>
-                <span class="progress-dot"></span>
-                <span class="progress-dot"></span>
-                <span class="progress-dot"></span>
-            </div>
+            <div class="form-progress" id="productProgress"></div>
+            <div class="step-count" id="productStepCount"></div>
             <div class="form-steps-container">
                 <div class="form-step active" data-step="1">
                     <label>What's your full name?</label>
@@ -874,11 +1179,129 @@
                     </div>
                 </div>
                 <div class="form-step" data-step="4">
+                    <label id="paAmountLabel">How much are you looking to invest? (₦)</label>
+                    <input type="number" id="paAmount" inputmode="numeric" placeholder="e.g. 500000">
+                    <div class="form-nav">
+                        <button type="button" class="btn-form-nav btn-back" onclick="prevProductStep(4)">← Back</button>
+                        <button type="button" class="btn-form-nav btn-next" onclick="nextProductStep(4)">Next →</button>
+                    </div>
+                </div>
+                <div class="form-step" data-step="5">
                     <label>Any additional details?</label>
                     <textarea id="paDetails" placeholder="Tell us more (optional)"></textarea>
                     <div class="form-nav">
-                        <button type="button" class="btn-form-nav btn-back" onclick="prevProductStep(4)">← Back</button>
-                        <button type="button" class="btn-form-nav btn-submit" onclick="submitProductAction()">Send Request</button>
+                        <button type="button" class="btn-form-nav btn-back" onclick="prevProductStep(5)">← Back</button>
+                        <button type="button" class="btn-form-nav btn-submit" id="paSubmit" onclick="submitProductAction()">Send Request</button>
+                    </div>
+                </div>
+                <div class="form-step" data-step="6">
+                    <div style="text-align:center;padding:18px 6px;">
+                        <div style="font-size:34px;line-height:1;">✅</div>
+                        <h3 style="margin:14px 0 8px;">Thank you!</h3>
+                        <p style="margin:0;line-height:1.6;">
+                            We have your request and someone from Prast Farms will call you shortly.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PORTAL SIGN-UP MODAL — other farms subscribing to the software -->
+    <div id="signupModal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeSignupModal()">&times;</span>
+            <span class="modal-title">Prast Portal sign-up</span>
+            <div class="form-progress" id="signupProgress">
+                <span class="progress-dot active"></span>
+                <span class="progress-dot"></span>
+                <span class="progress-dot"></span>
+                <span class="progress-dot"></span>
+                <span class="progress-dot"></span>
+                <span class="progress-dot"></span>
+            </div>
+            <div class="step-count" id="signupStepCount"></div>
+            <div class="form-steps-container">
+                <input type="hidden" id="suPlan" value="3y">
+
+                <div class="form-step active" data-step="1">
+                    <label>What is your farm called?</label>
+                    <input type="text" id="suFarm" placeholder="e.g. Green Valley Farms">
+                    <div class="form-nav">
+                        <button type="button" class="btn-form-nav btn-next" onclick="nextSignupStep(1)">Next →</button>
+                    </div>
+                </div>
+
+                <div class="form-step" data-step="2">
+                    <label>Who will be using it?</label>
+                    <input type="text" id="suName" placeholder="Your full name">
+                    <div class="form-nav">
+                        <button type="button" class="btn-form-nav btn-back" onclick="prevSignupStep(2)">← Back</button>
+                        <button type="button" class="btn-form-nav btn-next" onclick="nextSignupStep(2)">Next →</button>
+                    </div>
+                </div>
+
+                <div class="form-step" data-step="3">
+                    <label>What email should we set your login up with?</label>
+                    <input type="email" id="suEmail" placeholder="you@yourfarm.com">
+                    <div class="form-nav">
+                        <button type="button" class="btn-form-nav btn-back" onclick="prevSignupStep(3)">← Back</button>
+                        <button type="button" class="btn-form-nav btn-next" onclick="nextSignupStep(3)">Next →</button>
+                    </div>
+                </div>
+
+                <div class="form-step" data-step="4">
+                    <label>And your phone number?</label>
+                    <input type="tel" id="suPhone" placeholder="+234...">
+                    <div class="form-nav">
+                        <button type="button" class="btn-form-nav btn-back" onclick="prevSignupStep(4)">← Back</button>
+                        <button type="button" class="btn-form-nav btn-next" onclick="nextSignupStep(4)">Next →</button>
+                    </div>
+                </div>
+
+                <div class="form-step" data-step="5">
+                    <label>How long do you want access for?</label>
+                    <div class="plan-picker" id="suPlanPicker"></div>
+                    <div class="form-nav">
+                        <button type="button" class="btn-form-nav btn-back" onclick="prevSignupStep(5)">← Back</button>
+                        <button type="button" class="btn-form-nav btn-next" onclick="nextSignupStep(5)">Next →</button>
+                    </div>
+                </div>
+
+                <div class="form-step" data-step="6">
+                    <label style="font-size: 1.6rem;">Send the payment, then upload your receipt</label>
+                    <div class="pay-box" id="suPayBox"></div>
+
+                    <input type="file" id="suReceipt" accept="image/*" style="display:none;">
+                    <label for="suReceipt" class="upload-drop" id="suDrop">
+                        <i class="fas fa-cloud-arrow-up"></i>
+                        <span>Tap to upload a photo or screenshot of your transfer receipt</span>
+                    </label>
+                    <div id="suReceiptWrap" style="display:none; margin-top:16px;">
+                        <img id="suReceiptPreview" alt="Your receipt" style="max-width:100%;">
+                        <div style="margin-top:10px;">
+                            <button type="button" onclick="clearSignupReceipt()"
+                                    style="background:none;border:none;color:rgba(255,255,255,0.6);
+                                           font-family:inherit;font-size:0.85rem;cursor:pointer;
+                                           text-decoration:underline;">Choose a different image</button>
+                        </div>
+                    </div>
+
+                    <div class="form-nav">
+                        <button type="button" class="btn-form-nav btn-back" onclick="prevSignupStep(6)">← Back</button>
+                        <button type="button" class="btn-form-nav btn-submit" id="suSubmit" onclick="submitSignup()">Submit for approval</button>
+                    </div>
+                </div>
+
+                <div class="form-step" data-step="7">
+                    <div style="text-align:center; padding:18px 6px;">
+                        <div style="font-size:38px; line-height:1;">🕐</div>
+                        <h3 style="margin:16px 0 10px; font-family:'Playfair Display',serif; font-size:1.8rem;">
+                            Sent for approval</h3>
+                        <p style="margin:0; line-height:1.7; color:rgba(255,255,255,0.75);">
+                            We have your details and your receipt. Once the payment is confirmed we
+                            will set up your login and email it to you — usually within one working day.
+                        </p>
                     </div>
                 </div>
             </div>
@@ -889,179 +1312,465 @@
         // Mobile Menu
         const toggle = document.querySelector('.mobile-toggle');
         const navLinks = document.querySelector('.nav-links');
+
+        function openMobileMenu() {
+            navLinks.classList.add('active');
+            toggle.querySelector('i').classList.replace('fa-bars', 'fa-times');
+            toggle.setAttribute('aria-expanded', 'true');
+            lockScroll();
+        }
+        function closeMobileMenu() {
+            navLinks.classList.remove('active');
+            toggle.querySelector('i').classList.replace('fa-times', 'fa-bars');
+            toggle.setAttribute('aria-expanded', 'false');
+            unlockScroll();
+        }
         toggle.addEventListener('click', () => {
-            navLinks.classList.toggle('active');
-            toggle.querySelector('i').classList.toggle('fa-bars');
-            toggle.querySelector('i').classList.toggle('fa-times');
+            navLinks.classList.contains('active') ? closeMobileMenu() : openMobileMenu();
         });
         document.querySelectorAll('.nav-links a').forEach(link => {
-            link.addEventListener('click', () => {
-                navLinks.classList.remove('active');
-                toggle.querySelector('i').classList.add('fa-bars');
-                toggle.querySelector('i').classList.remove('fa-times');
-            });
+            link.addEventListener('click', closeMobileMenu);
         });
 
         // Year
         document.getElementById('year').textContent = new Date().getFullYear();
 
+        // The page scrolls on the document now, so a modal has to freeze both
+        // elements — body alone is not enough on iOS.
+        function lockScroll() {
+            document.documentElement.classList.add('no-scroll');
+            document.body.classList.add('no-scroll');
+        }
+        function unlockScroll() {
+            document.documentElement.classList.remove('no-scroll');
+            document.body.classList.remove('no-scroll');
+        }
+
         // Contact Modal
         function openContactModal() {
             document.getElementById('contactModal').classList.add('open');
-            document.body.style.overflow = 'hidden';
+            lockScroll();
         }
         function closeContactModal() {
             document.getElementById('contactModal').classList.remove('open');
-            document.body.style.overflow = 'auto';
+            unlockScroll();
         }
 
-        // Apply Modal
-        let applyStep = 1;
-        function openApplyModal() {
-            document.getElementById('applyModal').classList.add('open');
-            document.body.style.overflow = 'hidden';
-            resetApplyForm();
-        }
-        function closeApplyModal() {
-            document.getElementById('applyModal').classList.remove('open');
-            document.body.style.overflow = 'auto';
-        }
-        function resetApplyForm() {
-            applyStep = 1;
-            document.querySelectorAll('#applyModal .form-step').forEach((s, i) => s.classList.toggle('active', i === 0));
-            updateApplyProgress();
-            ['appName', 'appDob', 'appAddress', 'appPhone'].forEach(id => document.getElementById(id).value = '');
-        }
-        function updateApplyProgress() {
-            document.querySelectorAll('#applyProgress .progress-dot').forEach((dot, i) => {
-                dot.classList.remove('active', 'completed');
-                if (i + 1 === applyStep) dot.classList.add('active');
-                else if (i + 1 < applyStep) dot.classList.add('completed');
-            });
-        }
-        function nextApplyStep(step) {
-            const inputs = { 1: 'appName', 2: 'appDob', 3: 'appAddress', 4: 'appPhone' };
-            const input = document.getElementById(inputs[step]);
-            if (!input.value.trim()) { input.focus(); input.style.borderBottomColor = '#ff6b6b'; setTimeout(() => input.style.borderBottomColor = '', 2000); return; }
-            if (step < 4) {
-                document.querySelector(`#applyModal .form-step[data-step="${step}"]`).classList.remove('active');
-                document.querySelector(`#applyModal .form-step[data-step="${step + 1}"]`).classList.add('active');
-                applyStep = step + 1;
-                updateApplyProgress();
-                const next = document.querySelector(`#applyModal .form-step[data-step="${applyStep}"] input, #applyModal .form-step[data-step="${applyStep}"] textarea`);
-                if (next) setTimeout(() => next.focus(), 100);
+        // ---------- Shared form feedback ----------
+        //
+        //  A field that only flashes red tells you something is wrong but not
+        //  what, so say it in words underneath the field.
+        function flagField(input, message) {
+            input.focus();
+            input.style.borderBottomColor = '#ff6b6b';
+            const step = input.closest('.form-step');
+            let err = step.querySelector('.field-error');
+            if (!err) {
+                err = document.createElement('div');
+                err.className = 'field-error';
+                input.insertAdjacentElement('afterend', err);
             }
+            err.textContent = message;
+            err.classList.add('show');
+            clearTimeout(input._errTimer);
+            input._errTimer = setTimeout(() => {
+                input.style.borderBottomColor = '';
+                err.classList.remove('show');
+            }, 5000);
         }
-        function prevApplyStep(step) {
-            if (step > 1) {
-                document.querySelector(`#applyModal .form-step[data-step="${step}"]`).classList.remove('active');
-                document.querySelector(`#applyModal .form-step[data-step="${step - 1}"]`).classList.add('active');
-                applyStep = step - 1;
-                updateApplyProgress();
-            }
-        }
-        function submitApplication() {
-            const name = document.getElementById('appName').value;
-            const dob = document.getElementById('appDob').value;
-            const address = document.getElementById('appAddress').value;
-            const phone = document.getElementById('appPhone').value;
-            if (!phone.trim()) { document.getElementById('appPhone').focus(); return; }
-            const subject = `Academy Application: ${name}`;
-            const body = `Name: ${name}%0D%0ADate of Birth: ${dob}%0D%0AAddress: ${address}%0D%0APhone: ${phone}%0D%0A%0D%0AI am interested in applying for the Summer Class.`;
-            window.location.href = `mailto:Apply@prastfarms.com?subject=${subject}&body=${body}`;
-            closeApplyModal();
+        function clearFieldErrors(modalId) {
+            document.querySelectorAll(`#${modalId} .field-error`).forEach(e => e.classList.remove('show'));
+            document.querySelectorAll(`#${modalId} input, #${modalId} textarea`)
+                .forEach(i => i.style.borderBottomColor = '');
         }
 
         // Product Modal
         let productStep = 1;
+
+        // Buyers are not investing, so they never see the amount question.
+        // Working from the real sequence means the dots and the counter match
+        // what they are actually asked.
+        function productSequence() {
+            return document.getElementById('actionType').value === 'Invest'
+                ? [1, 2, 3, 4, 5]
+                : [1, 2, 3, 5];
+        }
+
         function openProductActionModal(action, product) {
             document.getElementById('productActionModal').classList.add('open');
-            document.body.style.overflow = 'hidden';
+            lockScroll();
             document.getElementById('actionType').value = action;
             document.getElementById('productContext').value = product;
             const title = document.getElementById('productActionTitle');
-            if (action === 'Buy') title.textContent = `Order ${product}`;
-            else if (action === 'Invest') title.textContent = `Invest in ${product}`;
-            else title.textContent = `Apply: ${product}`;
+            title.textContent = action === 'Invest' ? `Invest in ${product}` : `Order ${product}`;
             resetProductForm();
         }
         function closeProductActionModal() {
             document.getElementById('productActionModal').classList.remove('open');
-            document.body.style.overflow = 'auto';
+            unlockScroll();
         }
         function resetProductForm() {
             productStep = 1;
             document.querySelectorAll('#productActionModal .form-step').forEach((s, i) => s.classList.toggle('active', i === 0));
+            document.getElementById('productProgress').style.visibility = 'visible';
+            ['paName', 'paPhone', 'paAddress', 'paDetails', 'paAmount'].forEach(id => document.getElementById(id).value = '');
+            clearFieldErrors('productActionModal');
             updateProductProgress();
-            ['paName', 'paPhone', 'paAddress', 'paDetails'].forEach(id => document.getElementById(id).value = '');
         }
         function updateProductProgress() {
-            document.querySelectorAll('#productProgress .progress-dot').forEach((dot, i) => {
-                dot.classList.remove('active', 'completed');
-                if (i + 1 === productStep) dot.classList.add('active');
-                else if (i + 1 < productStep) dot.classList.add('completed');
-            });
+            const seq = productSequence();
+            const at = Math.max(0, seq.indexOf(productStep));
+            document.getElementById('productProgress').innerHTML = seq.map((_, i) =>
+                `<span class="progress-dot ${i === at ? 'active' : i < at ? 'completed' : ''}"></span>`).join('');
+            document.getElementById('productStepCount').textContent =
+                `Question ${at + 1} of ${seq.length}`;
+        }
+        function goToProductStep(target) {
+            document.querySelector(`#productActionModal .form-step[data-step="${productStep}"]`).classList.remove('active');
+            document.querySelector(`#productActionModal .form-step[data-step="${target}"]`).classList.add('active');
+            productStep = target;
+            updateProductProgress();
         }
         function nextProductStep(step) {
-            const inputs = { 1: 'paName', 2: 'paPhone', 3: 'paAddress' };
-            if (inputs[step]) {
-                const input = document.getElementById(inputs[step]);
-                if (!input.value.trim()) { input.focus(); input.style.borderBottomColor = '#ff6b6b'; setTimeout(() => input.style.borderBottomColor = '', 2000); return; }
+            const required = {
+                1: ['paName', 'Please tell us your name so we know who is asking.'],
+                2: ['paPhone', 'We need a phone number to call you back on.'],
+                3: ['paAddress', 'Where should we deliver, or where are you based?'],
+            };
+            if (required[step]) {
+                const [id, msg] = required[step];
+                const input = document.getElementById(id);
+                if (!input.value.trim()) { flagField(input, msg); return; }
             }
-            if (step < 4) {
-                document.querySelector(`#productActionModal .form-step[data-step="${step}"]`).classList.remove('active');
-                document.querySelector(`#productActionModal .form-step[data-step="${step + 1}"]`).classList.add('active');
-                productStep = step + 1;
-                updateProductProgress();
-                const next = document.querySelector(`#productActionModal .form-step[data-step="${productStep}"] input, #productActionModal .form-step[data-step="${productStep}"] textarea`);
-                if (next) setTimeout(() => next.focus(), 100);
-            }
+            const seq = productSequence();
+            const at = seq.indexOf(step);
+            if (at === -1 || at >= seq.length - 1) return;
+
+            goToProductStep(seq[at + 1]);
+            const next = document.querySelector(`#productActionModal .form-step[data-step="${productStep}"] input, #productActionModal .form-step[data-step="${productStep}"] textarea`);
+            if (next) setTimeout(() => next.focus(), 100);
         }
         function prevProductStep(step) {
-            if (step > 1) {
-                document.querySelector(`#productActionModal .form-step[data-step="${step}"]`).classList.remove('active');
-                document.querySelector(`#productActionModal .form-step[data-step="${step - 1}"]`).classList.add('active');
-                productStep = step - 1;
-                updateProductProgress();
+            const seq = productSequence();
+            const at = seq.indexOf(step);
+            if (at > 0) goToProductStep(seq[at - 1]);
+        }
+        async function submitProductAction() {
+            const action  = document.getElementById('actionType').value;
+            const product = document.getElementById('productContext').value;
+            const name    = document.getElementById('paName').value.trim();
+            const phone   = document.getElementById('paPhone').value.trim();
+            const address = document.getElementById('paAddress').value.trim();
+            const details = document.getElementById('paDetails').value.trim();
+            const amount  = Number(document.getElementById('paAmount').value) || 0;
+
+            if (!name || !phone) { alert('Please enter your name and phone number.'); return; }
+
+            const btn = document.getElementById('paSubmit');
+            if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+
+            // Goes straight into the farm's portal so it is not lost in an inbox.
+            const sent = await sendInquiry({
+                kind: action === 'Invest' ? 'invest' : 'buy',
+                name, phone, address, details,
+                product: product || '',
+                amount: action === 'Invest' ? amount : 0,
+            });
+
+            if (btn) { btn.disabled = false; btn.textContent = 'Send Request'; }
+
+            if (sent) {
+                document.querySelectorAll('#productActionModal .form-step').forEach(x => x.classList.remove('active'));
+                document.querySelector('#productActionModal .form-step[data-step="6"]').classList.add('active');
+                document.getElementById('productProgress').style.visibility = 'hidden';
+                setTimeout(closeProductActionModal, 3200);
+            } else {
+                // Could not reach the portal — fall back to email rather than
+                // losing the enquiry.
+                const subject = `${action} Request: ${product} - ${name}`;
+                const body = `Action: ${action} for ${product}%0D%0AName: ${name}%0D%0APhone: ${phone}%0D%0AAmount: ${amount}%0D%0AAddress: ${address}%0D%0ADetails: ${details}`;
+                window.location.href = `mailto:Contact@prastfarms.com?subject=${subject}&body=${body}`;
+                closeProductActionModal();
             }
         }
-        function submitProductAction() {
-            const action = document.getElementById('actionType').value;
-            const product = document.getElementById('productContext').value;
-            const name = document.getElementById('paName').value;
-            const phone = document.getElementById('paPhone').value;
-            const address = document.getElementById('paAddress').value;
-            const details = document.getElementById('paDetails').value;
-            const subject = `${action} Request: ${product} - ${name}`;
-            const body = `Action: ${action} for ${product}%0D%0AName: ${name}%0D%0APhone: ${phone}%0D%0AAddress: ${address}%0D%0ADetails: ${details}`;
-            window.location.href = `mailto:Contact@prastfarms.com?subject=${subject}&body=${body}`;
-            closeProductActionModal();
+
+        // ---------- Prast Portal sign-up (other farms) ----------
+        //
+        //  Six questions, then a bank transfer and a photo of the receipt. Nothing
+        //  is activated here: the request lands in the Prast portal as "pending"
+        //  and only becomes a live subscription once she has confirmed the money
+        //  arrived and approved it.
+
+        let signupStep = 1;
+        let signupReceipt = null;   // { dataUrl, bytes } once an image is chosen
+
+        const SU_LAST = 6;          // the last question; step 7 is the thank-you
+
+        function plans() { return window.PORTAL_PLANS || {}; }
+
+        function openSignupModal(plan) {
+            document.getElementById('signupModal').classList.add('open');
+            lockScroll();
+            resetSignupForm();
+            if (plan && plans()[plan]) document.getElementById('suPlan').value = plan;
+            renderPlanPicker();
+        }
+        function closeSignupModal() {
+            document.getElementById('signupModal').classList.remove('open');
+            unlockScroll();
+        }
+        function resetSignupForm() {
+            signupStep = 1;
+            document.querySelectorAll('#signupModal .form-step').forEach((s, i) => s.classList.toggle('active', i === 0));
+            document.getElementById('signupProgress').style.visibility = 'visible';
+            ['suFarm', 'suName', 'suEmail', 'suPhone'].forEach(id => document.getElementById(id).value = '');
+            clearFieldErrors('signupModal');
+            clearSignupReceipt();
+            updateSignupProgress();
+        }
+        function updateSignupProgress() {
+            document.querySelectorAll('#signupProgress .progress-dot').forEach((dot, i) => {
+                dot.classList.remove('active', 'completed');
+                if (i + 1 === signupStep) dot.classList.add('active');
+                else if (i + 1 < signupStep) dot.classList.add('completed');
+            });
+            document.getElementById('signupStepCount').textContent =
+                signupStep <= SU_LAST ? `Step ${signupStep} of ${SU_LAST}` : '';
+        }
+
+        function renderPlanPicker() {
+            const chosen = document.getElementById('suPlan').value;
+            const box = document.getElementById('suPlanPicker');
+            const table = plans();
+            box.innerHTML = Object.keys(table).map(key => {
+                const p = table[key];
+                return `<button type="button" class="plan-option ${key === chosen ? 'selected' : ''}"
+                                data-plan="${key}">
+                          <span class="po-term">${p.label}<br>
+                            <span style="font-size:0.8rem;color:rgba(255,255,255,0.5);font-weight:400;">
+                              ${p.note || ''}</span></span>
+                          <span class="po-price">₦${p.amount.toLocaleString('en-NG')}</span>
+                        </button>`;
+            }).join('');
+            box.querySelectorAll('.plan-option').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.getElementById('suPlan').value = btn.dataset.plan;
+                    box.querySelectorAll('.plan-option').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                });
+            });
+        }
+
+        function renderPayBox() {
+            const p = plans()[document.getElementById('suPlan').value];
+            const pay = window.PORTAL_PAYMENT || {};
+            const box = document.getElementById('suPayBox');
+            if (!p) { box.innerHTML = ''; return; }
+
+            // Until the receiving account is filled in on firebase-config.js we
+            // ask them to call rather than showing an account that does not exist.
+            const account = pay.accountNumber
+                ? `<div class="pay-row"><span>Bank</span><span>${pay.bank || ''}</span></div>
+                   <div class="pay-row"><span>Account name</span><span>${pay.accountName || ''}</span></div>
+                   <div class="pay-row"><span>Account number</span><span style="letter-spacing:0.08em;">${pay.accountNumber}</span></div>`
+                : `<div class="pay-row" style="display:block;color:rgba(255,255,255,0.75);line-height:1.7;">
+                     Call or WhatsApp <a href="tel:${pay.phone || '+2348084219956'}"
+                       style="color:var(--accent-gold);">${pay.phone || '+234 808 421 9956'}</a>
+                     for the account to pay into, then come back and upload your receipt.
+                   </div>`;
+
+            box.innerHTML = `
+                <div class="pay-row" style="border-bottom:1px solid rgba(255,255,255,0.12);padding-bottom:12px;margin-bottom:8px;">
+                    <span>Your plan</span>
+                    <span>${p.label} — <span style="color:var(--accent-gold);">₦${p.amount.toLocaleString('en-NG')}</span></span>
+                </div>
+                ${account}`;
+        }
+
+        function nextSignupStep(step) {
+            const required = {
+                1: ['suFarm',  "Please tell us your farm's name."],
+                2: ['suName',  'Please tell us who will be using the portal.'],
+                3: ['suEmail', 'We need an email address — it becomes your login.'],
+                4: ['suPhone', 'We need a phone number in case we cannot reach you by email.'],
+            };
+            if (required[step]) {
+                const [id, msg] = required[step];
+                const input = document.getElementById(id);
+                if (!input.value.trim()) { flagField(input, msg); return; }
+                if (step === 3 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value.trim())) {
+                    flagField(input, "That does not look like an email address — check for a typo.");
+                    return;
+                }
+            }
+            if (step >= SU_LAST) return;
+
+            document.querySelector(`#signupModal .form-step[data-step="${step}"]`).classList.remove('active');
+            document.querySelector(`#signupModal .form-step[data-step="${step + 1}"]`).classList.add('active');
+            signupStep = step + 1;
+            updateSignupProgress();
+
+            if (signupStep === 5) renderPlanPicker();
+            if (signupStep === 6) renderPayBox();
+
+            const next = document.querySelector(`#signupModal .form-step[data-step="${signupStep}"] input:not([type="hidden"]):not([type="file"])`);
+            if (next) setTimeout(() => next.focus(), 100);
+        }
+        function prevSignupStep(step) {
+            if (step <= 1) return;
+            document.querySelector(`#signupModal .form-step[data-step="${step}"]`).classList.remove('active');
+            document.querySelector(`#signupModal .form-step[data-step="${step - 1}"]`).classList.add('active');
+            signupStep = step - 1;
+            updateSignupProgress();
+            if (signupStep === 5) renderPlanPicker();
+        }
+
+        function clearSignupReceipt() {
+            signupReceipt = null;
+            const input = document.getElementById('suReceipt');
+            if (input) input.value = '';
+            const wrap = document.getElementById('suReceiptWrap');
+            if (wrap) wrap.style.display = 'none';
+            const drop = document.getElementById('suDrop');
+            if (drop) drop.style.display = 'block';
+        }
+
+        document.getElementById('suReceipt').addEventListener('change', async (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            try {
+                // Shrunk in the browser: a phone photo is far too big for a
+                // Firestore document, and she only needs to read the amount.
+                signupReceipt = await window.shrinkReceipt(file);
+                document.getElementById('suReceiptPreview').src = signupReceipt.dataUrl;
+                document.getElementById('suReceiptWrap').style.display = 'block';
+                document.getElementById('suDrop').style.display = 'none';
+            } catch (err) {
+                alert('That file could not be read. Please choose a photo or screenshot.');
+                clearSignupReceipt();
+            }
+        });
+
+        async function submitSignup() {
+            const farmName    = document.getElementById('suFarm').value.trim();
+            const contactName = document.getElementById('suName').value.trim();
+            const email       = document.getElementById('suEmail').value.trim();
+            const phone       = document.getElementById('suPhone').value.trim();
+            const plan        = document.getElementById('suPlan').value;
+
+            if (!farmName || !contactName || !email || !phone) {
+                alert('Please fill in every question before submitting.');
+                return;
+            }
+            if (!signupReceipt) {
+                alert('Please upload your payment receipt so we can confirm it.');
+                return;
+            }
+
+            const btn = document.getElementById('suSubmit');
+            btn.disabled = true;
+            btn.textContent = 'Sending…';
+
+            // If the module never loaded we still fall through to email below
+            // rather than throwing in their face.
+            const sent = window.sendFarmSignup && await window.sendFarmSignup(
+                { farmName, contactName, email, phone, plan },
+                signupReceipt.dataUrl
+            );
+
+            btn.disabled = false;
+            btn.textContent = 'Submit for approval';
+
+            if (sent) {
+                document.querySelectorAll('#signupModal .form-step').forEach(x => x.classList.remove('active'));
+                document.querySelector('#signupModal .form-step[data-step="7"]').classList.add('active');
+                document.getElementById('signupProgress').style.visibility = 'hidden';
+                setTimeout(closeSignupModal, 6000);
+            } else {
+                // Never lose a paying customer to a bad connection.
+                const p = plans()[plan] || {};
+                const subject = `Prast Portal sign-up: ${farmName}`;
+                const body = `Farm: ${farmName}%0D%0AContact: ${contactName}%0D%0AEmail: ${email}` +
+                             `%0D%0APhone: ${phone}%0D%0APlan: ${p.label || plan} (₦${p.amount || ''})` +
+                             `%0D%0A%0D%0A(Please attach your payment receipt to this email.)`;
+                alert('We could not reach our server. Your email app will open instead — please attach your receipt there.');
+                window.location.href = `mailto:Contact@prastfarms.com?subject=${subject}&body=${body}`;
+            }
         }
 
         // Close on overlay click
         window.addEventListener('click', e => {
             if (e.target.classList.contains('modal-overlay')) {
                 closeContactModal();
-                closeApplyModal();
                 closeProductActionModal();
+                closeSignupModal();
             }
         });
 
         // Enter key
         document.addEventListener('keydown', e => {
             if (e.key === 'Enter') {
-                if (document.getElementById('applyModal').classList.contains('open')) {
-                    e.preventDefault();
-                    if (applyStep < 4) nextApplyStep(applyStep);
-                    else submitApplication();
-                }
                 if (document.getElementById('productActionModal').classList.contains('open')) {
                     e.preventDefault();
-                    if (productStep < 4) nextProductStep(productStep);
-                    else submitProductAction();
+                    if (productStep < 5) nextProductStep(productStep);
+                    else if (productStep === 5) submitProductAction();   // 6 is the thank-you
+                }
+                if (document.getElementById('signupModal').classList.contains('open')) {
+                    e.preventDefault();
+                    if (signupStep < SU_LAST) nextSignupStep(signupStep);
                 }
             }
+            if (e.key === 'Escape') {
+                // The open menu is the nearest thing to escape from.
+                if (navLinks.classList.contains('active')) { closeMobileMenu(); return; }
+                closeContactModal();
+                closeProductActionModal();
+                closeSignupModal();
+            }
         });
+
+        // ---------- Wayfinding ----------
+        //
+        //  The page is eight screens tall. Without these you cannot tell where
+        //  you are, and getting back to the top means a long swipe.
+
+        const backToTop = document.getElementById('backToTop');
+        backToTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+        // Which nav link is highlighted, and whether the top button shows.
+        const spySections = ['home', 'branches', 'products', 'portal', 'academy']
+            .map(id => document.getElementById(id)).filter(Boolean);
+        const spyProducts = ['pigs', 'poultry', 'turkey', 'eggs', 'plantain']
+            .map(id => document.getElementById(id)).filter(Boolean);
+
+        function markCurrent(els, links) {
+            // Whatever covers the middle of the screen is what you are looking at.
+            const mid = window.innerHeight / 2;
+            let best = null;
+            els.forEach(el => {
+                const r = el.getBoundingClientRect();
+                if (r.top <= mid && r.bottom >= mid) best = el.id;
+            });
+            links.forEach(a => a.classList.toggle('current',
+                !!best && a.getAttribute('href') === `#${best}`));
+        }
+
+        const navAnchors = [...document.querySelectorAll('.nav-links a[href^="#"]')];
+        const jumpAnchors = [...document.querySelectorAll('.product-jump a')];
+
+        let spyTicking = false;
+        function onScroll() {
+            if (spyTicking) return;
+            spyTicking = true;
+            requestAnimationFrame(() => {
+                markCurrent(spySections, navAnchors);
+                markCurrent(spyProducts, jumpAnchors);
+                backToTop.classList.toggle('show', window.scrollY > window.innerHeight * 0.9);
+                spyTicking = false;
+            });
+        }
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', onScroll, { passive: true });
 
         // Three.js
         const initThreeJS = () => {
@@ -1114,14 +1823,28 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             initThreeJS();
+            onScroll();
+
             const sections = document.querySelectorAll('.fade-in-section');
+            const reveal = () => sections.forEach(s => s.classList.add('is-visible'));
+
+            if (!('IntersectionObserver' in window)) { reveal(); return; }
+
             const observer = new IntersectionObserver(entries => {
                 entries.forEach(entry => {
-                    if (entry.isIntersecting) entry.target.classList.add('is-visible');
+                    // Once seen, stop watching — nothing should fade back out.
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('is-visible');
+                        observer.unobserve(entry.target);
+                    }
                 });
-            }, { threshold: 0.1 });
+            }, { threshold: 0, rootMargin: '0px 0px -12% 0px' });
             sections.forEach(section => observer.observe(section));
+
+            // Last resort: content must never stay invisible.
+            setTimeout(reveal, 4000);
         });
     </script>
+    <script type="module" src="assets/js/inquiry.js"></script>
 </body>
 </html>

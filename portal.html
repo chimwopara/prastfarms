@@ -198,6 +198,22 @@
         .revGrid { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin-top:13px; }
         .revGrid.two { grid-template-columns:repeat(2,1fr); }
         .revCrumb { font-size:11px; color:#7ee2a4; margin-top:11px; }
+        /* Which account a transaction came from — the same money can look very
+           different depending on whether it is the business or a personal one. */
+        /* Section headings on the home screen — she should never have to hunt
+           for where she is on the page. */
+        .sectionTitle {
+            font-family:'Playfair Display', serif;
+            font-size:26px; font-weight:700; letter-spacing:-.01em;
+            color:#f4f1ea; margin:0;
+        }
+        @media (max-width:360px) { .sectionTitle { font-size:23px; } }
+
+        .bankTag {
+            display:inline-block; margin-left:6px; padding:2px 7px; border-radius:999px;
+            font-size:9px; font-weight:700; letter-spacing:.05em; vertical-align:1px;
+            background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); color:#9fb3a6;
+        }
         @media (max-width:340px) { .actTile span { font-size:8.5px; } }
         .fLbl { display:block; font-size:11px; color:#9fb3a6; margin:0 0 5px; }
         .fIn  { width:100%; padding:13px; box-sizing:border-box; margin-bottom:12px; }
@@ -236,6 +252,7 @@
 
     <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px;">
         <input type="email" id="lEmail" class="input" autocomplete="username" placeholder="Email"
+               value="stellawopara77@gmail.com"
                style="width:100%;padding:16px;box-sizing:border-box;">
         <input type="password" id="lPass" class="input" autocomplete="current-password" placeholder="Password"
                style="width:100%;padding:16px;box-sizing:border-box;">
@@ -282,6 +299,10 @@
             <button id="homeBtn" class="btn btn-plain hide" style="padding:11px 16px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;">
                 <i class="fas fa-chevron-left"></i><span class="btnLabel" style="margin-left:6px;">Dashboard</span>
             </button>
+            <button id="signOutBtn" class="btn btn-plain hide" title="Sign out"
+                    style="padding:11px 13px;font-size:12px;">
+                <i class="fas fa-right-from-bracket"></i>
+            </button>
             <button id="exportBtn" class="btn btn-plain" title="Export a spreadsheet"
                     style="padding:11px 14px;font-size:12px;letter-spacing:.06em;white-space:nowrap;">
                 <i class="fas fa-download"></i><span class="btnLabel" style="margin-left:6px;">Export</span>
@@ -294,9 +315,7 @@
 
         <!-- Overview -->
         <section class="card" style="padding:20px;margin-bottom:16px;">
-            <div style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7ee2a4;margin-bottom:16px;">
-                Overview
-            </div>
+            <h2 class="sectionTitle" style="margin-bottom:16px;">Overview</h2>
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px 16px;margin-bottom:16px;">
                 <div>
@@ -336,11 +355,33 @@
             <button id="helpTile"    class="actTile"><i class="fas fa-circle-question"></i><span>Help</span></button>
         </div>
 
-        <!-- Investments -->
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
-            <div style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7ee2a4;">
-                Investments
+        <!-- Farms that have paid to use this software and are waiting on her -->
+        <div id="farmAsks" class="hide" style="margin-bottom:22px;">
+            <div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:10px;">
+                <i class="fas fa-building-columns" style="margin-right:7px;"></i>Farms waiting to be approved
             </div>
+            <div id="farmAskList" style="display:flex;flex-direction:column;gap:10px;"></div>
+        </div>
+
+        <!-- People applying to work here, or for a place at the academy -->
+        <div id="jobAsks" class="hide" style="margin-bottom:22px;">
+            <div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:10px;">
+                <i class="fas fa-briefcase" style="margin-right:7px;"></i>New applications
+            </div>
+            <div id="jobAskList" style="display:flex;flex-direction:column;gap:10px;"></div>
+        </div>
+
+        <!-- Investments -->
+        <!-- People asking to invest, straight from the website -->
+        <div id="investAsks" class="hide" style="margin-bottom:18px;">
+            <div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:10px;">
+                <i class="fas fa-bell" style="margin-right:7px;"></i>New investment requests
+            </div>
+            <div id="investAskList" style="display:flex;flex-direction:column;gap:10px;"></div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+            <h2 class="sectionTitle">Investments</h2>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
                 <span id="cOver" class="pill p-over hide"></span>
                 <span id="cSoon" class="pill p-soon hide"></span>
@@ -356,16 +397,31 @@
 
         <!-- ---------- MONEY / BOOKKEEPING ---------- -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin:30px 0 12px;">
-            <div style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7ee2a4;">
-                Money in &amp; out
-            </div>
+            <h2 class="sectionTitle">Transactions</h2>
             <span id="txnCount" style="font-size:10px;color:#6d7f74;"></span>
         </div>
 
         <input type="file" id="stmtInput" accept="application/pdf,image/*" class="hide">
 
+        <!-- People asking to buy produce -->
+        <div id="buyAsks" class="hide" style="margin-bottom:16px;">
+            <div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:10px;">
+                <i class="fas fa-bell" style="margin-right:7px;"></i>New purchase requests
+            </div>
+            <div id="buyAskList" style="display:flex;flex-direction:column;gap:10px;"></div>
+        </div>
+
+        <div id="moneyBanks" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px;"></div>
         <div id="moneySummary" style="display:flex;flex-direction:column;gap:9px;"></div>
 
+        <!-- ---------- FARMS SUBSCRIBED TO THE PORTAL ---------- -->
+        <div id="farmSubs" class="hide">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin:30px 0 12px;">
+                <h2 class="sectionTitle">Farms using the portal</h2>
+                <span id="farmSubCount" style="font-size:10px;color:#6d7f74;"></span>
+            </div>
+            <div id="farmSubList" style="display:flex;flex-direction:column;gap:9px;"></div>
+        </div>
 
     </main>
 
@@ -631,11 +687,14 @@
         </button>
     </div>
 
-    <div style="display:flex;gap:7px;margin-bottom:14px;">
+    <div style="display:flex;gap:7px;margin-bottom:10px;">
         <button class="btn btn-plain segBtn revDir on" data-d="">Everything</button>
         <button class="btn btn-plain segBtn revDir" data-d="in">Money in</button>
         <button class="btn btn-plain segBtn revDir" data-d="out">Money out</button>
     </div>
+
+    <input id="revSearch" class="input" placeholder="Search a name or an amount…"
+           style="width:100%;padding:13px 15px;margin-bottom:14px;box-sizing:border-box;">
 
     <div id="revFeed" style="display:flex;flex-direction:column;gap:11px;"></div>
 
@@ -817,6 +876,72 @@
     </div>
 </div>
 
+<!-- ============ FARM SIGN-UP — check the receipt, then approve ============ -->
+<div id="farmSheet" class="sheet-wrap hide">
+    <div class="sheet">
+        <div class="grab"></div>
+
+        <div style="text-align:center;margin-bottom:14px;">
+            <div id="fsName" style="font-size:21px;font-weight:700;"></div>
+            <div id="fsMeta" style="font-size:12px;color:#9fb3a6;margin-top:4px;"></div>
+        </div>
+
+        <div style="background:rgba(0,0,0,.28);border-radius:16px;padding:16px;margin-bottom:16px;
+                    display:grid;grid-template-columns:1fr 1fr;gap:14px;text-align:center;">
+            <div>
+                <div style="font-size:10px;color:#9fb3a6;text-transform:uppercase;letter-spacing:.1em;">They paid</div>
+                <div id="fsAmount" style="font-size:18px;font-weight:700;color:var(--gold);margin-top:3px;"></div>
+            </div>
+            <div>
+                <div style="font-size:10px;color:#9fb3a6;text-transform:uppercase;letter-spacing:.1em;">Access for</div>
+                <div id="fsPlan" style="font-size:18px;font-weight:700;margin-top:3px;"></div>
+            </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:14px;margin-bottom:16px;">
+            <a id="fsPhone" href="#" style="color:#7ee2a4;text-decoration:none;">
+                <i class="fas fa-phone" style="margin-right:8px;width:16px;"></i><span></span></a>
+            <a id="fsEmail" href="#" style="color:#7ee2a4;text-decoration:none;word-break:break-all;">
+                <i class="fas fa-envelope" style="margin-right:8px;width:16px;"></i><span></span></a>
+        </div>
+
+        <div style="font-size:11px;color:#9fb3a6;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">
+            Their payment receipt
+        </div>
+        <div id="fsReceiptBox" style="background:rgba(0,0,0,.28);border-radius:16px;padding:12px;
+                                      margin-bottom:18px;text-align:center;min-height:80px;
+                                      display:flex;align-items:center;justify-content:center;">
+            <span class="spin"></span>
+        </div>
+
+        <div id="fsPendingActions" style="display:flex;flex-direction:column;gap:10px;">
+            <div style="font-size:12px;color:#9fb3a6;line-height:1.6;text-align:center;margin-bottom:2px;">
+                Check the money is actually in the account before you approve.
+            </div>
+            <button id="fsApprove" class="btn btn-green tap" style="width:100%;padding:17px;font-size:15px;">
+                <i class="fas fa-circle-check" style="margin-right:8px;"></i>Payment confirmed — approve
+            </button>
+            <button id="fsDecline" class="btn btn-red" style="width:100%;padding:15px;font-size:13px;">
+                <i class="fas fa-circle-xmark" style="margin-right:7px;"></i>Turn down
+            </button>
+        </div>
+
+        <div id="fsLiveActions" class="hide" style="display:flex;flex-direction:column;gap:10px;">
+            <div id="fsExpiry" style="font-size:13px;color:#9fb3a6;line-height:1.6;text-align:center;"></div>
+            <button id="fsEmailBtn" class="btn btn-gold tap" style="width:100%;padding:16px;font-size:14px;">
+                <i class="fas fa-paper-plane" style="margin-right:8px;"></i>Email them their login
+            </button>
+            <button id="fsDelete" class="btn btn-plain" style="width:100%;padding:14px;font-size:12px;">
+                <i class="fas fa-trash" style="margin-right:6px;"></i>Remove
+            </button>
+        </div>
+
+        <button id="fsClose" class="btn btn-plain" style="width:100%;padding:14px;font-size:13px;margin-top:10px;">
+            Close
+        </button>
+    </div>
+</div>
+
 <!-- ================= TOAST ================= -->
 <div id="toast" class="hide" style="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
      z-index:400;padding:15px 24px;border-radius:99px;font-size:14px;font-weight:700;
@@ -839,10 +964,13 @@ import {
     operatingSummary, lastMonths, kindOf,
     fetchUnsorted, countUnsorted, fileTransaction, categoriesFor, UNSORTED_CATEGORIES,
     invalidateUnsorted, nudgeUnsorted, matchPayee,
+    listenInquiries, setInquiryStatus, deleteInquiry, INQUIRY_KINDS, APPLICATION_KINDS,
+    listenLicenses, getLicenseReceipt, approveLicense, declineLicense,
+    deleteLicense, licenseDaysLeft, PORTAL_PLANS,
 } from './assets/js/db.js';
 import {
     isAssistantConfigured, askAssistant, missingFields, withDerivedDueDate,
-    REQUIRED_FIELDS, FIELD_LABELS,
+    REQUIRED_FIELDS, FIELD_LABELS, friendlyError,
 } from './assets/js/assistant.js';
 import { shareDocument } from './assets/js/document.js';
 import { termMonthsFor, expectedPayout } from './assets/js/agreement.js';
@@ -857,6 +985,9 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
 
 // ---------- state ----------
 let records = [];
+// Set once sign-in completes. Used to tell "the database said no because she is
+// not signed in" apart from a genuine permissions fault — see start().
+let signedIn = false;
 let showAllRecords = false;   // the list previews three until she asks for more
 let showAllMoney = false;
 let unsub = null;
@@ -897,8 +1028,10 @@ function boot() {
  */
 async function initAuth() {
     $('login').classList.remove('hide');
+    setTimeout(() => $('lPass').focus(), 120);
 
-    const [{ getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut },
+    const [{ getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
+             setPersistence, browserLocalPersistence },
            { initializeApp, getApps }] = await Promise.all([
         import('https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js'),
         import('https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js'),
@@ -907,12 +1040,24 @@ async function initAuth() {
     const app = getApps()[0] || initializeApp(firebaseConfig);
     const auth = getAuth(app);
 
+    // Stay signed in across closing the tab or the phone — she should not have
+    // to type a password every time she opens the app.
+    try { await setPersistence(auth, browserLocalPersistence); } catch { /* private mode */ }
+
     onAuthStateChanged(auth, (user) => {
-        if (user) { $('login').classList.add('hide'); start(); }
-        else {
+        if (user) {
+            signedIn = true;
+            $('login').classList.add('hide');
+            $('signOutBtn').classList.remove('hide');
+            $('lPass').value = '';                 // never leave it sitting there
+            start();
+        } else {
+            signedIn = false;
             if (unsub) { unsub(); unsub = null; }
+            $('signOutBtn').classList.add('hide');
             $('app').classList.add('hide');
             $('login').classList.remove('hide');
+            setTimeout(() => $('lPass').focus(), 80);   // email is already filled
         }
     });
 
@@ -923,13 +1068,35 @@ async function initAuth() {
         $('lBtn').disabled = true;
         $('lBtn').innerHTML = '<span class="spin"></span>';
         try { await signInWithEmailAndPassword(auth, email, pass); }
-        catch { toast('Wrong email or password', true); }
+        catch (err) {
+            // "Wrong password" was being shown for faults that have nothing to
+            // do with the password — she would retype it forever on a device
+            // that could never have signed in.
+            const code = err?.code || '';
+            toast(
+                code === 'auth/unauthorized-domain'
+                    ? `This web address is not approved yet (${location.hostname}). Open the portal from prastfarms.com.`
+              : code === 'auth/network-request-failed'
+                    ? 'No internet connection.'
+              : code === 'auth/too-many-requests'
+                    ? 'Too many tries. Wait a minute, or use "I forgot my password".'
+              : 'Wrong email or password',
+                true,
+            );
+        }
         finally { $('lBtn').disabled = false; $('lBtn').textContent = 'Sign in'; }
     };
 
     $('lBtn').addEventListener('click', signIn);
     $('lPass').addEventListener('keyup', (e) => { if (e.key === 'Enter') signIn(); });
-    window.__signOut = () => signOut(auth);
+    $('signOutBtn').addEventListener('click', async () => {
+        try {
+            await signOut(auth);
+            // Cached figures belong to the session that just ended.
+            try { sessionStorage.clear(); } catch {}
+            toast('Signed out');
+        } catch (err) { toast(friendlyError(err), true); }
+    });
 
     // ---- forgot password ----
     //  Firebase sends the reset link to the account's own address, so the email
@@ -966,6 +1133,9 @@ async function start() {
     syncHeaderVar();
     await loadSettings();
 
+    watchInquiries();
+    watchLicenses();
+
     if (unsubTxn) unsubTxn();
     unsubTxn = listenTransactions(
         (rows) => { transactions = rows; renderMoney(); },
@@ -977,8 +1147,21 @@ async function start() {
         (rows) => { records = rows; renderOverview(); renderList(); },
         (err) => {
             $('connState').textContent = 'offline';
+
+            // The database only refuses a signed-in user if something is
+            // genuinely misconfigured. If nobody is signed in, this is an old
+            // copy of the page left in the browser's cache from before sign-in
+            // was switched on — so send her to the login screen instead of
+            // leaving her staring at an empty dashboard.
+            if (err.code === 'permission-denied' && !signedIn && !DEV_MODE) {
+                $('app').classList.add('hide');
+                $('login').classList.remove('hide');
+                toast('Please sign in to see your records.', true);
+                return;
+            }
             toast(err.code === 'permission-denied'
-                ? 'No access to the database.' : 'Cannot reach the database.', true);
+                ? 'No access to the database. Please sign in again.'
+                : 'Cannot reach the database.', true);
         }
     );
 }
@@ -1577,6 +1760,18 @@ function renderMoney() {
     $('txnCount').textContent = transactions.length ? `${transactions.length} recorded` : '';
     renderLifetime();
     refreshUnsortedBadge();
+    // A per-bank line, so she can see which account the money actually moved in.
+    const byBank = {};
+    transactions.forEach(t => {
+        const k = `${t.bank || '?'}${t.account && t.account !== 'PRAST FARM' ? ' ' + t.account : ''}`;
+        const b = byBank[k] || (byBank[k] = { in: 0, out: 0, n: 0 });
+        b[t.direction] += Number(t.amount) || 0; b.n++;
+    });
+    const bankRow = Object.entries(byBank).sort((a, b) => (b[1].in + b[1].out) - (a[1].in + a[1].out))
+        .map(([k, v]) => `<span class="bankTag" style="font-size:9.5px;">${esc(k)} · +${esc(naira(v.in))} / −${esc(naira(v.out))}</span>`)
+        .join(' ');
+    $('moneyBanks').innerHTML = bankRow;
+
     const allRows = summariseByCategory(transactions);
     const rows = showAllMoney ? allRows : allRows.slice(0, 3);
 
@@ -2859,6 +3054,7 @@ $('reviewBtn').addEventListener('click', async () => {
         revQueue = await fetchUnsorted(30);
         revPage = 1;
         revChoice = {};
+        $('revSearch').value = '';
         renderFeed();
     } catch (err) { toast(friendlyError(err), true); showDash(); }
 });
@@ -2870,6 +3066,8 @@ document.addEventListener('click', (e) => {
     document.querySelectorAll('.revDir').forEach(x => x.classList.toggle('on', x === b));
     renderFeed();
 });
+
+$('revSearch').addEventListener('input', renderFeed);
 
 $('revMore').addEventListener('click', async () => {
     const btn = $('revMore'); btn.disabled = true; btn.textContent = 'Loading…';
@@ -2912,7 +3110,23 @@ function optionsHTML(list, level, id) {
 }
 
 function renderFeed() {
-    const inScope = revDir ? revQueue.filter(t => t.direction === revDir) : revQueue;
+    let inScope = revDir ? revQueue.filter(t => t.direction === revDir) : revQueue;
+
+    // One box for both: letters search the name and narration, digits search
+    // the amount, so she never has to think about which kind of search it is.
+    const term = ($('revSearch').value || '').trim().toLowerCase();
+    if (term) {
+        const digits = term.replace(/[^0-9]/g, '');
+        inScope = inScope.filter(t => {
+            const hay = `${nameOf(t)} ${t.description || ''} ${t.bank || ''}`.toLowerCase();
+            if (hay.includes(term)) return true;
+            if (digits.length >= 2) {
+                const amt = String(Math.round(Number(t.amount) || 0));
+                if (amt.includes(digits)) return true;
+            }
+            return false;
+        });
+    }
     const pending = inScope.filter(t => !revChoice[t.id]?.done);
     const what = revDir === 'in' ? 'money in' : revDir === 'out' ? 'money out' : 'biggest first';
     $('revProgress').textContent = pending.length
@@ -2929,7 +3143,7 @@ function renderFeed() {
             return `<div class="card revRow done" style="display:flex;align-items:center;gap:10px;">
                 <i class="fas fa-check" style="color:#7ee2a4;"></i>
                 <span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                  ${esc(nameOf(t))}</span>
+                  ${esc(nameOf(t))}${t.bank ? ` <span class="bankTag">${esc(t.bank)}</span>` : ''}</span>
                 <span style="font-size:12px;color:#9fb3a6;">${esc(ch.label)}</span>
                 <button class="revRedo" data-id="${esc(t.id)}"
                         style="background:none;border:none;color:#7ee2a4;font-family:inherit;
@@ -2962,7 +3176,10 @@ function renderFeed() {
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
               <div style="min-width:0;">
                 <div style="font-size:15px;font-weight:700;">${esc(nameOf(t))}</div>
-                <div style="font-size:11px;color:#9fb3a6;margin-top:3px;">${esc(prettyDate(t.date))}</div>
+                <div style="font-size:11px;color:#9fb3a6;margin-top:3px;">
+                  ${esc(prettyDate(t.date))}
+                  ${t.bank ? `<span class="bankTag">${esc(t.bank)}${t.account && t.account !== 'PRAST FARM' ? ' ' + esc(t.account) : ''}</span>` : ''}
+                </div>
               </div>
               <div style="text-align:right;flex-shrink:0;">
                 <div style="font-size:17px;font-weight:700;color:${inn ? '#7ee2a4' : 'var(--gold)'};">
@@ -3085,9 +3302,339 @@ $('proofInput').addEventListener('change', async (e) => {
     finally { btn.disabled = false; label.textContent = 'Add proof you paid them'; }
 });
 
+
+// ================= ENQUIRIES FROM THE WEBSITE =================
+//
+//  Someone fills the form on prastfarms.com and it lands here, in the section
+//  it belongs to: people wanting to invest sit above the investments, people
+//  wanting to buy sit with the money. Approving an investor opens the form
+//  with their details already in it.
+
+let inquiries = [];
+let unsubInq = null;
+
+function watchInquiries() {
+    if (unsubInq) unsubInq();
+    unsubInq = listenInquiries(
+        (rows) => { inquiries = rows; renderInquiries(); },
+        () => {}
+    );
+}
+
+function inquiryCard(q) {
+    const kind = INQUIRY_KINDS[q.kind] || INQUIRY_KINDS.buy;
+    const when = q.createdAt?.seconds
+        ? prettyDate(new Date(q.createdAt.seconds * 1000).toISOString().slice(0, 10))
+        : 'just now';
+    return `
+    <div class="card" style="padding:15px;border-color:rgba(212,175,55,.35);">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+        <div style="min-width:0;">
+          <div style="font-size:16px;font-weight:700;">${esc(q.name || 'No name')}</div>
+          <div style="font-size:12px;color:#9fb3a6;margin-top:3px;">
+            <i class="fas fa-${esc(kind.icon)}" style="margin-right:5px;"></i>${esc(kind.label)}
+            ${q.product ? ' · ' + esc(q.product) : ''}
+          </div>
+        </div>
+        ${q.amount ? `<div style="text-align:right;flex-shrink:0;">
+            <div style="font-size:16px;font-weight:700;color:var(--gold);">${esc(naira(q.amount))}</div>
+            <div style="font-size:9px;color:#6d7f74;text-transform:uppercase;letter-spacing:.1em;">wants to invest</div>
+          </div>` : ''}
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:11px;font-size:12px;color:#9fb3a6;">
+        ${q.phone ? `<a href="tel:${esc(q.phone)}" style="color:#7ee2a4;text-decoration:none;">
+            <i class="fas fa-phone" style="margin-right:5px;"></i>${esc(q.phone)}</a>` : ''}
+        ${q.email ? `<a href="mailto:${esc(q.email)}" style="color:#7ee2a4;text-decoration:none;word-break:break-all;">
+            <i class="fas fa-envelope" style="margin-right:5px;"></i>${esc(q.email)}</a>` : ''}
+        ${q.address ? `<span><i class="fas fa-location-dot" style="margin-right:5px;"></i>${esc(q.address)}</span>` : ''}
+        <span style="color:#6d7f74;">${esc(when)}</span>
+      </div>
+      ${q.details ? `<div style="font-size:12px;color:#9fb3a6;margin-top:9px;line-height:1.5;">${esc(q.details)}</div>` : ''}
+
+      <div style="display:flex;gap:9px;margin-top:13px;">
+        <button class="btn btn-green tap inqOk" data-id="${esc(q.id)}" style="flex:1;padding:13px;font-size:13px;">
+          ${q.kind === 'invest' ? 'Approve &amp; add'
+            : APPLICATION_KINDS.includes(q.kind) ? 'Mark as handled' : 'Mark as done'}
+        </button>
+        <button class="btn btn-plain inqNo" data-id="${esc(q.id)}" style="padding:13px 15px;font-size:13px;">
+          Dismiss
+        </button>
+      </div>
+    </div>`;
+}
+
+function renderInquiries() {
+    const open = inquiries.filter(q => (q.status || 'new') === 'new');
+    // Three different jobs, so three different places: money in, produce out,
+    // and people wanting to join. Applications used to sit under "purchase
+    // requests", which read as though someone wanted to buy a job.
+    const invest = open.filter(q => q.kind === 'invest');
+    const apps   = open.filter(q => APPLICATION_KINDS.includes(q.kind));
+    const buy    = open.filter(q => q.kind !== 'invest' && !APPLICATION_KINDS.includes(q.kind));
+
+    $('investAsks').classList.toggle('hide', invest.length === 0);
+    $('investAskList').innerHTML = invest.map(inquiryCard).join('');
+
+    $('jobAsks').classList.toggle('hide', apps.length === 0);
+    $('jobAskList').innerHTML = apps.map(inquiryCard).join('');
+
+    $('buyAsks').classList.toggle('hide', buy.length === 0);
+    $('buyAskList').innerHTML = buy.map(inquiryCard).join('');
+}
+
+document.addEventListener('click', async (e) => {
+    const ok = e.target.closest('.inqOk'), no = e.target.closest('.inqNo');
+    if (!ok && !no) return;
+    const id = (ok || no).dataset.id;
+    const q = inquiries.find(x => x.id === id);
+    if (!q) return;
+
+    if (no) {
+        try { await setInquiryStatus(id, 'declined'); toast('Dismissed'); }
+        catch (err) { toast(friendlyError(err), true); }
+        return;
+    }
+
+    if (q.kind === 'invest') {
+        // Hand their details straight to the form rather than making her retype.
+        try { await setInquiryStatus(id, 'approved'); } catch {}
+        startChat('new');
+        showChoices(false);
+        bubble(`Approved ${q.name}'s request`, 'me');
+
+        const parts = String(q.name || '').trim().split(/\s+/);
+        formType = 'Farm Investment';
+        document.querySelectorAll('.fType').forEach(x => x.classList.toggle('on', x.dataset.t === formType));
+        $('fFirst').value = parts[0] || '';
+        $('fLast').value  = parts.slice(1).join(' ') || '';
+        $('fAmount').value = q.amount || '';
+        $('fStart').value = todayISO();
+        $('fPayout').dataset.touched = ''; $('fDue').dataset.touched = '';
+        recalcForm();
+        $('formPanel').classList.remove('hide');
+        showComposer(false);
+        bubble(`Their details are filled in${q.phone ? ` — phone ${q.phone}` : ''}. Check the amount and date, then Save.`, 'ai');
+    } else {
+        try { await setInquiryStatus(id, 'approved'); toast('Marked as done'); }
+        catch (err) { toast(friendlyError(err), true); }
+    }
+});
+
+// ================= FARMS SUBSCRIBING TO THE PORTAL =================
+//
+//  Another farm pays for access on the website and uploads the transfer
+//  receipt. It arrives here as "pending" — never as access. She opens it,
+//  looks at the receipt against her own account, and approves. Approving is
+//  the only thing that sets a start date and works out when it runs out.
+
+let licenses = [];
+let unsubLic = null;
+let fsLicense = null;        // the sign-up currently open in the sheet
+
+function watchLicenses() {
+    if (unsubLic) unsubLic();
+    unsubLic = listenLicenses(
+        (rows) => { licenses = rows; renderLicenses(); },
+        () => {}
+    );
+}
+
+function planLabel(l) {
+    return PORTAL_PLANS[l.plan]?.label || `${l.years || 1} year${(l.years || 1) === 1 ? '' : 's'}`;
+}
+
+function pendingCard(l) {
+    const when = l.createdAt?.seconds
+        ? prettyDate(new Date(l.createdAt.seconds * 1000).toISOString().slice(0, 10))
+        : 'just now';
+    return `
+    <div class="card farmOpen tap" data-id="${esc(l.id)}"
+         style="padding:15px;border-color:rgba(212,175,55,.35);cursor:pointer;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+        <div style="min-width:0;">
+          <div style="font-size:16px;font-weight:700;">${esc(l.farmName || 'A farm')}</div>
+          <div style="font-size:12px;color:#9fb3a6;margin-top:3px;">
+            ${esc(l.contactName || '')} · ${esc(planLabel(l))} · ${esc(when)}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:16px;font-weight:700;color:var(--gold);">${esc(naira(l.amount || 0))}</div>
+          <div style="font-size:9px;color:#6d7f74;text-transform:uppercase;letter-spacing:.1em;">paid</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:13px;color:#7ee2a4;font-weight:600;">
+        <i class="fas fa-receipt" style="margin-right:6px;"></i>Check their receipt →
+      </div>
+    </div>`;
+}
+
+function liveRow(l) {
+    const left = licenseDaysLeft(l);
+    const lapsed = left !== null && left < 0;
+    const soon = left !== null && left >= 0 && left <= 30;
+    const colour = lapsed ? '#fca5a5' : soon ? 'var(--gold)' : '#9fb3a6';
+    const note = left === null ? ''
+        : lapsed ? `ran out ${Math.abs(left)} days ago`
+        : soon ? `${left} days left`
+        : `until ${prettyDate(l.expiresAt)}`;
+    return `
+    <div class="card farmOpen tap" data-id="${esc(l.id)}"
+         style="padding:13px 15px;cursor:pointer;display:flex;align-items:center;
+                justify-content:space-between;gap:12px;">
+      <div style="min-width:0;">
+        <div style="font-size:14px;font-weight:700;">${esc(l.farmName || 'A farm')}</div>
+        <div style="font-size:11px;color:#6d7f74;margin-top:2px;">${esc(l.email || '')}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;font-size:11px;color:${colour};">${esc(note)}</div>
+    </div>`;
+}
+
+function renderLicenses() {
+    const pending = licenses.filter(l => (l.status || 'pending') === 'pending');
+    const live    = licenses.filter(l => l.status === 'active');
+
+    $('farmAsks').classList.toggle('hide', pending.length === 0);
+    $('farmAskList').innerHTML = pending.map(pendingCard).join('');
+
+    $('farmSubs').classList.toggle('hide', live.length === 0);
+    $('farmSubList').innerHTML = live.map(liveRow).join('');
+    $('farmSubCount').textContent = live.length
+        ? `${live.length} farm${live.length === 1 ? '' : 's'}` : '';
+
+    // Keep an open sheet in step with what just changed underneath it.
+    if (fsLicense) {
+        const fresh = licenses.find(l => l.id === fsLicense.id);
+        if (!fresh) closeFarmSheet();
+        else if (fresh.status !== fsLicense.status) { fsLicense = fresh; paintFarmSheet(); }
+    }
+}
+
+async function openFarmSheet(id) {
+    fsLicense = licenses.find(l => l.id === id);
+    if (!fsLicense) return;
+    paintFarmSheet();
+    $('farmSheet').classList.remove('hide');
+
+    // The receipt photo is fetched only now, so the dashboard never carries it.
+    $('fsReceiptBox').innerHTML = '<span class="spin"></span>';
+    try {
+        const r = await getLicenseReceipt(id);
+        $('fsReceiptBox').innerHTML = r?.image
+            ? `<img src="${esc(r.image)}" alt="Payment receipt"
+                    style="max-width:100%;border-radius:10px;display:block;">`
+            : '<span style="font-size:13px;color:#9fb3a6;">No receipt was uploaded.</span>';
+    } catch {
+        $('fsReceiptBox').innerHTML =
+            '<span style="font-size:13px;color:#fca5a5;">Could not load the receipt.</span>';
+    }
+}
+
+function paintFarmSheet() {
+    const l = fsLicense;
+    if (!l) return;
+    const live = l.status === 'active';
+
+    $('fsName').textContent = l.farmName || 'A farm';
+    $('fsMeta').textContent = live
+        ? `${l.contactName || ''} · active since ${prettyDate(l.startsAt) || '—'}`
+        : `${l.contactName || ''} · waiting for your approval`;
+    $('fsAmount').textContent = naira(l.amount || 0);
+    $('fsPlan').textContent = planLabel(l);
+
+    const phone = $('fsPhone'), email = $('fsEmail');
+    phone.href = `tel:${l.phone || ''}`;
+    phone.querySelector('span').textContent = l.phone || '—';
+    email.href = `mailto:${l.email || ''}`;
+    email.querySelector('span').textContent = l.email || '—';
+
+    $('fsPendingActions').classList.toggle('hide', live);
+    $('fsLiveActions').classList.toggle('hide', !live);
+
+    if (live) {
+        const left = licenseDaysLeft(l);
+        $('fsExpiry').textContent = left === null
+            ? 'No expiry date set.'
+            : left < 0
+                ? `Their access ran out on ${prettyDate(l.expiresAt)}.`
+                : `Their access runs until ${prettyDate(l.expiresAt)} — ${left} days left.`;
+    }
+}
+
+function closeFarmSheet() {
+    $('farmSheet').classList.add('hide');
+    fsLicense = null;
+}
+
+document.addEventListener('click', (e) => {
+    const card = e.target.closest('.farmOpen');
+    if (card) openFarmSheet(card.dataset.id);
+});
+
+$('fsClose').addEventListener('click', closeFarmSheet);
+$('farmSheet').addEventListener('click', (e) => { if (e.target.id === 'farmSheet') closeFarmSheet(); });
+
+$('fsApprove').addEventListener('click', async () => {
+    if (!fsLicense) return;
+    const btn = $('fsApprove');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span>';
+    try {
+        await approveLicense(fsLicense);
+        toast(`${fsLicense.farmName} approved`);
+    } catch (err) {
+        toast(friendlyError(err), true);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-circle-check" style="margin-right:8px;"></i>Payment confirmed — approve';
+    }
+});
+
+$('fsDecline').addEventListener('click', async () => {
+    if (!fsLicense) return;
+    const l = fsLicense;
+    try {
+        await declineLicense(l.id);
+        toast('Turned down');
+        closeFarmSheet();
+    } catch (err) { toast(friendlyError(err), true); }
+});
+
+$('fsDelete').addEventListener('click', async () => {
+    if (!fsLicense) return;
+    const l = fsLicense;
+    try {
+        await deleteLicense(l.id);
+        toast('Removed');
+        closeFarmSheet();
+    } catch (err) { toast(friendlyError(err), true); }
+});
+
+//  Approving records the sale; this is how she actually hands over the keys.
+//  The account itself is created in Firebase once, then this email tells them
+//  where to sign in.
+$('fsEmailBtn').addEventListener('click', () => {
+    const l = fsLicense;
+    if (!l) return;
+    const url = `${location.origin}${location.pathname}`;
+    const subject = `Your Prast Portal access is ready`;
+    const body =
+        `Hello ${l.contactName || ''},\n\n` +
+        `Your payment for ${planLabel(l)} of Prast Portal has been confirmed. ` +
+        `Your access runs until ${prettyDate(l.expiresAt) || ''}.\n\n` +
+        `Sign in here: ${url}\n` +
+        `Your username is this email address: ${l.email || ''}\n\n` +
+        `Tap "I forgot my password" on the sign-in screen to choose your own password.\n\n` +
+        `Prast Farms\n${location.origin}`;
+    window.location.href =
+        `mailto:${encodeURIComponent(l.email || '')}` +
+        `?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+});
+
 document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (!$('helpPanel').classList.contains('hide')) { $('helpPanel').classList.add('hide'); return; }
+    if (!$('farmSheet').classList.contains('hide')) { closeFarmSheet(); return; }
     if (!$('confirm').classList.contains('hide')) $('confirm').classList.add('hide');
     else if (!$('sheet').classList.contains('hide')) closeSheet();
 });

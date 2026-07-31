@@ -29,7 +29,7 @@ import {
   count as fsCount,
 } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
-import { firebaseConfig, RECORDS_COLLECTION } from "./firebase-config.js";
+import { firebaseConfig, RECORDS_COLLECTION, PORTAL_PLANS } from "./firebase-config.js";
 import { DEFAULTS } from "./agreement.js";
 
 // --- Init --------------------------------------------------------------------
@@ -1443,4 +1443,102 @@ export async function applyRuleToUnsorted(payee, direction, category, max = 300)
   await batch.commit();
   nudgeUnsorted(-hits.length, -hits.reduce((a, t) => a + (Number(t.amount) || 0), 0));
   return hits.length;
+}
+
+// =============================================================================
+//  ENQUIRIES from the public website
+// =============================================================================
+
+const INQUIRY_COLLECTION = "inquiries";
+
+/** Live feed of everything not yet dealt with, newest first. */
+export function listenInquiries(onChange, onError) {
+  const q = query(collection(db, INQUIRY_COLLECTION), orderBy("createdAt", "desc"), fsLimit(100));
+  return onSnapshot(
+    q,
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => { console.error("[Prast] inquiries listener failed:", err); if (onError) onError(err); }
+  );
+}
+
+export async function setInquiryStatus(id, status) {
+  await updateDoc(doc(db, INQUIRY_COLLECTION, id), { status, handledAt: serverTimestamp() });
+}
+
+export async function deleteInquiry(id) {
+  await deleteDoc(doc(db, INQUIRY_COLLECTION, id));
+}
+
+export const INQUIRY_KINDS = {
+  invest: { label: "Wants to invest", icon: "handshake" },
+  buy: { label: "Wants to buy", icon: "basket-shopping" },
+  apply: { label: "Academy application", icon: "graduation-cap" },
+  job: { label: "Wants to work here", icon: "briefcase" },
+};
+
+/** The two that are people applying to us rather than customers. */
+export const APPLICATION_KINDS = ["apply", "job"];
+
+// =============================================================================
+//  PORTAL SUBSCRIPTIONS — other farms paying to use this software
+//
+//  A farm fills the sign-up form on the website. It arrives here as "pending"
+//  with a photo of their transfer. She checks the money actually landed, then
+//  approves — which is the only thing that sets a start and an expiry date.
+// =============================================================================
+
+const LICENSE_COLLECTION = "licenses";
+const LICENSE_RECEIPTS = "licenseReceipts";
+
+export { PORTAL_PLANS };
+
+/** Live feed of every farm that has ever signed up, newest first. */
+export function listenLicenses(onChange, onError) {
+  const q = query(collection(db, LICENSE_COLLECTION), orderBy("createdAt", "desc"), fsLimit(200));
+  return onSnapshot(
+    q,
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => { console.error("[Prast] licences listener failed:", err); if (onError) onError(err); }
+  );
+}
+
+/** Their payment receipt, fetched only when she asks to look at it. */
+export async function getLicenseReceipt(licenseId) {
+  const snap = await getDoc(doc(db, LICENSE_RECEIPTS, licenseId));
+  return snap.exists() ? snap.data() : null;
+}
+
+/**
+ * Turn a pending request into a live subscription.
+ * The clock starts today, not on the day they paid, so a slow approval never
+ * costs the farm days it paid for.
+ */
+export async function approveLicense(license) {
+  const years = Number(license.years) || PORTAL_PLANS[license.plan]?.years || 1;
+  const startsAt = todayISO();
+  await updateDoc(doc(db, LICENSE_COLLECTION, license.id), {
+    status: "active",
+    startsAt,
+    expiresAt: addYearsISO(startsAt, years),
+    approvedAt: serverTimestamp(),
+  });
+}
+
+/** Turn one down — the receipt did not check out, or they changed their mind. */
+export async function declineLicense(id, reason = "") {
+  await updateDoc(doc(db, LICENSE_COLLECTION, id), {
+    status: "declined",
+    declineReason: String(reason || "").slice(0, 300),
+    handledAt: serverTimestamp(),
+  });
+}
+
+export async function deleteLicense(id) {
+  await deleteDoc(doc(db, LICENSE_COLLECTION, id));
+  await deleteDoc(doc(db, LICENSE_RECEIPTS, id)).catch(() => {});
+}
+
+/** How many days a live subscription has left; negative once it has lapsed. */
+export function licenseDaysLeft(license) {
+  return license?.expiresAt ? daysUntil(license.expiresAt) : null;
 }

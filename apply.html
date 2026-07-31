@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apply | Prast Farms</title>
+    <meta name="description" content="Apply to work at Prast Farms, or apply for a place at Prast Academy.">
+    <link rel="icon" type="image/png" href="assets/img/logo.png">
+
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary-dark: #0f2e1a;
+            --primary-green: #299e52;
+            --accent-gold: #d4af37;
+            --cream: #f4f1ea;
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.18);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: var(--primary-dark);
+            color: var(--cream);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3 { font-family: 'Playfair Display', serif; }
+        a { text-decoration: none; color: inherit; transition: 0.3s ease; }
+
+        /* A soft field of colour so the page is not a flat slab of green. */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(60% 45% at 15% 0%, rgba(41, 158, 82, 0.22), transparent 70%),
+                radial-gradient(50% 40% at 90% 15%, rgba(212, 175, 55, 0.10), transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .page { position: relative; z-index: 1; }
+
+        /* ---------- header ---------- */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 16px 5%;
+            background: rgba(15, 46, 26, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .brand { display: flex; align-items: center; gap: 11px; font-weight: 700; font-size: 1.1rem; }
+        .brand img { height: 36px; width: 36px; object-fit: contain; }
+        .back-home {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 0.88rem;
+            color: rgba(255,255,255,0.75);
+            border: 1px solid rgba(255,255,255,0.22);
+            padding: 9px 17px;
+            border-radius: 50px;
+            white-space: nowrap;
+        }
+        .back-home:hover { border-color: var(--accent-gold); color: var(--accent-gold); }
+
+        /* ---------- intro ---------- */
+        .intro { max-width: 780px; margin: 0 auto; padding: 70px 5% 10px; text-align: center; }
+        .intro h1 { font-size: 3rem; line-height: 1.15; margin-bottom: 16px; }
+        .intro p { color: rgba(255,255,255,0.72); font-size: 1.05rem; line-height: 1.75; }
+
+        /* ---------- the two choices ---------- */
+        .paths {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            max-width: 880px;
+            margin: 45px auto 0;
+            padding: 0 5%;
+        }
+        .path {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+            text-align: left;
+            padding: 26px 24px;
+            border-radius: 20px;
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            cursor: pointer;
+            font-family: inherit;
+            color: var(--cream);
+            transition: 0.3s;
+        }
+        .path:hover { transform: translateY(-4px); border-color: rgba(255,255,255,0.4); }
+        .path.on { border-color: var(--accent-gold); background: rgba(212, 175, 55, 0.1); }
+        .path i { font-size: 1.5rem; color: var(--primary-green); }
+        .path.on i { color: var(--accent-gold); }
+        .path h2 { font-size: 1.35rem; }
+        .path p { font-size: 0.88rem; color: rgba(255,255,255,0.65); line-height: 1.6; }
+        .path .go { font-size: 0.8rem; color: var(--accent-gold); font-weight: 600; margin-top: 4px; }
+
+        /* ---------- form ---------- */
+        .form-wrap { max-width: 660px; margin: 0 auto; padding: 55px 5% 90px; scroll-margin-top: 80px; }
+        .form-card {
+            border: 1px solid var(--glass-border);
+            background: rgba(0, 0, 0, 0.22);
+            backdrop-filter: blur(12px);
+            border-radius: 24px;
+            padding: 36px 32px;
+        }
+        .form-card > h2 { font-size: 1.9rem; margin-bottom: 8px; color: var(--accent-gold); }
+        .form-card > .lede { color: rgba(255,255,255,0.65); font-size: 0.92rem; line-height: 1.7; margin-bottom: 30px; }
+
+        .field { margin-bottom: 22px; }
+        .field label {
+            display: block;
+            font-size: 0.82rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 9px;
+        }
+        .field .opt { text-transform: none; letter-spacing: 0; color: rgba(255,255,255,0.35); }
+        .field input,
+        .field select,
+        .field textarea {
+            width: 100%;
+            padding: 14px 16px;
+            font-family: inherit;
+            font-size: 1rem;
+            color: var(--cream);
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 12px;
+            outline: none;
+            transition: border-color 0.25s, background 0.25s;
+        }
+        .field textarea { min-height: 120px; resize: vertical; line-height: 1.6; }
+        .field input:focus,
+        .field select:focus,
+        .field textarea:focus { border-color: var(--primary-green); background: rgba(255,255,255,0.09); }
+        .field input::placeholder, .field textarea::placeholder { color: rgba(255,255,255,0.32); }
+        .field select option { background: #143d22; color: var(--cream); }
+        .field.bad input, .field.bad select, .field.bad textarea { border-color: #ff6b6b; }
+
+        .err { display: none; margin-top: 8px; font-size: 0.83rem; color: #ff9b9b; }
+        .field.bad .err { display: block; }
+
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+
+        .btn-send {
+            width: 100%;
+            padding: 17px;
+            border: none;
+            border-radius: 50px;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            background: linear-gradient(135deg, var(--primary-green), #1b6334);
+            color: #fff;
+            box-shadow: 0 10px 25px rgba(41, 158, 82, 0.3);
+            transition: 0.3s;
+        }
+        .btn-send:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 15px 30px rgba(41, 158, 82, 0.45); }
+        .btn-send:disabled { opacity: 0.6; cursor: default; transform: none; }
+
+        .form-foot { font-size: 0.8rem; color: rgba(255,255,255,0.45); text-align: center; margin-top: 16px; line-height: 1.6; }
+
+        /* ---------- sent ---------- */
+        .sent { display: none; text-align: center; padding: 20px 6px; }
+        .sent.show { display: block; }
+        .sent .tick {
+            width: 64px; height: 64px;
+            border-radius: 50%;
+            background: rgba(41, 158, 82, 0.18);
+            border: 1px solid rgba(41, 158, 82, 0.5);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 1.6rem;
+            color: #7ee2a4;
+        }
+        .sent h2 { font-size: 1.8rem; margin-bottom: 12px; }
+        .sent p { color: rgba(255,255,255,0.7); line-height: 1.75; margin-bottom: 26px; }
+
+        .hide { display: none !important; }
+
+        footer {
+            border-top: 1px solid rgba(255,255,255,0.08);
+            padding: 30px 5%;
+            text-align: center;
+            font-size: 0.82rem;
+            color: rgba(255,255,255,0.4);
+        }
+        footer a { color: rgba(255,255,255,0.6); }
+        footer a:hover { color: var(--accent-gold); }
+
+        @media (max-width: 720px) {
+            .intro { padding-top: 45px; }
+            .intro h1 { font-size: 2.1rem; }
+            .intro p { font-size: 0.95rem; }
+            .paths { grid-template-columns: 1fr; gap: 14px; margin-top: 32px; }
+            .form-wrap { padding-top: 40px; }
+            .form-card { padding: 26px 20px; border-radius: 20px; }
+            .row { grid-template-columns: 1fr; }
+            .brand span { display: none; }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <header>
+        <a href="index.html" class="brand">
+            <img src="assets/img/logo.png" alt="" onerror="this.onerror=null;this.src='https://placehold.co/36x36/299e52/fff?text=PF';">
+            <span>PRAST FARMS</span>
+        </a>
+        <a href="index.html" class="back-home"><i class="fas fa-arrow-left"></i> Back to the site</a>
+    </header>
+
+    <section class="intro">
+        <h1>Apply to Prast Farms</h1>
+        <p>Two ways in: come and work with us across our four branches, or train with
+           us at Prast Academy. Pick one below — both take about a minute.</p>
+    </section>
+
+    <div class="paths">
+        <button type="button" class="path" data-path="job">
+            <i class="fas fa-briefcase"></i>
+            <h2>Work with us</h2>
+            <p>Farm hands, attendants, drivers, sales and admin roles across Atali,
+               Rumuobiakani, Eche and Eneka.</p>
+            <span class="go">Apply for a job →</span>
+        </button>
+        <button type="button" class="path" data-path="academy">
+            <i class="fas fa-graduation-cap"></i>
+            <h2>Prast Academy</h2>
+            <p>Our summer class in practical farming and the business behind it.
+               Tuition ₦300,000.</p>
+            <span class="go">Apply for a place →</span>
+        </button>
+    </div>
+
+    <div class="form-wrap" id="formWrap">
+        <div class="form-card">
+
+            <!-- ---------------- JOB APPLICATION ---------------- -->
+            <form id="jobForm" class="hide" novalidate>
+                <h2>Work with us</h2>
+                <p class="lede">Tell us a little about yourself and which role you are after.
+                   We call every applicant we are interested in, so make sure the phone
+                   number is one you answer.</p>
+
+                <div class="field" id="f-jobName">
+                    <label for="jobName">Your full name</label>
+                    <input type="text" id="jobName" autocomplete="name" placeholder="First and last name">
+                    <div class="err">Please tell us your name.</div>
+                </div>
+
+                <div class="row">
+                    <div class="field" id="f-jobPhone">
+                        <label for="jobPhone">Phone number</label>
+                        <input type="tel" id="jobPhone" autocomplete="tel" placeholder="+234...">
+                        <div class="err">We need a number to call you on.</div>
+                    </div>
+                    <div class="field" id="f-jobEmail">
+                        <label for="jobEmail">Email <span class="opt">(optional)</span></label>
+                        <input type="email" id="jobEmail" autocomplete="email" placeholder="you@example.com">
+                        <div class="err">That does not look like an email address.</div>
+                    </div>
+                </div>
+
+                <div class="field" id="f-jobRole">
+                    <label for="jobRole">What role are you applying for?</label>
+                    <select id="jobRole">
+                        <option value="">Choose a role…</option>
+                        <option>Farm Hand</option>
+                        <option>Livestock Attendant</option>
+                        <option>Poultry Attendant</option>
+                        <option>Piggery Attendant</option>
+                        <option>Plantation Worker</option>
+                        <option>Veterinary Assistant</option>
+                        <option>Driver / Logistics</option>
+                        <option>Sales &amp; Marketing</option>
+                        <option>Accounts / Admin</option>
+                        <option>Security</option>
+                        <option>Other — I will explain below</option>
+                    </select>
+                    <div class="err">Please pick the role you want.</div>
+                </div>
+
+                <div class="field" id="f-jobAddress">
+                    <label for="jobAddress">Where do you live?</label>
+                    <input type="text" id="jobAddress" autocomplete="street-address" placeholder="Area and town, e.g. Rumuokoro, Port Harcourt">
+                    <div class="err">Please tell us roughly where you are based.</div>
+                </div>
+
+                <div class="field" id="f-jobDetails">
+                    <label for="jobDetails">Your experience <span class="opt">(optional)</span></label>
+                    <textarea id="jobDetails" placeholder="Any farm work you have done before, what you are good at, when you can start."></textarea>
+                </div>
+
+                <button type="submit" class="btn-send" id="jobSend">Send my application</button>
+                <p class="form-foot">We keep your details only to consider you for work here.</p>
+            </form>
+
+            <!-- ---------------- ACADEMY APPLICATION ---------------- -->
+            <form id="academyForm" class="hide" novalidate>
+                <h2>Prast Academy</h2>
+                <p class="lede">Video lectures, hands-on practicals at our Eneka facility, and the
+                   business side of farming. Applying costs nothing — we call you back to
+                   talk it through before any payment.</p>
+
+                <div class="field" id="f-acName">
+                    <label for="acName">Your full name</label>
+                    <input type="text" id="acName" autocomplete="name" placeholder="First and last name">
+                    <div class="err">Please tell us your name.</div>
+                </div>
+
+                <div class="row">
+                    <div class="field" id="f-acPhone">
+                        <label for="acPhone">Phone number</label>
+                        <input type="tel" id="acPhone" autocomplete="tel" placeholder="+234...">
+                        <div class="err">We need a number to call you on.</div>
+                    </div>
+                    <div class="field" id="f-acEmail">
+                        <label for="acEmail">Email <span class="opt">(optional)</span></label>
+                        <input type="email" id="acEmail" autocomplete="email" placeholder="you@example.com">
+                        <div class="err">That does not look like an email address.</div>
+                    </div>
+                </div>
+
+                <div class="field" id="f-acDob">
+                    <label for="acDob">Date of birth</label>
+                    <input type="date" id="acDob">
+                    <div class="err">Please give your date of birth.</div>
+                </div>
+
+                <div class="field" id="f-acAddress">
+                    <label for="acAddress">Your home address</label>
+                    <input type="text" id="acAddress" autocomplete="street-address" placeholder="Area and town">
+                    <div class="err">Please tell us where you live.</div>
+                </div>
+
+                <div class="field" id="f-acDetails">
+                    <label for="acDetails">Why do you want to join? <span class="opt">(optional)</span></label>
+                    <textarea id="acDetails" placeholder="What you hope to farm, or what you want to get out of the course."></textarea>
+                </div>
+
+                <button type="submit" class="btn-send" id="acSend">Send my application</button>
+                <p class="form-foot">Tuition is ₦300,000. Nothing is payable until we have spoken.</p>
+            </form>
+
+            <!-- ---------------- CONFIRMATION ---------------- -->
+            <div class="sent" id="sentBox">
+                <div class="tick"><i class="fas fa-check"></i></div>
+                <h2>Application received</h2>
+                <p id="sentText">Thank you — someone from Prast Farms will call you shortly.</p>
+                <a href="index.html" class="back-home" style="display:inline-flex;">
+                    <i class="fas fa-arrow-left"></i> Back to the site
+                </a>
+            </div>
+
+        </div>
+    </div>
+
+    <footer>
+        NO. 30C, Transamadi Road, Rumuobiakani, Port Harcourt &nbsp;·&nbsp;
+        <a href="tel:+2348084219956">+234 808 421 9956</a> &nbsp;·&nbsp;
+        <a href="mailto:Apply@prastfarms.com">Apply@prastfarms.com</a>
+        <div style="margin-top:10px;opacity:0.7;">&copy; <span id="year"></span> Prast Farms</div>
+    </footer>
+
+</div>
+
+<script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    const $ = (id) => document.getElementById(id);
+
+    // ---------- choosing a path ----------
+    //
+    //  Both forms live on the page; picking a path just reveals one. The choice
+    //  is reflected in the URL so #academy from the landing page lands here
+    //  with the right form already open.
+
+    function choosePath(path, scroll = true) {
+        const job = path === 'job';
+        $('jobForm').classList.toggle('hide', !job);
+        $('academyForm').classList.toggle('hide', job);
+        $('sentBox').classList.remove('show');
+        document.querySelectorAll('.path').forEach(b =>
+            b.classList.toggle('on', b.dataset.path === path));
+        history.replaceState(null, '', `#${job ? 'work' : 'academy'}`);
+        if (scroll) $('formWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    document.querySelectorAll('.path').forEach(btn =>
+        btn.addEventListener('click', () => choosePath(btn.dataset.path)));
+
+    // Open whichever path the link asked for; default to jobs.
+    choosePath(location.hash === '#academy' ? 'academy' : 'job', false);
+
+    // ---------- validation ----------
+    const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
+    function bad(fieldId) { $(fieldId).classList.add('bad'); }
+    function clearBad(form) {
+        form.querySelectorAll('.field.bad').forEach(f => f.classList.remove('bad'));
+    }
+
+    /** Returns the collected values, or null once it has flagged what is missing. */
+    function collect(form, spec) {
+        clearBad(form);
+        const out = {};
+        let firstBad = null;
+
+        for (const [key, id, fieldId, rule] of spec) {
+            const el = $(id);
+            const value = (el.value || '').trim();
+            const ok = rule === 'optional-email'
+                ? (!value || isEmail(value))
+                : !!value;
+            if (!ok) {
+                bad(fieldId);
+                if (!firstBad) firstBad = el;
+                continue;
+            }
+            out[key] = value;
+        }
+        if (firstBad) {
+            firstBad.focus();
+            firstBad.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return null;
+        }
+        return out;
+    }
+
+    // Clear the red as soon as they start fixing it.
+    document.querySelectorAll('.field input, .field select, .field textarea').forEach(el => {
+        el.addEventListener('input', () => el.closest('.field').classList.remove('bad'));
+        el.addEventListener('change', () => el.closest('.field').classList.remove('bad'));
+    });
+
+    // ---------- sending ----------
+    async function send(payload, btn, label, sentMessage, mailSubject, mailBody) {
+        btn.disabled = true;
+        const original = btn.textContent;
+        btn.textContent = 'Sending…';
+
+        const ok = window.sendInquiry && await window.sendInquiry(payload);
+
+        btn.disabled = false;
+        btn.textContent = original;
+
+        if (ok) {
+            $('jobForm').classList.add('hide');
+            $('academyForm').classList.add('hide');
+            $('sentText').textContent = sentMessage;
+            $('sentBox').classList.add('show');
+            $('formWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+            // Rather than lose the application, hand it to their email app.
+            alert('We could not reach our server. Your email app will open instead.');
+            window.location.href =
+                `mailto:Apply@prastfarms.com?subject=${encodeURIComponent(mailSubject)}` +
+                `&body=${encodeURIComponent(mailBody)}`;
+        }
+    }
+
+    $('jobForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const v = collect($('jobForm'), [
+            ['name',    'jobName',    'f-jobName'],
+            ['phone',   'jobPhone',   'f-jobPhone'],
+            ['email',   'jobEmail',   'f-jobEmail', 'optional-email'],
+            ['product', 'jobRole',    'f-jobRole'],
+            ['address', 'jobAddress', 'f-jobAddress'],
+        ]);
+        if (!v) return;
+        v.details = $('jobDetails').value.trim();
+
+        await send(
+            { kind: 'job', amount: 0, ...v },
+            $('jobSend'),
+            'Send my application',
+            `Thank you, ${v.name.split(' ')[0]}. Your application for ${v.product} is with us — ` +
+            `we will call you on ${v.phone} if it looks like a fit.`,
+            `Job application: ${v.name} — ${v.product}`,
+            `Name: ${v.name}\nPhone: ${v.phone}\nEmail: ${v.email || '—'}\n` +
+            `Role: ${v.product}\nAddress: ${v.address}\n\n${v.details || ''}`
+        );
+    });
+
+    $('academyForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const v = collect($('academyForm'), [
+            ['name',    'acName',    'f-acName'],
+            ['phone',   'acPhone',   'f-acPhone'],
+            ['email',   'acEmail',   'f-acEmail', 'optional-email'],
+            ['dob',     'acDob',     'f-acDob'],
+            ['address', 'acAddress', 'f-acAddress'],
+        ]);
+        if (!v) return;
+
+        const why = $('acDetails').value.trim();
+        const details = `Born ${v.dob}.${why ? ' ' + why : ''}`;
+
+        await send(
+            {
+                kind: 'apply', product: 'Academy', amount: 0,
+                name: v.name, phone: v.phone, email: v.email,
+                address: v.address, details,
+            },
+            $('acSend'),
+            'Send my application',
+            `Thank you, ${v.name.split(' ')[0]}. Your Academy application is with us — ` +
+            `we will call you on ${v.phone} to talk through the next intake.`,
+            `Academy application: ${v.name}`,
+            `Name: ${v.name}\nPhone: ${v.phone}\nEmail: ${v.email || '—'}\n` +
+            `Date of birth: ${v.dob}\nAddress: ${v.address}\n\n${why}`
+        );
+    });
+</script>
+<script type="module" src="assets/js/inquiry.js"></script>
+</body>
+</html>

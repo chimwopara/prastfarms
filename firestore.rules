@@ -13,7 +13,8 @@ service cloud.firestore {
     match /records/{recordId} {
 
       // -----------------------------------------------------------------
-      //  TESTING RULES — matches DEV_MODE = true in firebase-config.js
+      //  LIVE RULES — staff must be signed in.
+      //  (The old time-limited open rule was removed when sign-in went on.)
       //
       //  Anyone who knows the project URL can read and write client
       //  financial records while this block is active. It is deliberately
@@ -21,7 +22,7 @@ service cloud.firestore {
       //
       //  Bump the date only if you are still testing.
       // -----------------------------------------------------------------
-      allow read, write: if request.time < timestamp.date(2026, 9, 30);
+      allow read, write: if request.auth != null;
 
       // -----------------------------------------------------------------
       //  PRODUCTION RULES
@@ -51,7 +52,7 @@ service cloud.firestore {
     // dashboard's record listener never downloads image data.
     match /receipts/{recordId} {
       // Same testing window as records above.
-      allow read, write: if request.time < timestamp.date(2026, 9, 30);
+      allow read, write: if request.auth != null;
 
       // Production: staff only. Receipt photos are not public — unlike a
       // record, there is no client-facing page that needs to read one.
@@ -65,38 +66,120 @@ service cloud.firestore {
     //  All staff-only in production — none of this is client-facing.
     // -------------------------------------------------------------------
     match /transactions/{txnId} {
-      allow read, write: if request.time < timestamp.date(2026, 9, 30);
+      allow read, write: if request.auth != null;
       // allow read, write: if request.auth != null;
     }
 
     match /categories/{categoryId} {
-      allow read, write: if request.time < timestamp.date(2026, 9, 30);
+      allow read, write: if request.auth != null;
       // allow read, write: if request.auth != null;
     }
 
     match /payees/{payeeId} {
-      allow read, write: if request.time < timestamp.date(2026, 9, 30);
+      allow read, write: if request.auth != null;
       // allow read, write: if request.auth != null;
     }
 
     match /statements/{statementId} {
-      allow read, write: if request.time < timestamp.date(2026, 9, 30);
+      allow read, write: if request.auth != null;
       // allow read, write: if request.auth != null;
     }
 
     // Pre-computed monthly totals with a per-day breakdown, so the calendar
     // and charts read a handful of documents instead of ten thousand.
     match /summaries/{summaryId} {
-      allow read, write: if request.time < timestamp.date(2026, 9, 30);
+      allow read, write: if request.auth != null;
       // allow read, write: if request.auth != null;
     }
 
     // Owner-editable agreement wording, ROI and term bands. One document.
     // Readable by the renew page (it quotes the terms); writable by staff only.
     match /settings/{settingId} {
-      allow read, write: if request.time < timestamp.date(2026, 9, 30);
+      allow read, write: if request.auth != null;
       // allow read: if true;
       // allow write: if request.auth != null;
+    }
+
+    // -------------------------------------------------------------------
+    //  INQUIRIES from the public website.
+    //
+    //  Anyone may SEND one — that is the point of a contact form — but only
+    //  signed-in staff can read, approve or delete them. Creation is tightly
+    //  validated so the collection cannot be used as free storage: fixed field
+    //  set, size caps, and status forced to "new" so nobody can self-approve.
+    // -------------------------------------------------------------------
+    match /inquiries/{inquiryId} {
+      allow create: if
+        request.resource.data.keys().hasOnly([
+          'kind','name','phone','email','address','details','product','amount',
+          'status','source','createdAt'
+        ])
+        && request.resource.data.kind in ['invest','buy','apply','job']
+        && request.resource.data.status == 'new'
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 1
+        && request.resource.data.name.size() < 120
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() < 40
+        && (!('email' in request.resource.data) || request.resource.data.email.size() < 120)
+        && (!('details' in request.resource.data) || request.resource.data.details.size() < 1000)
+        && (!('address' in request.resource.data) || request.resource.data.address.size() < 300)
+        && (!('product' in request.resource.data) || request.resource.data.product.size() < 120)
+        && (!('amount' in request.resource.data) || request.resource.data.amount is number);
+
+      allow read, update, delete: if request.auth != null;
+    }
+
+    // -------------------------------------------------------------------
+    //  PORTAL SUBSCRIPTIONS — other farms paying to use this software.
+    //
+    //  Anyone may APPLY, because that is a public sign-up form, but the
+    //  request lands pinned to "pending": the rule refuses any other status
+    //  on create, so nobody can grant themselves access. Only a signed-in
+    //  owner can read one, approve it, or set the dates that make it live.
+    // -------------------------------------------------------------------
+    match /licenses/{licenseId} {
+      allow create: if
+        request.resource.data.keys().hasOnly([
+          'farmName','contactName','email','phone','plan','years','amount',
+          'status','source','createdAt'
+        ])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.plan in ['1y','3y','10y']
+        && request.resource.data.source == 'website'
+        && request.resource.data.farmName is string
+        && request.resource.data.farmName.size() > 1
+        && request.resource.data.farmName.size() < 120
+        && request.resource.data.contactName is string
+        && request.resource.data.contactName.size() > 1
+        && request.resource.data.contactName.size() < 120
+        && request.resource.data.email is string
+        && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && request.resource.data.email.size() < 120
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() > 5
+        && request.resource.data.phone.size() < 40
+        && request.resource.data.years is int
+        && request.resource.data.years > 0
+        && request.resource.data.years <= 25
+        && request.resource.data.amount is number
+        && request.resource.data.amount >= 0;
+
+      allow read, update, delete: if request.auth != null;
+    }
+
+    // Payment receipts for those sign-ups, keyed by the request id and held
+    // apart so the owner's dashboard listener never downloads image data.
+    // A receipt can only be written against a request that already exists,
+    // and only once — so this cannot be used as free image storage.
+    match /licenseReceipts/{licenseId} {
+      allow create: if
+        request.resource.data.keys().hasOnly(['image','createdAt'])
+        && request.resource.data.image is string
+        && request.resource.data.image.size() < 1000000
+        && exists(/databases/$(database)/documents/licenses/$(licenseId));
+
+      allow read, update, delete: if request.auth != null;
     }
 
     // Anything not matched above is denied by default.

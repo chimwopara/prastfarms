@@ -228,6 +228,64 @@ To lock it down:
 The email/password login screen is built into `portal.html` and appears
 automatically once `DEV_MODE` is `false`.
 
+## Applications — `apply.html`
+
+Everything someone applies *to us* for lives on one page, reached from **Work
+With Us** in the nav and from the Academy section:
+
+- **Work with us** — job applications. Saved as an inquiry with `kind: "job"`,
+  the role they picked stored in `product`.
+- **Prast Academy** — the summer class. `kind: "apply"`, `product: "Academy"`.
+
+`apply.html#academy` opens straight onto the Academy form, which is what the
+landing page's *Apply for Summer Class* button links to. Both forms are plain
+single-screen forms rather than the one-question-at-a-time flow the product
+enquiries use — an application is longer, and people want to see the whole thing.
+
+"Apply" used to be a third button on every product, next to Buy and Invest,
+where it read as a way to apply *for a pig*. Products now offer only the two
+actions that are actually about the product.
+
+In the portal these land in their own **New applications** block, separate from
+purchase requests, and each card shows the applicant's email as well as phone.
+
+## Selling the portal to other farms
+
+The website's **Prast Portal for Your Farm** section (`#portal` in `index.html`)
+sells access to this software. A farm picks a term, transfers the money, uploads
+a photo of the receipt, and the request lands in the owner's dashboard as
+*pending*. Nothing is granted automatically — she looks at the receipt against
+her own account, then approves, and only that sets the start and expiry dates.
+
+Prices and the receiving bank account live in `assets/js/firebase-config.js`:
+
+```js
+export const PORTAL_PLANS = { "1y": …, "3y": …, "10y": … };
+export const PORTAL_PAYMENT = { bank, accountName, accountNumber, phone };
+```
+
+**`PORTAL_PAYMENT` ships empty.** Until `accountNumber` is filled in, the sign-up
+form tells the farm to call for the account details instead of showing one that
+does not exist. The three headline prices are also printed on the pricing cards
+in `index.html` — change both if you change a price.
+
+Two collections back it:
+
+| Collection | Holds | Who can write |
+|---|---|---|
+| `licenses` | one document per farm that signed up | anyone may **create**, pinned to `status: "pending"`; only signed-in staff may read or change one |
+| `licenseReceipts` | their payment photo, keyed by the licence id | create-only, and only against a `licenses` document that already exists |
+
+The receipt is kept in its own collection so the dashboard's live listener never
+downloads image data; it is fetched only when she opens a request. Photos are
+shrunk in the browser to stay under Firestore's ~1 MiB document limit.
+
+Approving records the sale and works out the expiry date. It does **not** create
+their Firebase Auth user — do that once in the console, then use *Email them
+their login* on the approved request to send them the sign-in link. Note that
+every account today sees the same Firestore data; giving each farm its own
+records is a separate piece of work (see below).
+
 ## Known follow-up
 
 `legacy/code.gs` also ran `checkDueDateAndSendEmail`, a daily trigger that
@@ -236,3 +294,10 @@ Sheet, so it stops reflecting reality once the portal writes to Firestore.
 The dashboard surfaces the same information in-app (overdue and due-soon counts,
 with those records sorted to the top); restoring automated email would need a
 scheduled Cloud Function.
+
+**Multi-tenancy.** Subscribing farms can be sold access and approved, but every
+signed-in account currently reads the same `records`, `transactions` and
+`settings`. Before a second farm is actually let in, each document needs a
+`farmId`, the security rules need to compare it against a custom claim on the
+user, and the queries in `db.js` need to filter by it. Expiry is likewise
+recorded but not yet enforced at sign-in.

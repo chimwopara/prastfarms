@@ -29,7 +29,7 @@ export const firebaseConfig = {
 //     !! Set this to false before the portal handles real client data on a
 //     !! public URL. While it is true, anyone who opens portal.html is staff.
 // -----------------------------------------------------------------------------
-export const DEV_MODE = true;
+export const DEV_MODE = false;
 
 // -----------------------------------------------------------------------------
 //  3. COLLECTION NAME
@@ -58,3 +58,31 @@ export const ASSISTANT_ENABLED = true;
 // -----------------------------------------------------------------------------
 export const LEGACY_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycby901f9aG5P7dfL2aHYIRLEdOpZ4JSifJT-Kp3VoKBpa6FylRwId5bHia4ioKEO-bno/exec";
+
+// -----------------------------------------------------------------------------
+//  6. PRAST PORTAL SUBSCRIPTIONS — other farms paying to use this software
+//
+//     Change a price here and it changes everywhere: the sign-up form, the
+//     approval screen in the portal, and the expiry date worked out on approval.
+//     The three headline prices printed on the website's pricing cards are in
+//     index.html — update both if you change them.
+// -----------------------------------------------------------------------------
+export const PORTAL_PLANS = {
+  "1y":  { years: 1,  amount:  40000, label: "1 year",   note: "₦40,000 per year" },
+  "3y":  { years: 3,  amount: 100000, label: "3 years",  note: "₦33,333 per year" },
+  "10y": { years: 10, amount: 250000, label: "10 years", note: "₦25,000 per year" },
+};
+
+// -----------------------------------------------------------------------------
+//  7. WHERE SUBSCRIBING FARMS SEND THEIR MONEY
+//
+//     !! FILL THIS IN. While accountNumber is empty the sign-up form tells them
+//     !! to call the phone number below for the account details instead of
+//     !! showing an account that does not exist.
+// -----------------------------------------------------------------------------
+export const PORTAL_PAYMENT = {
+  bank: "",             // e.g. "Zenith Bank"
+  accountName: "",      // e.g. "Prast Integrated Services"
+  accountNumber: "",    // e.g. "1234567890"
+  phone: "+2348084219956",
+};

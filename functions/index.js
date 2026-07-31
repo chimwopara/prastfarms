@@ -60,7 +60,7 @@ const MAX_CHARS = 6000;
  * While it is false the function is callable by anyone who knows the project
  * id — acceptable for testing, not for production. See README.
  */
-const REQUIRE_AUTH = false;
+const REQUIRE_AUTH = true;
 
 exports.assistant = onCall(
   {
