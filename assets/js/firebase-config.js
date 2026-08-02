@@ -86,3 +86,23 @@ export const PORTAL_PAYMENT = {
   accountNumber: "",    // e.g. "1234567890"
   phone: "+2348084219956",
 };
+
+// -----------------------------------------------------------------------------
+//  8. PUBLIC CHATBOT on the website
+//
+//     Answers questions from visitors in English, Nigerian Pidgin, Igbo, Yoruba
+//     and Hausa. Runs through the `ask` Cloud Function, which holds the API key
+//     and the facts it is allowed to state.
+//
+//     Set this to true only AFTER deploying the function:
+//       firebase deploy --only functions:ask --project prastfarms
+//
+//     While it is false the chat button does not appear and the site is
+//     unaffected. It is a public, paid endpoint — read the abuse notes in the
+//     README before turning it on.
+// -----------------------------------------------------------------------------
+export const CHATBOT_ENABLED = true;
+
+// The number the chat offers when it cannot answer something.
+export const CONTACT_PHONE = "+2348084219956";
+export const CONTACT_PHONE_PRETTY = "+234 808 421 9956";

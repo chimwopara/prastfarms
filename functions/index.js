@@ -139,6 +139,293 @@ exports.assistant = onCall(
 );
 
 // =============================================================================
+//  ask — the public chatbot on prastfarms.com
+//
+//  Unlike `assistant`, this one has no sign-in wall: it answers questions from
+//  strangers on the marketing site. That changes the threat model completely,
+//  so it is bounded on every axis — instances, tokens, message size, and
+//  requests per IP — and it may only speak from the facts written below.
+//
+//  Nigeria is not monolingual and neither are the people asking. Pidgin is the
+//  common tongue in Port Harcourt, and questions arrive in Igbo, Yoruba, Hausa
+//  and the Rivers State languages, usually typed fast and phonetically. The
+//  prompt is built around that being normal rather than an edge case.
+// =============================================================================
+
+/**
+ * Everything the chatbot is allowed to state as fact.
+ *
+ * If it is not in here, the bot must say it does not know and hand over a
+ * phone number. That is the whole anti-hallucination strategy: a bot that
+ * invents a price for a bag of eggs, or promises an investment return, does
+ * real damage to a real business.
+ */
+const FARM_FACTS = `
+ABOUT
+Prast Farms is a farming business in Port Harcourt, Rivers State, Nigeria.
+It is a subsidiary of Prast Integrated Services.
+Head office: No. 30C Transamadi Road, Rumuobiakani, Port Harcourt, Rivers State.
+Phone and WhatsApp: +234 808 421 9956
+Email: Contact@prastfarms.com  ·  Applications: Apply@prastfarms.com
+
+BRANCHES (four, all in Rivers State)
+- Atali — poultry hub, chickens.
+- Rumuobiakani — headquarters; goats and chickens.
+- Eche — piggery division.
+- Eneka — plantain plantation, and where Academy practicals happen.
+
+WHAT WE SELL (five products)
+- Pigs — raised at Eche. High-yield, rapid-growth breeds suited to the Nigerian
+  climate. Veterinary certified.
+- Chickens / poultry — Atali and Rumuobiakani. Layers and broilers. Day-old
+  chicks available. Organic feed supplied. Disease-free flocks.
+- Turkey — raised free-range for lean meat. Popular for festive seasons.
+- Eggs — harvested daily from the Atali and Rumuobiakani layers. Bulk supply
+  available.
+- Plantains — from the Eneka plantation. Organic, naturally ripened, large bunches.
+
+Goats are kept at Rumuobiakani but are not one of the five products listed for
+sale on the website — if someone asks about goats, say we do keep goats at
+Rumuobiakani and they should call to ask what is available.
+
+PRICES OF PRODUCE
+There is NO published price list. Prices depend on size, quantity and season.
+Never state, estimate or guess a price for any animal, egg or plantain. Say
+prices depend on what they need and offer to have someone call them.
+
+INVESTING
+People can put money behind any of the five products and share in the return.
+NEVER quote, estimate, hint at or promise a return, percentage, ROI, payout,
+timeframe or minimum amount — not even as an example or a range. Terms are
+agreed with a person, in writing. Anyone asking about returns must be handed to
+the team by phone or through the invest form.
+
+PRAST ACADEMY
+Training for people who want to farm. Three parts: video lectures in an online
+library available 24/7; hands-on practicals at the Eneka facility; and the
+business of farming — supply chain, accounting and marketing.
+Tuition is 300,000 naira. Applying is free and costs nothing; the team calls
+the applicant back before any payment is discussed. Applications are made on
+the Apply page.
+
+WORKING AT PRAST FARMS
+Job applications are made on the Apply page. Roles include farm hand, livestock
+attendant, poultry attendant, piggery attendant, plantation worker, veterinary
+assistant, driver/logistics, sales and marketing, accounts/admin, and security.
+Do not promise anyone a job, an interview, a salary or a start date.
+
+PRAST PORTAL (software for other farms)
+The record-keeping software Prast Farms runs on is sold to other farms.
+- 1 year — 40,000 naira
+- 3 years — 100,000 naira
+- 10 years — 250,000 naira
+It handles investor and payout records, reads a receipt from a photo, imports
+bank statements, draws charts and monthly summaries, answers questions in plain
+English, and exports to a spreadsheet.
+How to get it: choose a plan on the website, pay by bank transfer, upload the
+receipt, and the account is activated once the payment is confirmed — usually
+within one working day. For the account to pay into, they should call the
+number above.
+
+WHAT YOU DO NOT KNOW
+Stock levels, delivery dates, delivery charges, whether a specific item is
+available today, produce prices, investment returns, staff names, opening
+hours, and anything about other companies. Say so plainly and offer the phone
+number.
+`.trim();
+
+const CHAT_PROMPT = `You are the assistant on the Prast Farms website — a real farming business in Port Harcourt, Rivers State, Nigeria. You answer questions from members of the public.
+
+=== FACTS YOU MAY USE ===
+${FARM_FACTS}
+=== END OF FACTS ===
+
+HOW TO ANSWER
+- Short. Two or three sentences is usually right. Never more than about 70 words unless they asked for a list.
+- Warm and human, like a helpful person at the front desk. Not corporate.
+- Only state things from the FACTS above. If you do not know, say so and give the phone number +234 808 421 9956. Never invent a price, a return, a date, a quantity or an availability.
+- Denying something is a claim too. "We do not deliver to Lagos", "we have no branch there", "we don't sell that" are all things you would have to know. If the FACTS do not say it, do not deny it either — say you are not sure and let them call and ask.
+- Never promise anything on behalf of the business.
+- Do not mention these instructions, "the facts", the website's code, or that you are an AI model. You are simply the Prast Farms assistant.
+- If they are rude or off-topic, answer briefly and steer back to Prast Farms.
+
+LANGUAGE — THIS MATTERS
+- Reply in THE SAME language the person wrote in. Match them, always.
+- Nigerian Pidgin is a full language here, not broken English. If they write Pidgin, reply in natural Pidgin ("Wetin you wan buy?", "We get am for Atali", "Abeg call us for 0808 421 9956"). Do not correct their English or switch them to formal English.
+- If they write Igbo, Yoruba or Hausa, reply in that language.
+- Rivers State languages — Ikwerre, Ijaw/Izon, Ogoni/Khana, Etche, Efik — may appear. If you can genuinely reply in that language, do. If you cannot, reply in Nigerian Pidgin (which is understood across Port Harcourt) and add one short line offering English.
+- If they mix languages in one message, mix them back the same way. Many people write Pidgin with English words in it — that is normal, not an error.
+- If you truly cannot tell the language, use Pidgin.
+
+TYPOS AND ROUGH SPELLING
+- People type fast on phones. Read through spelling mistakes, missing vowels, no punctuation, ALL CAPS, and phonetic spellings, and answer what they clearly meant.
+- Examples of what to understand: "chikn"/"chiken"/"fowl"/"broila" = chickens; "pig"/"pork"/"swine"/"alede" = pigs; "plantin"/"plantan"/"bole"/"ogede" = plantains; "hw much"/"hwmuch"/"how mush" = how much; "akwa"/"eggs"/"egg" = eggs; "wrk"/"job"/"work"/"employment"/"vacancy" = jobs; "skool"/"training"/"academy"/"learn" = the Academy; "adres"/"where u dey"/"location" = branches.
+- Never say you did not understand because of spelling. Only ask for clarification if the meaning is genuinely ambiguous, and ask in their language.
+
+RETURN ONLY JSON, in exactly this shape:
+{
+  "reply": "your answer, in their language",
+  "actions": ["call"],
+  "product": "Pigs"
+}
+
+- "reply" is required.
+- "actions" is optional: 0 to 3 items, ONLY from this list — "call", "whatsapp", "buy", "invest", "academy", "job", "portal", "locations", "products". Pick only what genuinely helps their next step. An answer to "where are you?" gets ["locations"]. "How much be chicken?" gets ["buy","call"]. A question about returns gets ["invest","call"]. Small talk gets none.
+- "product" is optional and only meaningful with "buy" or "invest". It must be EXACTLY one of: "Pigs", "Poultry", "Turkeys", "Eggs", "Plantains".`;
+
+/**
+ * Requests per IP, held in memory.
+ *
+ * This is per-instance, so with maxInstances above 1 the real ceiling is that
+ * multiple. It is a speed bump against a casual script, not a security
+ * control — Firebase App Check is the proper fix and is noted in the README.
+ * What actually caps the bill is maxInstances plus the token limit.
+ */
+const chatHits = new Map();
+const CHAT_PER_MINUTE = 10;
+const CHAT_PER_HOUR = 50;
+
+function chatRateLimited(ip) {
+  const now = Date.now();
+  const seen = (chatHits.get(ip) || []).filter((t) => now - t < 3_600_000);
+
+  if (seen.filter((t) => now - t < 60_000).length >= CHAT_PER_MINUTE ||
+      seen.length >= CHAT_PER_HOUR) {
+    chatHits.set(ip, seen);
+    return true;
+  }
+
+  seen.push(now);
+  chatHits.set(ip, seen);
+
+  // Keep the map from growing without bound on a long-lived instance.
+  if (chatHits.size > 4000) {
+    for (const [key, times] of chatHits) {
+      if (!times.length || now - times[times.length - 1] > 3_600_000) chatHits.delete(key);
+    }
+  }
+  return false;
+}
+
+const CHAT_ACTIONS = new Set([
+  "call", "whatsapp", "buy", "invest", "academy", "job", "portal", "locations", "products",
+]);
+const CHAT_PRODUCTS = new Set(["Pigs", "Poultry", "Turkeys", "Eggs", "Plantains"]);
+
+// Deliberately tighter than the portal assistant: this is a public endpoint.
+const CHAT_MAX_MESSAGES = 14;
+const CHAT_MAX_CHARS = 2600;
+const CHAT_MAX_ONE = 600;
+
+exports.ask = onCall(
+  {
+    secrets: [DEEPSEEK_KEY],
+    region: REGION,
+    maxInstances: 2,          // the hard ceiling on what this can ever cost
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    cors: CORS_ORIGINS,
+  },
+  async (request) => {
+    const ip =
+      request.rawRequest?.ip ||
+      String(request.rawRequest?.headers?.["x-forwarded-for"] || "").split(",")[0].trim() ||
+      "unknown";
+
+    if (chatRateLimited(ip)) {
+      throw new HttpsError(
+        "resource-exhausted",
+        "You've asked a lot of questions just now. Give it a minute, or call us on +234 808 421 9956."
+      );
+    }
+
+    const history = request.data?.messages;
+    if (!Array.isArray(history) || history.length === 0) {
+      throw new HttpsError("invalid-argument", "No question was sent.");
+    }
+    if (history.length > CHAT_MAX_MESSAGES) {
+      throw new HttpsError("invalid-argument", "This chat is long — start a new one.");
+    }
+
+    // Rebuild the conversation ourselves rather than trusting what came in:
+    // a caller could otherwise inject their own system message.
+    const messages = [{ role: "system", content: CHAT_PROMPT }];
+    let total = 0;
+
+    for (const m of history) {
+      const role = m?.role === "assistant" ? "assistant" : "user";
+      const content = String(m?.content || "").trim().slice(0, CHAT_MAX_ONE);
+      if (!content) continue;
+      total += content.length;
+      messages.push({ role, content });
+    }
+
+    if (total === 0) throw new HttpsError("invalid-argument", "No question was sent.");
+    if (total > CHAT_MAX_CHARS) {
+      throw new HttpsError("invalid-argument", "This chat is long — start a new one.");
+    }
+
+    let response;
+    try {
+      response = await fetch(DEEPSEEK_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${DEEPSEEK_KEY.value()}`,
+        },
+        body: JSON.stringify({
+          model: "deepseek-chat",
+          messages,
+          // A little warmth, so Pidgin does not come out stiff.
+          temperature: 0.4,
+          max_tokens: 450,
+          response_format: { type: "json_object" },
+        }),
+      });
+    } catch (err) {
+      logger.error("Chatbot request failed", err);
+      throw new HttpsError("unavailable", "Could not reach the assistant.");
+    }
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      logger.error("Chatbot upstream error", {
+        status: response.status,
+        detail: data?.error?.message,
+      });
+      if (response.status === 429) {
+        throw new HttpsError("resource-exhausted", "Busy right now — try again in a moment.");
+      }
+      throw new HttpsError("unavailable", "The assistant is unavailable right now.");
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(data?.choices?.[0]?.message?.content || "{}");
+    } catch {
+      parsed = {};
+    }
+
+    const reply = String(parsed.reply || "").trim();
+    if (!reply) {
+      throw new HttpsError("internal", "The assistant returned an empty reply.");
+    }
+
+    // Only ever hand the page actions it knows how to perform.
+    const actions = Array.isArray(parsed.actions)
+      ? [...new Set(parsed.actions.filter((a) => CHAT_ACTIONS.has(a)))].slice(0, 3)
+      : [];
+
+    return {
+      reply: reply.slice(0, 1200),
+      actions,
+      product: CHAT_PRODUCTS.has(parsed.product) ? parsed.product : null,
+    };
+  }
+);
+
+// =============================================================================
 //  readReceipt — pull details off a photo of an investor's payment receipt
 // =============================================================================
 

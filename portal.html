@@ -229,6 +229,46 @@
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.55} }
         .segBtn.on { background:rgba(255,255,255,.16); color:#fff; }
 
+        /* ---- FORM MODE ----
+           Once she picks "Fill a form" the form IS the screen: the transcript
+           and the leftover choice buttons get out of the way so she is filling
+           one thing in, not reading a conversation about filling it in. */
+        #chatView.form-full #chatScroll,
+        #chatView.form-full #pasteHint,
+        #chatView.form-full #startChoice,
+        #chatView.form-full #talkChoice,
+        #chatView.form-full #tmplPanel,
+        #chatView.form-full #draft      { display:none !important; }
+
+        /* !important is load-bearing here: #chatExtras carries inline
+           `flex-shrink:0; max-height:46%`, which caps it at half the screen and
+           would beat any stylesheet rule on specificity alone. */
+        #chatView.form-full #chatExtras {
+            flex:1 1 auto !important;
+            max-height:none !important;
+            min-height:0 !important;
+            margin:0 !important;
+        }
+        #chatView.form-full #formPanel {
+            margin:0; border:0; background:transparent; padding:0 0 24px;
+        }
+        /* The bar with the title and the way back holds still while the fields
+           scroll under it. */
+        #chatView.form-full #formHead {
+            position:sticky; top:0; z-index:3; margin:0 0 16px;
+            padding:2px 0 12px; background:var(--darker);
+            border-bottom:1px solid rgba(255,255,255,.09);
+        }
+        #formHead { display:flex; align-items:center; gap:11px; }
+        #formBack { display:none; }
+        /* min-height has to be restated: .tap sets 56px on every button, which
+           turned a 38px-wide back arrow into a squeezed vertical pill. */
+        #chatView.form-full #formBack {
+            display:inline-flex; align-items:center; justify-content:center;
+            width:44px; height:44px; min-height:44px; flex:0 0 44px;
+            padding:0; font-size:16px; border-radius:50%; line-height:1;
+        }
+
         /* On a phone the header has to fit a logo and two buttons, so the
            button labels collapse to their icons. */
         @media (max-width: 430px) {
@@ -486,9 +526,36 @@
              than talk. Payout and due date fill themselves from the rates. -->
         <div id="formPanel" class="hide" style="border:1px solid rgba(255,255,255,.12);
              background:rgba(0,0,0,.22);border-radius:18px;padding:16px;margin-bottom:14px;">
-            <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7ee2a4;margin-bottom:14px;">
-                <i class="fas fa-table-list" style="margin-right:5px;"></i>New investment
+            <div id="formHead" style="margin-bottom:14px;">
+                <button type="button" id="formBack" class="btn btn-plain tap" aria-label="Go back">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7ee2a4;">
+                    <i class="fas fa-table-list" style="margin-right:5px;"></i>New investment
+                </div>
             </div>
+
+            <!-- What was read off the receipt, or what still needs her. Takes
+                 the place of the assistant narrating it in a chat bubble. -->
+            <div id="fNote" class="hide" style="font-size:12.5px;line-height:1.6;
+                 border-radius:12px;padding:12px 13px;margin-bottom:14px;"></div>
+
+            <!-- First, not last: photographing the receipt is the quickest way
+                 to fill the rest of this form in, so it leads. -->
+            <div style="margin-bottom:16px;">
+                <label class="fLbl">Their payment receipt</label>
+                <button type="button" id="fReceipt" class="btn btn-gold tap"
+                        style="width:100%;padding:14px;font-size:13px;">
+                    <i class="fas fa-paperclip" style="margin-right:7px;"></i><span id="fReceiptLabel">Attach a receipt</span>
+                </button>
+                <img id="fReceiptPreview" class="hide" style="width:100%;max-height:150px;object-fit:contain;
+                     border-radius:10px;margin-top:9px;border:1px solid rgba(255,255,255,.14);">
+                <div style="font-size:11px;color:#6d7f74;text-align:center;margin-top:8px;line-height:1.5;">
+                    Attach one and the boxes below fill themselves in.
+                </div>
+            </div>
+
+            <div style="border-top:1px solid rgba(255,255,255,.09);margin-bottom:14px;"></div>
 
             <label class="fLbl">Type</label>
             <div style="display:flex;gap:8px;margin-bottom:12px;">
@@ -519,16 +586,6 @@
                     <input id="fPayout" class="input fIn" type="number" inputmode="numeric"></div>
                 <div style="flex:1;"><label class="fLbl">Due date</label>
                     <input id="fDue" class="input fIn" type="date"></div>
-            </div>
-
-            <div style="border-top:1px solid rgba(255,255,255,.09);margin:4px 0 12px;padding-top:12px;">
-                <label class="fLbl">Their payment receipt</label>
-                <button type="button" id="fReceipt" class="btn btn-plain tap"
-                        style="width:100%;padding:14px;font-size:13px;">
-                    <i class="fas fa-paperclip" style="margin-right:7px;"></i><span id="fReceiptLabel">Attach a receipt</span>
-                </button>
-                <img id="fReceiptPreview" class="hide" style="width:100%;max-height:150px;object-fit:contain;
-                     border-radius:10px;margin-top:9px;border:1px solid rgba(255,255,255,.14);">
             </div>
 
             <button id="fSave" class="btn btn-green tap" style="width:100%;padding:16px;font-size:15px;">
@@ -879,6 +936,31 @@
         <div style="display:flex;flex-direction:column;gap:10px;">
             <button id="cfNo" class="btn btn-plain tap" style="width:100%;padding:16px;font-size:15px;">Keep it</button>
             <button id="cfYes" class="btn btn-red tap" style="width:100%;padding:16px;font-size:15px;">Yes, delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- ================= POSSIBLE DUPLICATE =================
+     Same person, same amount, around the same time. Usually it means the save
+     looked like it failed and she entered it twice — so show her what is
+     already on the books and let her decide. -->
+<div id="dupSheet" class="sheet-wrap hide">
+    <div class="sheet" style="max-width:430px;">
+        <div class="grab"></div>
+        <div style="text-align:center;padding:8px 0 16px;">
+            <i class="fas fa-clone" style="font-size:32px;color:#f0d475;margin-bottom:13px;"></i>
+            <div id="dupTitle" style="font-size:19px;font-weight:700;margin-bottom:8px;">Saved this already?</div>
+            <div id="dupText" style="font-size:14px;color:#9fb3a6;line-height:1.6;"></div>
+        </div>
+        <div id="dupList" style="display:flex;flex-direction:column;gap:9px;
+             max-height:34vh;overflow-y:auto;margin-bottom:16px;"></div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            <button id="dupNo"  class="btn btn-green tap" style="width:100%;padding:16px;font-size:15px;">
+                No, do not add it again
+            </button>
+            <button id="dupYes" class="btn btn-plain tap" style="width:100%;padding:16px;font-size:15px;">
+                It is a new one, save it
+            </button>
         </div>
     </div>
 </div>
@@ -1289,6 +1371,7 @@ $('list').addEventListener('click', (e) => {
 function showDash() {
     $('dashView').classList.remove('hide');
     $('chatView').classList.add('hide');
+    $('chatView').classList.remove('form-full');   // don't carry form mode back
     $('stmtView').classList.add('hide');
     $('setView').classList.add('hide');
     $('vizView').classList.add('hide');
@@ -1482,6 +1565,7 @@ function startChat(mode, record) {
     $('formPanel').classList.add('hide');
     $('tmplPanel').classList.add('hide');
     $('talkChoice').classList.add('hide');
+    setFormFullscreen(false);          // a fresh conversation starts as a conversation
     talkTarget = 'chat';
     ['fFirst','fLast','fAmount','fPayout'].forEach(id => { $(id).value = ''; });
     formReceipt = null;
@@ -1514,16 +1598,17 @@ function startChat(mode, record) {
 $('newBtn').addEventListener('click', () => startChat('new'));
 
 // ---- receipt photo ----
-const pickWith = (inputId, said) => {
-    bubble(said, 'me');
+const pickWith = (inputId) => {
     showChoices(false);
     $(inputId).click();
 };
-$('camBtn').addEventListener('click',  () => pickWith('camInput',  'Take a picture'));
-$('fileBtn').addEventListener('click', () => pickWith('fileInput', 'Upload a pic'));
+$('camBtn').addEventListener('click',  () => pickWith('camInput'));
+$('fileBtn').addEventListener('click', () => pickWith('fileInput'));
+
+// The one path that is actually a conversation. Everything else fills the form.
 $('skipPhotoBtn').addEventListener('click', () => {
     showChoices(false);
-    bubble('No receipt, I will type it', 'me');
+    bubble('Let me type it', 'me');
     showComposer(true);
     bubble("No problem. Who is the investor and how much did they pay?", 'ai');
 });
@@ -1545,17 +1630,33 @@ document.addEventListener('paste', (e) => {
     if (f) { showChoices(false); handleReceiptFile(f); }
 });
 
+/**
+ * A receipt goes straight into the form. She picked a photo to save herself
+ * typing, not to have a conversation about it — so the form opens immediately,
+ * says it is reading, and fills itself in when the answer comes back.
+ */
 async function handleReceiptFile(file) {
-
-    bubble(file.type === 'application/pdf' ? '📄 Sent the file' : '📷 Sent the photo', 'me');
-    showComposer(true);                           // follow-up questions come next
-    const t = thinking();
+    showChoices(false);
+    $('formPanel').classList.remove('hide');
+    $('fStart').value = $('fStart').value || todayISO();
+    setFormFullscreen(true);
+    setFormNote('<span class="spin" style="margin-right:8px;vertical-align:-2px;"></span>'
+                + 'Reading the receipt…', 'busy');
 
     try {
         const isPdf = file.type === 'application/pdf';
         // PDFs go through untouched; photos are shrunk first.
         const img = isPdf ? await pdfAsPayload(file) : await resizeImage(file);
         receiptDataUrl = isPdf ? null : img.dataUrl;
+
+        // Show it as attached straight away — it is saved with the record
+        // whether or not the reading below manages to make sense of it.
+        formReceipt = { dataUrl: receiptDataUrl, isPdf };
+        $('fReceiptLabel').textContent = isPdf ? 'File attached' : 'Receipt attached';
+        if (!isPdf) {
+            $('fReceiptPreview').src = receiptDataUrl;
+            $('fReceiptPreview').classList.remove('hide');
+        }
 
         const { getFunctions, httpsCallable } =
             await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-functions.js');
@@ -1566,7 +1667,6 @@ async function handleReceiptFile(file) {
 
         const res = await read({ imageBase64: img.base64, mimeType: img.mimeType });
         const f = res?.data?.fields || {};
-        t.remove();
 
         receiptMeta = { reference: f.reference || '', bank: f.bank || '' };
 
@@ -1576,33 +1676,39 @@ async function handleReceiptFile(file) {
             if (f[k] !== undefined && f[k] !== '') draftFields[k] = f[k];
         });
 
-        const got = [];
-        if (f.firstName || f.lastName) got.push(`${f.firstName || ''} ${f.lastName || ''}`.trim());
-        if (f.investSum) got.push(`₦${Number(f.investSum).toLocaleString()}`);
-        if (f.investDate) got.push(prettyDate(f.investDate));
-
-        if (got.length) {
-            bubble(`I can see: ${got.join(', ')}.`, 'ai');
-        } else {
-            bubble("I could not read much from that photo.", 'ai');
-        }
-        if (f.confidence === 'low' && f.note) bubble(f.note, 'ai');
-
         const derived = withDerivedDueDate(draftFields);
         draftFields = derived.fields;
         (derived.notes || []).forEach(n => { if (!notes.includes(n)) notes = [...notes, n]; });
-        renderDraft();
 
-        const missing = missingFields(draftFields);
-        if (!missing.length) {
-            bubble('That is everything. Check it below and tap Save.', 'ai');
+        fillFormFromDraft();            // the answer lands in the boxes
+
+        // Name whatever is still blank, so she knows exactly what to type
+        // instead of hunting for it.
+        // Read the boxes, not the draft: she may have typed some of this
+        // herself before attaching, and it must not be reported as missing.
+        const LABELS = { fFirst:'first name', fLast:'surname',
+                         fAmount:'amount', fStart:'date paid' };
+        const blank = Object.keys(LABELS)
+            .filter(id => !String($(id).value || '').trim())
+            .map(id => LABELS[id]);
+
+        const readOff = [];
+        if (f.firstName || f.lastName) readOff.push(`${f.firstName || ''} ${f.lastName || ''}`.trim());
+        if (f.investSum)  readOff.push(naira(f.investSum));
+        if (f.investDate) readOff.push(prettyDate(f.investDate));
+
+        if (!readOff.length) {
+            setFormNote('Could not read that one. Please fill it in below.', 'warn');
+        } else if (blank.length) {
+            setFormNote(`Read <strong>${esc(readOff.join(', '))}</strong>.<br>`
+                      + `Still needs the ${esc(blank.join(' and the '))}.`, 'warn');
+        } else if (f.confidence === 'low' && f.note) {
+            setFormNote(`Read <strong>${esc(readOff.join(', '))}</strong>.<br>${esc(f.note)}`, 'warn');
         } else {
-            // Let the chat model phrase the follow-up question naturally.
-            await ask(`I attached a receipt. From it we already know: ${JSON.stringify(draftFields)}. Ask me only for what is still missing.`, { silent: true });
+            setFormNote(`Read <strong>${esc(readOff.join(', '))}</strong>. Check it and tap Save.`);
         }
     } catch (err) {
-        t.remove();
-        bubble(friendlyError(err), 'err');
+        setFormNote(esc(friendlyError(err)) + '<br>You can still fill it in below.', 'warn');
     }
 }
 
@@ -1678,6 +1784,14 @@ $('chatForm').addEventListener('submit', (e) => {
 // ---- save ----
 $('saveBtn').addEventListener('click', async () => {
     if (missingFields(draftFields).length) return;
+
+    // Same guard as the form. Editing an existing record is exempt — it is
+    // meant to match itself.
+    if (chatMode !== 'edit') {
+        const hits = findDuplicates(draftFields);
+        if (hits.length && !(await confirmDuplicate(draftFields, hits))) return;
+    }
+
     const btn = $('saveBtn');
     btn.disabled = true;
     btn.innerHTML = '<span class="spin"></span>';
@@ -2737,16 +2851,146 @@ window.addEventListener('resize', syncHeaderVar);
 
 let formType = 'Farm Investment';
 
+// The most recent record saved from the form, kept so "Renew previous" and the
+// share sheet can offer it without another read. Declared here because assigning
+// to an undeclared name throws in a module — which used to abort the save
+// handler *after* the record had already been written.
+let lastSavedRecord = null;
+
+// ---- duplicate guard ----
+//
+//  Real repeat investments exist, so this asks rather than blocks. The window is
+//  what separates "she pressed Save twice" from "he invested again in the
+//  autumn": same person and same amount inside 45 days is worth a question.
+
+const DUP_WINDOW_DAYS = 45;
+
+const dayNum = (iso) => {
+    const [y, m, d] = String(iso || '').split('-').map(Number);
+    return (y && m && d) ? Date.UTC(y, m - 1, d) / 86400000 : null;
+};
+
+/** Records that look like the one she is about to save, nearest first. */
+function findDuplicates(p, pool = records) {
+    const name = `${p.firstName || ''} ${p.lastName || ''}`.trim().toLowerCase();
+    const amt = Number(p.investSum) || 0;
+    const when = dayNum(p.investDate);
+    if (!name || !amt) return [];
+
+    return pool
+        .filter(r => r.id !== p.id)
+        .map(r => {
+            const rn = `${r.firstName || ''} ${r.lastName || ''}`.trim().toLowerCase();
+            if (rn !== name) return null;
+            if ((Number(r.investSum) || 0) !== amt) return null;
+            const rw = dayNum(r.investDate);
+            const gap = (when !== null && rw !== null) ? Math.abs(when - rw) : null;
+            if (gap === null || gap > DUP_WINDOW_DAYS) return null;
+            return { record: r, gap };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.gap - b.gap);
+}
+
+/**
+ * Show the duplicate sheet. Resolves true if she still wants to save.
+ * Never throws — if anything goes wrong the save simply proceeds.
+ */
+function confirmDuplicate(p, hits) {
+    return new Promise((resolve) => {
+        const exact = hits.filter(h => h.gap === 0).length;
+        $('dupTitle').textContent = hits.length > 1
+            ? 'This is already on the books twice'
+            : 'Saved this already?';
+        $('dupText').innerHTML = exact
+            ? `<strong style="color:#f4f1ea">${esc(fullName(p))}</strong> is already saved for
+               <strong style="color:#f4f1ea">${esc(naira(p.investSum))}</strong> on that same day.`
+            : `<strong style="color:#f4f1ea">${esc(fullName(p))}</strong> was saved for
+               <strong style="color:#f4f1ea">${esc(naira(p.investSum))}</strong> very recently.`;
+
+        $('dupList').innerHTML = hits.map(({ record: r, gap }) => `
+          <div class="card" style="padding:12px 14px;">
+            <div style="font-size:14px;font-weight:700;">${esc(fullName(r))} — ${esc(naira(r.investSum))}</div>
+            <div style="font-size:11.5px;color:#9fb3a6;margin-top:3px;">
+              ${esc(prettyDate(r.investDate))} ·
+              ${gap === 0 ? 'the same day' : `${gap} day${gap === 1 ? '' : 's'} apart`}
+            </div>
+          </div>`).join('');
+
+        $('dupSheet').classList.remove('hide');
+
+        const done = (answer) => {
+            $('dupSheet').classList.add('hide');
+            $('dupYes').removeEventListener('click', yes);
+            $('dupNo').removeEventListener('click', no);
+            $('dupSheet').removeEventListener('click', backdrop);
+            resolve(answer);
+        };
+        const yes = () => done(true);
+        const no = () => done(false);
+        const backdrop = (e) => { if (e.target === $('dupSheet')) done(false); };
+
+        $('dupYes').addEventListener('click', yes);
+        $('dupNo').addEventListener('click', no);
+        $('dupSheet').addEventListener('click', backdrop);
+    });
+}
+
+/**
+ * Give the form the whole screen, or hand it back to the conversation.
+ *
+ * She picked a form because she wanted to type into boxes, so the transcript
+ * behind it is just noise. The back arrow is the way out — without it, choosing
+ * the form by mistake is a dead end.
+ */
+function setFormFullscreen(on, { withComposer = false } = {}) {
+    $('chatView').classList.toggle('form-full', on);
+    if (on) {
+        // The typing box only stays when she is dictating into the form.
+        showComposer(withComposer);
+        $('chatExtras').scrollTop = 0;
+    }
+}
+
+function exitFormFullscreen() {
+    setFormFullscreen(false);
+    $('formPanel').classList.add('hide');
+    setFormNote('');
+    showChoices(true);
+    showComposer(false);
+}
+
+/**
+ * The one line of feedback the form gives her.
+ *   tone 'ok'    — read successfully
+ *   tone 'warn'  — read, but something needs her eye
+ *   tone 'busy'  — still working
+ */
+function setFormNote(html, tone = 'ok') {
+    const el = $('fNote');
+    if (!html) { el.classList.add('hide'); el.innerHTML = ''; return; }
+    const skin = {
+        ok:   ['rgba(41,158,82,.1)',  '#7ee2a4'],
+        warn: ['rgba(212,175,55,.1)', '#f0d475'],
+        busy: ['rgba(255,255,255,.06)', '#9fb3a6'],
+    }[tone] || ['rgba(41,158,82,.1)', '#7ee2a4'];
+    el.style.background = skin[0];
+    el.style.color = skin[1];
+    el.innerHTML = html;
+    el.classList.remove('hide');
+}
+
+$('formBack').addEventListener('click', exitFormFullscreen);
+
 $('formBtn').addEventListener('click', () => {
     showChoices(false);
-    // Echo the choice as her own message, so the conversation reads back as a
-    // conversation rather than the app talking to itself.
+    // Echo the choice as her own message, so if she comes back to the
+    // conversation it reads as one rather than the app talking to itself.
     bubble('Fill a form', 'me');
     $('formPanel').classList.remove('hide');
     $('fStart').value = todayISO();
     recalcForm();
-    bubble('Alright — fill in what you know below and tap Save.', 'ai');
-    showComposer(false);                          // the form is the input now
+    setFormFullscreen(true);
 });
 
 document.addEventListener('click', (e) => {
@@ -2806,18 +3050,38 @@ $('fSave').addEventListener('click', async () => {
     if (!amt)            { toast('Please enter the amount', true); return; }
     if (!start || !due)  { toast('Please check the dates', true); return; }
 
+    const payload = { type: formType, firstName: first, lastName: last,
+                      investDate: start, dueDate: due, investSum: amt, dueSum: payout };
+
+    // Ask before adding a second copy of something already on the books.
+    const hits = findDuplicates(payload);
+    if (hits.length && !(await confirmDuplicate(payload, hits))) return;
+
     const btn = $('fSave'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
+
+    // Writing the record is the only step that decides success. Anything after
+    // it — the receipt photo, the redraw — is a bonus, and must never make a
+    // saved record look unsaved, or she will enter the same person twice.
+    let id;
     try {
-        const payload = { type: formType, firstName: first, lastName: last,
-                          investDate: start, dueDate: due, investSum: amt, dueSum: payout };
-        const id = await createRecord(payload);
-        const img = receiptDataUrl || formReceipt?.dataUrl;
-        if (img) await saveReceiptImage(id, img, receiptMeta || {});
-        toast('Saved');
-        lastSavedRecord = { id, ...payload };
-        showDash();
-    } catch (err) { toast(err.message || 'Could not save', true); }
-    finally { btn.disabled = false; btn.textContent = 'Save'; }
+        id = await createRecord(payload);
+    } catch (err) {
+        toast(err.message || 'Could not save', true);
+        btn.disabled = false; btn.textContent = 'Save';
+        return;
+    }
+
+    lastSavedRecord = { id, ...payload };
+
+    const img = receiptDataUrl || formReceipt?.dataUrl;
+    if (img) {
+        try { await saveReceiptImage(id, img, receiptMeta || {}); }
+        catch { toast('Saved, but the receipt photo did not upload', true); }
+    }
+
+    btn.disabled = false; btn.textContent = 'Save';
+    toast('Saved');
+    showDash();
 });
 
 // ================= VOICE INPUT =================
@@ -2912,8 +3176,8 @@ $('tmplList').addEventListener('click', (e) => {
     recalcForm();
 
     $('formPanel').classList.remove('hide');
-    showComposer(false);
     bubble(`Copied ${fullName(r)}'s details. Change the amount and the date if they differ, then tap Save.`, 'ai');
+    setFormFullscreen(true);
     setTimeout(() => $('fAmount').focus(), 80);
 });
 
@@ -2943,7 +3207,9 @@ function startTalking(mode) {
         $('fStart').value = todayISO();
         recalcForm();
         $('formPanel').classList.remove('hide');
-        bubble('Go ahead — say who invested and how much, and I will fill the form in.', 'ai');
+        // Full screen, but the typing box stays — she is dictating into it.
+        setFormFullscreen(true, { withComposer: true });
+        setFormNote('Say who invested and how much — the boxes fill themselves in.', 'busy');
     } else {
         bubble('Go ahead — tell me who invested and how much.', 'ai');
     }
@@ -3269,21 +3535,13 @@ async function commit(txn, category, segment, label) {
 let formReceipt = null;     // { dataUrl } chosen in the form builder
 
 $('fReceipt').addEventListener('click', () => $('fRecInput').click());
-$('fRecInput').addEventListener('change', async (e) => {
+
+// Same reader as the camera and upload buttons, so attaching a receipt from
+// inside the form also fills the boxes in rather than only storing the picture.
+$('fRecInput').addEventListener('change', (e) => {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (!file) return;
-    try {
-        const isPdf = file.type === 'application/pdf';
-        const img = isPdf ? null : await resizeImage(file);
-        formReceipt = { dataUrl: img?.dataUrl || null, isPdf };
-        $('fReceiptLabel').textContent = isPdf ? 'File attached' : 'Receipt attached';
-        if (img) {
-            $('fReceiptPreview').src = img.dataUrl;
-            $('fReceiptPreview').classList.remove('hide');
-        }
-        toast('Receipt attached');
-    } catch (err) { toast(friendlyError(err), true); }
+    if (file) handleReceiptFile(file);
 });
 
 // ---- proof of payout, from a record ----
@@ -3420,8 +3678,8 @@ document.addEventListener('click', async (e) => {
         $('fPayout').dataset.touched = ''; $('fDue').dataset.touched = '';
         recalcForm();
         $('formPanel').classList.remove('hide');
-        showComposer(false);
         bubble(`Their details are filled in${q.phone ? ` — phone ${q.phone}` : ''}. Check the amount and date, then Save.`, 'ai');
+        setFormFullscreen(true);
     } else {
         try { await setInquiryStatus(id, 'approved'); toast('Marked as done'); }
         catch (err) { toast(friendlyError(err), true); }

@@ -228,6 +228,61 @@ To lock it down:
 The email/password login screen is built into `portal.html` and appears
 automatically once `DEV_MODE` is `false`.
 
+## The website chatbot
+
+A bubble in the corner of `index.html` answers questions from visitors. Client
+in `assets/js/chat.js`, brain in the `ask` Cloud Function.
+
+Turn it on:
+
+```bash
+firebase deploy --only functions:ask --project prastfarms
+# then set CHATBOT_ENABLED = true in assets/js/firebase-config.js
+```
+
+While `CHATBOT_ENABLED` is `false` the bubble does not render and the site is
+untouched.
+
+**It can only say what it has been told.** Everything the bot may state as fact
+lives in `FARM_FACTS` inside `functions/index.js` — branches, the five products,
+the Academy, jobs, and the Prast Portal plans. Edit that block to change what it
+knows; nothing in the browser holds any business facts, so the answers cannot
+drift from it. It is explicitly forbidden from inventing a produce price, and
+from quoting, estimating or hinting at an investment return, percentage or
+payout — those go to a human. Anything it does not know ends with the phone
+number.
+
+**Languages.** It replies in whatever language it was asked in. Nigerian Pidgin
+is treated as a first-class language, not broken English, and the prompt carries
+a list of the phonetic spellings and shorthand people actually type ("chikn",
+"hw much", "bole", "wrk"). Igbo, Yoruba and Hausa work reasonably. The Rivers
+State languages — Ikwerre, Izon, Ogoni, Etche, Efik — are hit-and-miss with this
+model, so the prompt tells it to fall back to Pidgin, which is understood across
+Port Harcourt, rather than guess badly.
+
+**Replies can carry actions.** The function returns up to three from a fixed
+list (`call`, `whatsapp`, `buy`, `invest`, `academy`, `job`, `portal`,
+`locations`, `products`) and the page renders them as buttons — "Place an order"
+opens the order form with the right product already selected. Anything outside
+that list is dropped, so a confused model cannot make the page do something odd.
+
+### Cost and abuse
+
+Unlike the portal assistant, this endpoint has **no sign-in wall** — anyone can
+call it, and every call costs money. What bounds it:
+
+| Control | Value |
+|---|---|
+| `maxInstances` | 2 — the hard ceiling on concurrent spend |
+| `max_tokens` | 450 per reply |
+| Messages per chat | 14, and 2,600 characters total |
+| Per IP | 10/minute, 50/hour |
+
+The per-IP limit is held in memory, so it is per instance and approximate — a
+speed bump against a casual script, not a security control. **Firebase App Check
+is the proper fix** and is worth adding before this gets any real traffic. Set a
+billing budget alert on the project either way.
+
 ## Applications — `apply.html`
 
 Everything someone applies *to us* for lives on one page, reached from **Work
