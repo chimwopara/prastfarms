@@ -222,8 +222,20 @@
             background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); color:#9fb3a6;
         }
         @media (max-width:340px) { .actTile span { font-size:8.5px; } }
-        .fLbl { display:block; font-size:11px; color:#9fb3a6; margin:0 0 5px; }
-        .fIn  { width:100%; padding:13px; box-sizing:border-box; margin-bottom:12px; }
+        /* Each entry is one row with a label she cannot skim past. */
+        .fLbl { display:block; font-size:15px; font-weight:600; color:#e8efe9;
+                margin:0 0 7px; letter-spacing:.005em; }
+        .fIn  { width:100%; max-width:100%; min-width:0; padding:14px 13px;
+                font-size:16px;            /* 16px stops iOS zooming on focus */
+                box-sizing:border-box; margin-bottom:16px; }
+        /* A date input reports a wide intrinsic size on iOS and will not shrink
+           below it while min-width is auto — that is what pushes a phone into
+           sideways scrolling. */
+        input[type="date"].fIn { -webkit-appearance:none; appearance:none; }
+
+        /* The amount, read back in full so a misread shorthand is obvious. */
+        .fWords { font-size:13px; color:#7ee2a4; margin:0 0 16px; line-height:1.5;
+                  padding-left:2px; }
         .fType.on { background:rgba(41,158,82,.28); border-color:rgba(41,158,82,.6); color:#fff; }
         #micBtn.rec { background:rgba(185,28,28,.85); color:#fff; animation:pulse 1.2s infinite; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.55} }
@@ -249,8 +261,15 @@
             min-height:0 !important;
             margin:0 !important;
         }
+        /* Same inline-style trap as #chatExtras: the panel carries its card
+           border, background and padding inline, so without !important it stays
+           a card inside the screen instead of being the screen. */
         #chatView.form-full #formPanel {
-            margin:0; border:0; background:transparent; padding:0 0 24px;
+            margin:0 !important;
+            border:0 !important;
+            background:transparent !important;
+            border-radius:0 !important;
+            padding:0 0 24px !important;
         }
         /* The bar with the title and the way back holds still while the fields
            scroll under it. */
@@ -259,6 +278,11 @@
             padding:2px 0 12px; background:var(--darker);
             border-bottom:1px solid rgba(255,255,255,.09);
         }
+        /* Belt and braces: the panel is a card with its own padding, so without
+           border-box it would be its container's width PLUS 32px. */
+        #formPanel { box-sizing:border-box; max-width:100%; }
+        #chatExtras { overflow-x:hidden; }
+
         #formHead { display:flex; align-items:center; gap:11px; }
         #formBack { display:none; }
         /* min-height has to be restated: .tap sets 56px on every button, which
@@ -565,28 +589,35 @@
                         style="flex:1;padding:12px;font-size:13px;">Property</button>
             </div>
 
-            <div style="display:flex;gap:10px;">
-                <div style="flex:1;"><label class="fLbl">First name</label>
-                    <input id="fFirst" class="input fIn" autocomplete="off"></div>
-                <div style="flex:1;"><label class="fLbl">Surname</label>
-                    <input id="fLast" class="input fIn" autocomplete="off"></div>
-            </div>
+            <!-- One field per row. Two-up rows squeezed the labels and could
+                 push the date boxes past the edge of a narrow phone. -->
+            <label class="fLbl">First name</label>
+            <input id="fFirst" class="input fIn" autocomplete="off">
 
+            <label class="fLbl">Surname</label>
+            <input id="fLast" class="input fIn" autocomplete="off">
+
+            <!-- Text, not number, so "3m" and "300k" can be typed. What it was
+                 understood as is spelled out underneath. -->
             <label class="fLbl">Amount they paid (₦)</label>
-            <input id="fAmount" class="input fIn" type="number" inputmode="numeric" placeholder="0">
+            <input id="fAmount" class="input fIn" type="text" inputmode="decimal"
+                   autocomplete="off" placeholder="e.g. 3m, 500k, 250,000"
+                   style="margin-bottom:6px;">
+            <div id="fAmountWords" class="fWords hide"></div>
 
             <label class="fLbl">Date they paid</label>
             <input id="fStart" class="input fIn" type="date">
 
-            <div id="fAuto" style="font-size:12px;color:#7ee2a4;background:rgba(41,158,82,.1);
-                 border-radius:10px;padding:11px;margin:4px 0 12px;line-height:1.6;"></div>
+            <div id="fAuto" style="font-size:12.5px;color:#7ee2a4;background:rgba(41,158,82,.1);
+                 border-radius:10px;padding:12px;margin:4px 0 14px;line-height:1.6;"></div>
 
-            <div style="display:flex;gap:10px;">
-                <div style="flex:1;"><label class="fLbl">Pays back (₦)</label>
-                    <input id="fPayout" class="input fIn" type="number" inputmode="numeric"></div>
-                <div style="flex:1;"><label class="fLbl">Due date</label>
-                    <input id="fDue" class="input fIn" type="date"></div>
-            </div>
+            <label class="fLbl">Pays back (₦)</label>
+            <input id="fPayout" class="input fIn" type="text" inputmode="decimal"
+                   autocomplete="off" style="margin-bottom:6px;">
+            <div id="fPayoutWords" class="fWords hide"></div>
+
+            <label class="fLbl">Due date</label>
+            <input id="fDue" class="input fIn" type="date">
 
             <button id="fSave" class="btn btn-green tap" style="width:100%;padding:16px;font-size:15px;">
                 Save
@@ -1568,6 +1599,9 @@ function startChat(mode, record) {
     setFormFullscreen(false);          // a fresh conversation starts as a conversation
     talkTarget = 'chat';
     ['fFirst','fLast','fAmount','fPayout'].forEach(id => { $(id).value = ''; });
+    ['fAmountWords','fPayoutWords'].forEach(id => {
+        $(id).textContent = ''; $(id).classList.add('hide');
+    });
     formReceipt = null;
     $('fReceiptLabel').textContent = 'Attach a receipt';
     $('fReceiptPreview').classList.add('hide');
@@ -3002,6 +3036,17 @@ document.addEventListener('click', (e) => {
 
 ['fAmount', 'fStart'].forEach(id => $(id).addEventListener('input', recalcForm));
 
+// Spell the figure out as she types, and tidy it into commas once she moves on.
+['fAmount', 'fPayout'].forEach(id => {
+    $(id).addEventListener('input', () => showAmountWords(id));
+    $(id).addEventListener('blur', () => {
+        const n = parseAmount($(id).value);
+        if (n) $(id).value = n.toLocaleString('en-NG');
+        showAmountWords(id);
+        if (id === 'fAmount') recalcForm();
+    });
+});
+
 /** Payout and due date follow the amount, using the live rates from Settings. */
 /** Copy whatever the conversation has established into the form fields. */
 function fillFormFromDraft() {
@@ -3012,15 +3057,117 @@ function fillFormFromDraft() {
     }
     if (draftFields.firstName) $('fFirst').value = draftFields.firstName;
     if (draftFields.lastName)  $('fLast').value  = draftFields.lastName;
-    if (draftFields.investSum) $('fAmount').value = draftFields.investSum;
+    if (draftFields.investSum) setAmountField('fAmount', draftFields.investSum);
     if (draftFields.investDate) $('fStart').value = draftFields.investDate;
-    if (draftFields.dueSum)  { $('fPayout').value = draftFields.dueSum; $('fPayout').dataset.touched = '1'; }
-    if (draftFields.dueDate) { $('fDue').value = draftFields.dueDate;  $('fDue').dataset.touched = '1'; }
+
+    // "touched" must mean SHE typed in the box, never that we filled it. A
+    // figure we worked out ourselves is left free to follow the amount —
+    // otherwise correcting a misread receipt left the payout at the old value.
+    // A figure that does NOT match the rates was agreed separately, so it pins.
+    const amt = Number(draftFields.investSum) || 0;
+    if (draftFields.dueSum) {
+        setAmountField('fPayout', draftFields.dueSum);
+        $('fPayout').dataset.touched =
+            (amt && Number(draftFields.dueSum) !== liveExpectedPayout(amt)) ? '1' : '';
+    }
+    if (draftFields.dueDate) {
+        $('fDue').value = draftFields.dueDate;
+        const derived = (amt && draftFields.investDate)
+            ? addMonthsISO(draftFields.investDate, liveTermMonthsFor(amt)) : null;
+        $('fDue').dataset.touched = (derived && draftFields.dueDate !== derived) ? '1' : '';
+    }
     recalcForm();
 }
 
+// ---- money boxes ----
+//
+//  She types amounts the way she says them. "3m" is three million, "200" is two
+//  hundred thousand. Whatever she types is echoed back underneath in words, so
+//  a guess that went the wrong way is obvious before she saves it.
+
+const SCALES = [
+    [/^(b|bn|billion)$/, 1e9],
+    [/^(m|mn|million)$/, 1e6],
+    [/^(k|thousand)$/,   1e3],
+];
+
+/**
+ * What she meant by an amount.
+ *   "3m", "3 million"  -> 3,000,000
+ *   "300k"             -> 300,000
+ *   "3.5"              -> 3,500,000   a decimal reads as millions
+ *   "200"              -> 200,000     a bare number under 1000 reads as thousands
+ *   "5,000,000"        -> 5,000,000   1000 or more is taken exactly as typed
+ */
+function parseAmount(raw) {
+    const s = String(raw ?? '').trim().toLowerCase()
+        .replace(/^[₦n]\s*/, '')          // a leading ₦ or N
+        .replace(/,/g, '')
+        .replace(/\s+/g, '');
+    if (!s) return 0;
+
+    const m = s.match(/^(\d*\.?\d+)(b|bn|billion|m|mn|million|k|thousand)?$/);
+    if (!m) return 0;
+
+    const n = parseFloat(m[1]);
+    if (!Number.isFinite(n)) return 0;
+
+    if (m[2]) {
+        const hit = SCALES.find(([re]) => re.test(m[2]));
+        return Math.round(n * (hit ? hit[1] : 1));
+    }
+    if (m[1].includes('.')) return Math.round(n * 1e6);   // 3.5  -> 3.5 million
+    if (n < 1000)           return Math.round(n * 1e3);   // 200  -> 200 thousand
+    return Math.round(n);                                  // typed out in full
+}
+
+const W_ONES = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight',
+                'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen',
+                'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+const W_TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy',
+                'eighty', 'ninety'];
+
+function underThousand(n) {
+    const out = [];
+    if (n >= 100) { out.push(`${W_ONES[Math.floor(n / 100)]} hundred`); n %= 100; }
+    if (n >= 20) {
+        out.push(W_TENS[Math.floor(n / 10)] + (n % 10 ? `-${W_ONES[n % 10]}` : ''));
+    } else if (n > 0) out.push(W_ONES[n]);
+    return out.join(' and ');
+}
+
+/** "three hundred thousand" — how she would read it out loud. */
+function amountInWords(n) {
+    n = Math.round(Number(n) || 0);
+    if (n <= 0) return '';
+    if (n >= 1e12) return '';                       // beyond anything real here
+    const parts = [];
+    [[1e9, 'billion'], [1e6, 'million'], [1e3, 'thousand']].forEach(([size, label]) => {
+        if (n >= size) { parts.push(`${underThousand(Math.floor(n / size))} ${label}`); n %= size; }
+    });
+    if (n > 0) parts.push(underThousand(n));
+    return parts.join(' ');
+}
+
+/** Put a number into a money box, comma-formatted. */
+function setAmountField(id, value) {
+    const n = Math.round(Number(value) || 0);
+    $(id).value = n ? n.toLocaleString('en-NG') : '';
+    showAmountWords(id);
+}
+
+/** The line under a money box: the figure in full, spelled out. */
+function showAmountWords(id) {
+    const el = $(`${id}Words`);
+    if (!el) return;
+    const n = parseAmount($(id).value);
+    if (!n) { el.classList.add('hide'); el.textContent = ''; return; }
+    el.textContent = `${naira(n)} — ${amountInWords(n)} naira`;
+    el.classList.remove('hide');
+}
+
 function recalcForm() {
-    const amt = Number($('fAmount').value) || 0;
+    const amt = parseAmount($('fAmount').value);
     const start = $('fStart').value;
     if (!amt || !start) { $('fAuto').textContent = 'Enter the amount and the date and the rest fills itself in.'; return; }
 
@@ -3029,7 +3176,7 @@ function recalcForm() {
     const due = addMonthsISO(start, months);
 
     // Only overwrite while she has not typed her own figures.
-    if (!$('fPayout').dataset.touched) $('fPayout').value = payout;
+    if (!$('fPayout').dataset.touched) setAmountField('fPayout', payout);
     if (!$('fDue').dataset.touched) $('fDue').value = due;
 
     const pct = Math.round((Number(getSettings().roiMultiplier) || 1.4) * 100);
@@ -3042,9 +3189,9 @@ $('fDue').addEventListener('input', () => { $('fDue').dataset.touched = '1'; });
 
 $('fSave').addEventListener('click', async () => {
     const first = $('fFirst').value.trim(), last = $('fLast').value.trim();
-    const amt = Number($('fAmount').value) || 0;
+    const amt = parseAmount($('fAmount').value);
     const start = $('fStart').value, due = $('fDue').value;
-    const payout = Number($('fPayout').value) || 0;
+    const payout = parseAmount($('fPayout').value);
 
     if (!first || !last) { toast('Please enter both names', true); return; }
     if (!amt)            { toast('Please enter the amount', true); return; }
@@ -3171,7 +3318,7 @@ $('tmplList').addEventListener('click', (e) => {
     $('fFirst').value = r.firstName || '';
     $('fLast').value  = r.lastName || '';
     $('fStart').value = todayISO();
-    $('fAmount').value = r.investSum || '';
+    setAmountField('fAmount', r.investSum || 0);
     $('fPayout').dataset.touched = ''; $('fDue').dataset.touched = '';
     recalcForm();
 
@@ -3673,7 +3820,7 @@ document.addEventListener('click', async (e) => {
         document.querySelectorAll('.fType').forEach(x => x.classList.toggle('on', x.dataset.t === formType));
         $('fFirst').value = parts[0] || '';
         $('fLast').value  = parts.slice(1).join(' ') || '';
-        $('fAmount').value = q.amount || '';
+        setAmountField('fAmount', q.amount || 0);
         $('fStart').value = todayISO();
         $('fPayout').dataset.touched = ''; $('fDue').dataset.touched = '';
         recalcForm();
