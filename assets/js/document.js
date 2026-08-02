@@ -10,7 +10,8 @@
 //  Both libraries are loaded by portal.html.
 // =============================================================================
 
-import { naira, prettyDate, fullName, todayISO, monthsBetween, getSettings } from "./db.js";
+import { naira, prettyDate, fullName, todayISO, monthsBetween, getSettings,
+         liveTermTableLines } from "./db.js";
 import { signatures } from "./agreement.js";
 
 // Live, owner-editable values. Read per render so a Settings change shows up in
@@ -76,6 +77,12 @@ function buildValues(record, receipt) {
     legalName: S().company.legalName,
     business: S().company.business,
     signatoryName: S().company.signatoryName,
+
+    // Rates come from Settings every time the document is built. They used to
+    // be written into the clause text, so editing a rate changed what the
+    // portal worked out while the agreement kept quoting the old one.
+    roiPercent: `${Math.round((Number(S().roiMultiplier) || 1.4) * 100)}%`,
+    roiTimes: String(Number(S().roiMultiplier) || 1.4),
   };
 }
 
@@ -226,10 +233,16 @@ function agreementPage(record, values) {
     .map((c, i) => {
       const indent = c.heading ? "padding-left:15px;" : "";
 
-      const lines = c.lines?.length
+      // {{termTable}} expands to the bands as they stand in Settings right now,
+      // rather than to whatever they were when the wording was last saved.
+      const rawLines = (c.lines || []).flatMap((l) =>
+        String(l).trim() === "{{termTable}}" ? liveTermTableLines() : [l]
+      );
+
+      const lines = rawLines.length
         ? `<div style="${indent}margin-top:7px;">
              ${c.linesHeading ? `<div style="font-size:11px;font-weight:600;color:${INK};margin-bottom:3px;">${esc(c.linesHeading)}</div>` : ""}
-             ${c.lines.map((l) => `<div style="font-size:11.5px;line-height:1.75;color:${INK};">• ${esc(fill(l, values))}</div>`).join("")}
+             ${rawLines.map((l) => `<div style="font-size:11.5px;line-height:1.75;color:${INK};">• ${esc(fill(l, values))}</div>`).join("")}
            </div>`
         : "";
 

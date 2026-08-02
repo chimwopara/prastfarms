@@ -996,6 +996,28 @@
     </div>
 </div>
 
+<!-- ================= JUST SAVED =================
+     The moment she is most likely to want the paperwork is straight after
+     saving, so the document is offered here rather than found later. -->
+<div id="savedSheet" class="sheet-wrap hide">
+    <div class="sheet" style="max-width:420px;">
+        <div class="grab"></div>
+        <div style="text-align:center;padding:8px 0 18px;">
+            <i class="fas fa-circle-check" style="font-size:36px;color:#7ee2a4;margin-bottom:13px;"></i>
+            <div style="font-size:20px;font-weight:700;margin-bottom:7px;">Saved</div>
+            <div id="savedWho" style="font-size:14px;color:#9fb3a6;line-height:1.6;"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            <button id="savedShare" class="btn btn-gold tap" style="width:100%;padding:16px;font-size:15px;">
+                <i class="fas fa-file-arrow-down" style="margin-right:8px;"></i><span id="savedShareLabel">Send document</span>
+            </button>
+            <button id="savedDone" class="btn btn-plain tap" style="width:100%;padding:16px;font-size:15px;">
+                Done
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- ============ FARM SIGN-UP — check the receipt, then approve ============ -->
 <div id="farmSheet" class="sheet-wrap hide">
     <div class="sheet">
@@ -1079,7 +1101,7 @@ import {
     saveTransactions, saveStatement, listenTransactions, summariseByCategory,
     setTransactionCategory, payeeKey, PAYEE_ROLES, fetchCategories,
     loadSettings, getSettings, saveSettings, resetSettings,
-    liveTermMonthsFor, liveExpectedPayout,
+    liveTermMonthsFor, liveExpectedPayout, amountRejection,
     fetchSummaries, monthRange, prettyMonth, MONTH_NAMES, project, insights,
     operatingSummary, lastMonths, kindOf,
     fetchUnsorted, countUnsorted, fileTransaction, categoriesFor, UNSORTED_CATEGORIES,
@@ -1818,6 +1840,15 @@ $('chatForm').addEventListener('submit', (e) => {
 // ---- save ----
 $('saveBtn').addEventListener('click', async () => {
     if (missingFields(draftFields).length) return;
+
+    // Amounts outside the bands are ones the farm does not take.
+    const noGo = amountRejection(draftFields.investSum);
+    if (noGo && chatMode !== 'edit') {
+        toast(noGo.reason === 'below'
+            ? `Investments under ${naira(noGo.min)} are not accepted`
+            : `Investments between ${naira(noGo.from)} and ${naira(noGo.to)} are not accepted`, true);
+        return;
+    }
 
     // Same guard as the form. Editing an existing record is exempt — it is
     // meant to match itself.
@@ -2927,6 +2958,55 @@ function findDuplicates(p, pool = records) {
 }
 
 /**
+ * Confirm the save and offer the paperwork in the same breath. Closing it
+ * either way returns to the dashboard, so the record is never left half-shown.
+ */
+function showSavedSheet(record, receipt) {
+    if (!record) { showDash(); return; }
+
+    $('savedWho').innerHTML =
+        `<strong style="color:#f4f1ea">${esc(fullName(record))}</strong> — ` +
+        `${esc(naira(record.investSum))}<br>` +
+        `pays back <strong style="color:#f4f1ea">${esc(naira(record.dueSum))}</strong> ` +
+        `on ${esc(prettyDate(record.dueDate))}`;
+
+    const share = $('savedShare');
+    const label = $('savedShareLabel');
+    const close = () => {
+        $('savedSheet').classList.add('hide');
+        share.removeEventListener('click', onShare);
+        $('savedDone').removeEventListener('click', close);
+        $('savedSheet').removeEventListener('click', backdrop);
+        showDash();
+    };
+    const backdrop = (e) => { if (e.target === $('savedSheet')) close(); };
+
+    async function onShare() {
+        share.disabled = true;
+        label.textContent = 'Preparing…';
+        try {
+            // Prefer the photo we already hold; only go to the database if not.
+            const rec = receipt || await getReceiptImage(record.id);
+            const out = await shareDocument(record, rec, (name, i, n) => {
+                label.textContent = `Page ${i} of ${n}…`;
+            });
+            if (out === 'downloaded') toast('Document saved to your files');
+            else if (out === 'shared') toast('Document sent');
+        } catch (err) {
+            toast(err.message || 'Could not make the document', true);
+        } finally {
+            share.disabled = false;
+            label.textContent = 'Send document';
+        }
+    }
+
+    share.addEventListener('click', onShare);
+    $('savedDone').addEventListener('click', close);
+    $('savedSheet').addEventListener('click', backdrop);
+    $('savedSheet').classList.remove('hide');
+}
+
+/**
  * Show the duplicate sheet. Resolves true if she still wants to save.
  * Never throws — if anything goes wrong the save simply proceeds.
  */
@@ -3169,7 +3249,35 @@ function showAmountWords(id) {
 function recalcForm() {
     const amt = parseAmount($('fAmount').value);
     const start = $('fStart').value;
-    if (!amt || !start) { $('fAuto').textContent = 'Enter the amount and the date and the rest fills itself in.'; return; }
+    if (!amt || !start) {
+        // Clearing a refused amount must release the button again.
+        setSaveBlocked(false);
+        $('fAuto').style.background = 'rgba(41,158,82,.1)';
+        $('fAuto').style.color = '#7ee2a4';
+        $('fAuto').textContent = 'Enter the amount and the date and the rest fills itself in.';
+        return;
+    }
+
+    // An amount that falls outside the bands is one the farm does not take.
+    // Say so plainly and stop, rather than quietly booking it on the nearest
+    // term as if it were fine.
+    const no = amountRejection(amt);
+    if (no) {
+        $('fAuto').style.background = 'rgba(212,175,55,.1)';
+        $('fAuto').style.color = '#f0d475';
+        $('fAuto').innerHTML = no.reason === 'below'
+            ? `Prast Farms does not take investments under
+               <strong style="color:#f4f1ea">${esc(naira(no.min))}</strong>.`
+            : `Prast Farms does not take investments between
+               <strong style="color:#f4f1ea">${esc(naira(no.from))}</strong> and
+               <strong style="color:#f4f1ea">${esc(naira(no.to))}</strong>.
+               Change the amount, or change the rates in Agreement &amp; rates.`;
+        setSaveBlocked(true);
+        return;
+    }
+    setSaveBlocked(false);
+    $('fAuto').style.background = 'rgba(41,158,82,.1)';
+    $('fAuto').style.color = '#7ee2a4';
 
     const months = liveTermMonthsFor(amt);
     const payout = liveExpectedPayout(amt);
@@ -3184,6 +3292,14 @@ function recalcForm() {
         <strong style="color:#f4f1ea">${esc(naira(payout))}</strong> on
         <strong style="color:#f4f1ea">${esc(prettyDate(due))}</strong>. Change either below if it differs.`;
 }
+
+/** Grey the Save button out while the amount is one she does not accept. */
+function setSaveBlocked(on) {
+    const b = $('fSave');
+    b.disabled = on;
+    b.style.opacity = on ? '.45' : '';
+    b.textContent = on ? 'Amount not accepted' : 'Save';
+}
 $('fPayout').addEventListener('input', () => { $('fPayout').dataset.touched = '1'; });
 $('fDue').addEventListener('input', () => { $('fDue').dataset.touched = '1'; });
 
@@ -3196,6 +3312,16 @@ $('fSave').addEventListener('click', async () => {
     if (!first || !last) { toast('Please enter both names', true); return; }
     if (!amt)            { toast('Please enter the amount', true); return; }
     if (!start || !due)  { toast('Please check the dates', true); return; }
+
+    // The button is greyed out for these already; this is the backstop for a
+    // form filled in from a receipt or the assistant.
+    const no = amountRejection(amt);
+    if (no) {
+        toast(no.reason === 'below'
+            ? `Investments under ${naira(no.min)} are not accepted`
+            : `Investments between ${naira(no.from)} and ${naira(no.to)} are not accepted`, true);
+        return;
+    }
 
     const payload = { type: formType, firstName: first, lastName: last,
                       investDate: start, dueDate: due, investSum: amt, dueSum: payout };
@@ -3228,7 +3354,7 @@ $('fSave').addEventListener('click', async () => {
 
     btn.disabled = false; btn.textContent = 'Save';
     toast('Saved');
-    showDash();
+    showSavedSheet(lastSavedRecord, img ? { image: img, ...(receiptMeta || {}) } : null);
 });
 
 // ================= VOICE INPUT =================

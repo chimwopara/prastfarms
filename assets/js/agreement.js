@@ -98,12 +98,14 @@ export const clauses = [
       "The Company will use the funds to purchase, raise, and sell livestock " +
       "within its farm operations.\n\n" +
       "Upon sale of the livestock, the Company will pay the Investor a return " +
-      "on investment (ROI) of 140%, meaning the Investor will receive 1.4 " +
-      "times the invested amount at the end of the term.\n\n" +
+      "on investment (ROI) of {{roiPercent}}, meaning the Investor will receive " +
+      "{{roiTimes}} times the invested amount at the end of the term.\n\n" +
       "In this case, an investment of {{amount}} results in a total payout of " +
       "{{payout}} ({{amount}} capital plus {{profit}} profit), payable at the " +
       "end of the {{termMonths}} month term on {{dueDate}}.",
-    lines: termTableLines(),
+    // Expanded from the live bands when the document is built — writing the
+    // table out here froze it at whatever the rates were on the day.
+    lines: ["{{termTable}}"],
     linesHeading: "Investment terms:",
     after: "Payment will be made to the Investor at the end of the applicable investment term.",
   },

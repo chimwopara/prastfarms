@@ -941,6 +941,40 @@ const SETTINGS_DOC = ["settings", "agreement"];
 let settingsCache = null;
 
 /** Deep-ish merge: stored values win, defaults fill the gaps. */
+// A band line as it used to be written into the wording, e.g.
+// "₦500,000 to ₦5,000,000: 6 months" or "₦10,000,001 and above: 12 months".
+const FROZEN_BAND_LINE = /^\s*₦[\d,]+\s*(?:to\s*₦[\d,]+|and above)\s*:\s*\d+\s*months\s*$/i;
+
+/**
+ * Wording saved before the rates were made live has the ROI and the band table
+ * written into it as plain text, so editing a rate changed what the portal
+ * worked out while the agreement carried on quoting the old figure. Swap those
+ * fixed figures back to placeholders, which the document fills at build time.
+ *
+ * Only the exact phrasing this app shipped is touched — wording she wrote
+ * herself is left alone.
+ */
+function unfreezeRates(clauses) {
+  if (!Array.isArray(clauses)) return clauses;
+  return clauses.map((c) => {
+    const out = { ...c };
+
+    if (typeof out.body === "string") {
+      out.body = out.body
+        // Keeps whichever form the wording used — "(ROI) of 140%" or "ROI of 140%".
+        .replace(/(\(?ROI\)?)\s+of\s+\d+(?:\.\d+)?\s*%/gi, "$1 of {{roiPercent}}")
+        .replace(/receive\s+\d+(?:\.\d+)?\s+times\s+the\s+invested/gi,
+                 "receive {{roiTimes}} times the invested");
+    }
+
+    if (Array.isArray(out.lines) && out.lines.some((l) => FROZEN_BAND_LINE.test(String(l)))) {
+      const kept = out.lines.filter((l) => !FROZEN_BAND_LINE.test(String(l)));
+      out.lines = ["{{termTable}}", ...kept];
+    }
+    return out;
+  });
+}
+
 function mergeSettings(stored) {
   const out = { ...DEFAULTS, ...(stored || {}) };
   out.company = { ...DEFAULTS.company, ...(stored?.company || {}) };
@@ -948,6 +982,7 @@ function mergeSettings(stored) {
   if (!Array.isArray(stored?.clauses) || !stored.clauses.length) out.clauses = DEFAULTS.clauses;
   if (!Array.isArray(stored?.termBands) || !stored.termBands.length) out.termBands = DEFAULTS.termBands;
   if (!Number(out.roiMultiplier)) out.roiMultiplier = DEFAULTS.roiMultiplier;
+  out.clauses = unfreezeRates(out.clauses);
   return out;
 }
 
@@ -992,11 +1027,46 @@ export async function resetSettings() {
 
 // --- Live commercial terms (read from settings, not the constants) -----------
 
+/** Bands as numbers, lowest first. An empty upper bound means "and above". */
+function normalisedBands() {
+  const open = (v) => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)))
+    ? Infinity : Number(v);
+  return (getSettings().termBands || [])
+    .map((b) => ({ min: Number(b.min) || 0, max: open(b.max), months: Number(b.months) || 0 }))
+    .sort((a, b) => a.min - b.min);
+}
+
 export function liveTermMonthsFor(amount) {
   const n = Number(amount) || 0;
-  const bands = getSettings().termBands || [];
-  const band = bands.find((b) => n >= Number(b.min) && n <= (b.max === null ? Infinity : Number(b.max)));
-  return band ? Number(band.months) : (bands[0]?.months ?? 6);
+  const bands = normalisedBands();
+  const band = bands.find((b) => n >= b.min && n <= b.max);
+  return band ? band.months : (bands[0]?.months ?? 6);
+}
+
+/**
+ * Why an amount cannot be taken, or null if it can.
+ *
+ * A gap between two bands is a deliberate refusal, not an oversight: the farm
+ * does not accept those amounts. Left unchecked, liveTermMonthsFor() quietly
+ * hands such an amount the first band's term and it gets booked as normal.
+ *
+ *   { reason: "below", min }        under the smallest band
+ *   { reason: "gap", from, to }     between two bands
+ */
+export function amountRejection(amount) {
+  const n = Number(amount) || 0;
+  const bands = normalisedBands();
+  if (!n || !bands.length) return null;
+  if (bands.some((b) => n >= b.min && n <= b.max)) return null;
+
+  if (n < bands[0].min) return { reason: "below", min: bands[0].min };
+
+  for (let i = 0; i < bands.length - 1; i++) {
+    if (n > bands[i].max && n < bands[i + 1].min) {
+      return { reason: "gap", from: bands[i].max + 1, to: bands[i + 1].min - 1 };
+    }
+  }
+  return { reason: "gap", from: n, to: n };
 }
 
 export function liveExpectedPayout(amount) {
