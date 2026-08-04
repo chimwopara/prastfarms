@@ -1082,6 +1082,187 @@ export function liveTermTableLines() {
   );
 }
 
+// =============================================================================
+//  UNIVERSAL SEARCH
+//
+//  One box that searches everything: an investor's name, a word from a bank
+//  narration, a category, a bank, or an amount.
+//
+//  Firestore has no text search, so the transactions are pulled once and
+//  searched here. Ten thousand rows is a couple of seconds and a few megabytes
+//  the first time, then instant — which beats a query per keystroke, and means
+//  every figure on screen is counted from the real rows rather than guessed.
+// =============================================================================
+
+let corpus = null;          // all transactions, newest first
+let corpusPromise = null;   // in-flight load, so two searches don't both fetch
+
+/** True once the transactions are in memory and searching is instant. */
+export const searchReady = () => corpus !== null;
+
+export async function loadSearchCorpus({ force = false } = {}) {
+  if (corpus && !force) return corpus;
+  if (corpusPromise && !force) return corpusPromise;
+  corpusPromise = fetchTransactions().then((rows) => {
+    corpus = rows;
+    corpusPromise = null;
+    return corpus;
+  }).catch((err) => {
+    corpusPromise = null;
+    throw err;
+  });
+  return corpusPromise;
+}
+
+/** Drop the cache so the next search re-reads (after an import, say). */
+export function invalidateSearchCorpus() { corpus = null; corpusPromise = null; }
+
+const norm = (s) => String(s ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+
+/**
+ * Read an amount out of a search term.
+ * Accepts "250000", "250,000", "₦250k", "3m". Returns null when the term is
+ * not really a number — "3 bags" must search text, not amounts.
+ */
+export function searchAmount(term) {
+  const s = norm(term).replace(/^[₦n]\s*/, "").replace(/,/g, "").replace(/\s/g, "");
+  const m = s.match(/^(\d*\.?\d+)(b|bn|billion|m|mn|million|k|thousand)?$/);
+  if (!m) return null;
+  const n = parseFloat(m[1]);
+  if (!Number.isFinite(n)) return null;
+  if (!m[2]) return n;                                    // exactly what she typed
+  const mult = /^b/.test(m[2]) ? 1e9 : /^m/.test(m[2]) ? 1e6 : 1e3;
+  return Math.round(n * mult);
+}
+
+/** The words of a transaction that a text search should look at. */
+const txnHaystack = (t) => norm([
+  t.description, t.counterparty, t.category, t.bank, t.account, t.segment, t.date,
+].join(" "));
+
+const recordHaystack = (r) => norm([
+  r.firstName, r.lastName, r.type, r.investDate, r.dueDate, r.note,
+].join(" "));
+
+/** Every word must appear somewhere — "obasi 5000" finds Obasi's ₦5,000 rows. */
+function matchesWords(haystack, words) {
+  return words.every((w) => haystack.includes(w));
+}
+
+/**
+ * Search records and transactions at once.
+ *
+ * A term that reads as a number matches amounts exactly AND is still tried as
+ * text, so "5000" finds both ₦5,000 rows and a reference containing "5000".
+ */
+export function searchAll(term, { records = [], transactions = null, limit = 400 } = {}) {
+  const q = norm(term);
+  const empty = { term, words: [], amount: null, records: [], transactions: [],
+                  totals: { in: 0, out: 0, net: 0, count: 0 }, truncated: false, matched: 0 };
+  if (q.length < 2) return empty;
+
+  const words = q.split(" ").filter(Boolean);
+  const amount = searchAmount(term);
+  const rows = transactions || corpus || [];
+
+  const hitRecords = records.filter((r) => {
+    if (amount !== null &&
+        (Number(r.investSum) === amount || Number(r.dueSum) === amount)) return true;
+    return matchesWords(recordHaystack(r), words);
+  });
+
+  const hitTxns = [];
+  for (const t of rows) {
+    const byAmount = amount !== null && Math.round(Number(t.amount) || 0) === Math.round(amount);
+    if (byAmount || matchesWords(txnHaystack(t), words)) hitTxns.push(t);
+  }
+
+  const totals = hitTxns.reduce((acc, t) => {
+    const n = Number(t.amount) || 0;
+    if (t.direction === "in") acc.in += n; else acc.out += n;
+    acc.count += 1;
+    return acc;
+  }, { in: 0, out: 0, count: 0 });
+  totals.net = totals.in - totals.out;
+
+  return {
+    term, words, amount,
+    records: hitRecords,
+    transactions: hitTxns.slice(0, limit),
+    totals,                                  // totals cover every hit, not the slice
+    truncated: hitTxns.length > limit,
+    matched: hitTxns.length,
+  };
+}
+
+/**
+ * Everything to do with one person or keyword, as a statement she can read or
+ * hand to somebody: totals, the months it spans, and every line behind them.
+ */
+export function buildReport(term, { records = [], transactions = null } = {}) {
+  const found = searchAll(term, { records, transactions, limit: Infinity });
+  const rows = found.transactions;
+
+  const byMonth = new Map();
+  for (const t of rows) {
+    const key = t.month || String(t.date || "").slice(0, 7);
+    if (!key) continue;
+    const m = byMonth.get(key) || { month: key, in: 0, out: 0, count: 0 };
+    const n = Number(t.amount) || 0;
+    if (t.direction === "in") m.in += n; else m.out += n;
+    m.count += 1;
+    byMonth.set(key, m);
+  }
+
+  const byCategory = new Map();
+  for (const t of rows) {
+    const key = t.category || "Not sorted yet";
+    const c = byCategory.get(key) || { category: key, in: 0, out: 0, count: 0 };
+    const n = Number(t.amount) || 0;
+    if (t.direction === "in") c.in += n; else c.out += n;
+    c.count += 1;
+    byCategory.set(key, c);
+  }
+
+  const dates = rows.map((t) => t.date).filter(Boolean).sort();
+  const banks = [...new Set(rows.map((t) => t.bank).filter(Boolean))];
+
+  return {
+    term,
+    totals: found.totals,
+    records: found.records,
+    transactions: rows,
+    months: [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month)),
+    categories: [...byCategory.values()].sort((a, b) => (b.in + b.out) - (a.in + a.out)),
+    first: dates[0] || null,
+    last: dates[dates.length - 1] || null,
+    banks,
+  };
+}
+
+/** A report as a spreadsheet, for sending on. */
+export function reportToCSV(report) {
+  const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const lines = [
+    [`Report for`, report.term].map(esc).join(","),
+    [`Money in`, report.totals.in].map(esc).join(","),
+    [`Money out`, report.totals.out].map(esc).join(","),
+    [`Net`, report.totals.net].map(esc).join(","),
+    [`Transactions`, report.totals.count].map(esc).join(","),
+    [`From`, report.first || ""].map(esc).join(","),
+    [`To`, report.last || ""].map(esc).join(","),
+    "",
+    ["Date", "Bank", "Account", "In or out", "Amount", "Category", "Narration"].map(esc).join(","),
+  ];
+  for (const t of report.transactions) {
+    lines.push([
+      t.date, t.bank, t.account, t.direction === "in" ? "In" : "Out",
+      Number(t.amount) || 0, t.category, t.description,
+    ].map(esc).join(","));
+  }
+  return lines.join("\n");
+}
+
 // --- Monthly summaries (pre-computed at import) -------------------------------
 
 const SUMMARY_COLLECTION = "summaries";

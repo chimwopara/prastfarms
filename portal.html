@@ -384,6 +384,52 @@
     <!-- ============ DASHBOARD ============ -->
     <main id="dashView" style="padding:20px 20px 48px;">
 
+        <!-- ================= FULL REPORT =================
+         Everything to do with one person or keyword, counted from the real
+         rows: totals, month by month, what it was spent on, and every line. -->
+    <div id="reportSheet" class="sheet-wrap hide">
+        <div class="sheet" style="max-width:560px;">
+            <div class="grab"></div>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:4px;">
+                <div style="min-width:0;">
+                    <div id="repTitle" style="font-size:20px;font-weight:700;word-break:break-word;"></div>
+                    <div id="repRange" style="font-size:12px;color:#9fb3a6;margin-top:3px;"></div>
+                </div>
+                <button id="repClose" class="btn btn-plain" aria-label="Close"
+                        style="width:40px;height:40px;min-height:40px;padding:0;flex:0 0 40px;border-radius:50%;">
+                    <i class="fas fa-xmark"></i>
+                </button>
+            </div>
+            <div id="repBody" class="scroll" style="max-height:62vh;overflow-y:auto;margin:14px 0 4px;"></div>
+            <button id="repExport" class="btn btn-gold tap" style="width:100%;padding:15px;font-size:14px;">
+                <i class="fas fa-file-arrow-down" style="margin-right:8px;"></i>Save as a spreadsheet
+            </button>
+        </div>
+    </div>
+
+    <!-- ---------- SEARCH EVERYTHING ----------
+             One box over the investments, the bank rows and the enquiries.
+             Typing a name, a word from a narration or an amount all work. -->
+        <section id="findBox" style="margin-bottom:18px;">
+            <div style="position:relative;">
+                <i class="fas fa-magnifying-glass" style="position:absolute;left:16px;top:50%;
+                   transform:translateY(-50%);color:#6d7f74;font-size:14px;pointer-events:none;"></i>
+                <input id="find" class="input" autocomplete="off"
+                       placeholder="Search anything — a name, a word, an amount"
+                       style="width:100%;padding:16px 44px 16px 42px;font-size:16px;box-sizing:border-box;">
+                <button id="findClear" class="hide" aria-label="Clear"
+                        style="position:absolute;right:8px;top:50%;transform:translateY(-50%);
+                               background:none;border:0;color:#9fb3a6;font-size:15px;
+                               width:32px;height:32px;cursor:pointer;">
+                    <i class="fas fa-xmark"></i>
+                </button>
+            </div>
+            <div id="findHint" style="font-size:11.5px;color:#6d7f74;margin-top:7px;padding-left:2px;">
+                Try a person's name, "school fees", or 250000.
+            </div>
+            <div id="findResults" class="hide" style="margin-top:14px;"></div>
+        </section>
+
         <!-- Overview -->
         <section class="card" style="padding:20px;margin-bottom:16px;">
             <h2 class="sectionTitle" style="margin-bottom:16px;">Overview</h2>
@@ -1103,6 +1149,7 @@ import {
     loadSettings, getSettings, saveSettings, resetSettings,
     liveTermMonthsFor, liveExpectedPayout, amountRejection,
     fetchSummaries, monthRange, prettyMonth, MONTH_NAMES, project, insights,
+    loadSearchCorpus, searchReady, searchAll, buildReport, reportToCSV,
     operatingSummary, lastMonths, kindOf,
     fetchUnsorted, countUnsorted, fileTransaction, categoriesFor, UNSORTED_CATEGORIES,
     invalidateUnsorted, nudgeUnsorted, matchPayee,
@@ -1408,6 +1455,275 @@ function renderList() {
 }
 
 $('search').addEventListener('input', () => { showAllRecords = false; renderList(); });
+
+// ================= SEARCH EVERYTHING =================
+//
+//  The bank rows live in Firestore and there is no text search there, so they
+//  are pulled once on the first search and kept for the session. Until that
+//  finishes the box still works — it just searches the investments alone and
+//  says so, rather than pretending there is nothing to find.
+
+let findTimer = null;
+let findLoading = false;
+let lastFind = null;
+
+$('find').addEventListener('input', () => {
+    clearTimeout(findTimer);
+    findTimer = setTimeout(runFind, 180);          // let her finish typing
+    $('findClear').classList.toggle('hide', !$('find').value);
+});
+
+$('findClear').addEventListener('click', () => {
+    $('find').value = '';
+    $('findClear').classList.add('hide');
+    $('findResults').classList.add('hide');
+    $('findHint').textContent = 'Try a person’s name, "school fees", or 250000.';
+    $('find').focus();
+});
+
+async function runFind() {
+    const term = $('find').value.trim();
+    if (term.length < 2) {
+        $('findResults').classList.add('hide');
+        $('findHint').textContent = 'Try a person’s name, "school fees", or 250000.';
+        return;
+    }
+
+    // Pull the bank rows the first time she searches for anything.
+    if (!searchReady() && !findLoading) {
+        findLoading = true;
+        $('findHint').innerHTML =
+            '<span class="spin" style="margin-right:7px;vertical-align:-2px;"></span>' +
+            'Getting all your bank records ready — this happens once.';
+        try {
+            await loadSearchCorpus();
+        } catch (err) {
+            $('findHint').textContent = 'Could not reach the bank records. Showing investments only.';
+        } finally {
+            findLoading = false;
+        }
+        if ($('find').value.trim() !== term) return;    // she typed on; that run wins
+    }
+
+    const res = searchAll(term, { records });
+    lastFind = res;
+    renderFind(res);
+}
+
+function renderFind(res) {
+    const box = $('findResults');
+    const nRec = res.records.length;
+    const nTxn = res.matched || 0;
+
+    $('findHint').textContent = searchReady()
+        ? `${nRec + nTxn} match${nRec + nTxn === 1 ? '' : 'es'}`
+        : `${nRec} in investments — bank records still loading`;
+
+    if (!nRec && !nTxn) {
+        box.innerHTML = `<div class="card" style="padding:18px;text-align:center;color:#9fb3a6;font-size:13.5px;">
+            Nothing found for <strong style="color:#f4f1ea">${esc(res.term)}</strong>.
+          </div>`;
+        box.classList.remove('hide');
+        return;
+    }
+
+    const money = (n) => esc(naira(n));
+    const totals = res.totals;
+
+    const summary = nTxn ? `
+      <div class="card" style="padding:15px 16px;margin-bottom:11px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center;">
+          <div><div style="font-size:10.5px;color:#9fb3a6;margin-bottom:3px;">Money in</div>
+               <div style="font-size:15px;font-weight:700;color:#7ee2a4;">${money(totals.in)}</div></div>
+          <div><div style="font-size:10.5px;color:#9fb3a6;margin-bottom:3px;">Money out</div>
+               <div style="font-size:15px;font-weight:700;color:#f0a5a5;">${money(totals.out)}</div></div>
+          <div><div style="font-size:10.5px;color:#9fb3a6;margin-bottom:3px;">Difference</div>
+               <div style="font-size:15px;font-weight:700;">${money(totals.net)}</div></div>
+        </div>
+        <button id="findReport" class="btn btn-gold tap" style="width:100%;padding:13px;font-size:13px;margin-top:13px;">
+          <i class="fas fa-file-lines" style="margin-right:7px;"></i>Make a full report on "${esc(res.term)}"
+        </button>
+      </div>` : '';
+
+    const recRows = nRec ? `
+      <div style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#7ee2a4;margin:4px 0 8px;">
+        Investments (${nRec})
+      </div>
+      ${res.records.slice(0, 6).map(r => `
+        <button class="card rec tap" data-id="${esc(r.id)}" style="width:100%;text-align:left;padding:13px 15px;
+                display:flex;justify-content:space-between;align-items:center;gap:10px;font-family:inherit;margin-bottom:8px;">
+          <span style="min-width:0;">
+            <span style="display:block;font-size:14px;font-weight:700;">${esc(fullName(r))}</span>
+            <span style="display:block;font-size:11px;color:#9fb3a6;margin-top:2px;">
+              ${esc(r.type === 'Real Estate' ? 'Property' : 'Farm')} · ${esc(prettyDate(r.investDate))}
+            </span>
+          </span>
+          <span style="font-size:13.5px;font-weight:700;white-space:nowrap;">${money(r.investSum)}</span>
+        </button>`).join('')}` : '';
+
+    const txnRows = nTxn ? `
+      <div style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#7ee2a4;margin:14px 0 8px;">
+        Bank records (${nTxn}${res.truncated ? ` — showing the first ${res.transactions.length}` : ''})
+      </div>
+      ${res.transactions.slice(0, 12).map(t => `
+        <div class="card" style="padding:12px 14px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;">
+            <span style="font-size:12.5px;font-weight:600;min-width:0;">${esc(t.counterparty || t.description || '—').slice(0, 60)}</span>
+            <span style="font-size:13px;font-weight:700;white-space:nowrap;
+                         color:${t.direction === 'in' ? '#7ee2a4' : '#f0a5a5'};">
+              ${t.direction === 'in' ? '+' : '−'}${money(t.amount)}
+            </span>
+          </div>
+          <div style="font-size:10.5px;color:#9fb3a6;margin-top:4px;">
+            ${esc(prettyDate(t.date))} · ${esc(t.bank || '')} ${esc(t.account || '')} · ${esc(t.category || 'not sorted')}
+          </div>
+        </div>`).join('')}
+      ${res.transactions.length > 12
+        ? `<div style="font-size:11.5px;color:#6d7f74;text-align:center;padding:4px 0 2px;">
+             …and ${nTxn - 12} more. Open the full report to see them all.
+           </div>` : ''}` : '';
+
+    box.innerHTML = summary + recRows + txnRows;
+    box.classList.remove('hide');
+}
+
+// Tapping an investment in the results opens it, same as the main list.
+$('findResults').addEventListener('click', (e) => {
+    const rec = e.target.closest('.rec');
+    if (rec) { openSheet(records.find(r => r.id === rec.dataset.id)); return; }
+    if (e.target.closest('#findReport') && lastFind) openReport(lastFind.term);
+});
+
+// ---- the full report ----
+let currentReport = null;
+
+/**
+ * Build and show everything to do with one person or keyword. Every figure is
+ * counted from the rows themselves, so the numbers are the bank's, not a guess.
+ */
+async function openReport(term) {
+    if (!searchReady()) {
+        toast('Getting your bank records…');
+        try { await loadSearchCorpus(); }
+        catch { toast('Could not reach the bank records', true); return; }
+    }
+
+    const rep = buildReport(term, { records });
+    currentReport = rep;
+
+    $('repTitle').textContent = term;
+    $('repRange').textContent = rep.totals.count
+        ? `${rep.totals.count} bank record${rep.totals.count === 1 ? '' : 's'}`
+          + (rep.first ? ` · ${prettyDate(rep.first)} to ${prettyDate(rep.last)}` : '')
+          + (rep.banks.length ? ` · ${rep.banks.join(', ')}` : '')
+        : 'No bank records found';
+
+    const money = (n) => esc(naira(n));
+    const bar = (label, value, max, colour) => `
+      <div style="margin-bottom:9px;">
+        <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:4px;">
+          <span style="color:#c8d6cc;min-width:0;">${esc(label)}</span>
+          <span style="font-weight:700;white-space:nowrap;margin-left:10px;">${money(value)}</span>
+        </div>
+        <div style="height:7px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden;">
+          <div style="height:100%;width:${max ? Math.max(2, Math.round(value / max * 100)) : 0}%;
+                      background:${colour};border-radius:4px;"></div>
+        </div>
+      </div>`;
+
+    const maxMonth = Math.max(1, ...rep.months.map(m => Math.max(m.in, m.out)));
+    const maxCat = Math.max(1, ...rep.categories.map(c => c.in + c.out));
+
+    $('repBody').innerHTML = `
+      <div class="card" style="padding:16px;margin-bottom:13px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center;">
+          <div><div style="font-size:10.5px;color:#9fb3a6;">Money in</div>
+               <div style="font-size:16px;font-weight:700;color:#7ee2a4;margin-top:3px;">${money(rep.totals.in)}</div></div>
+          <div><div style="font-size:10.5px;color:#9fb3a6;">Money out</div>
+               <div style="font-size:16px;font-weight:700;color:#f0a5a5;margin-top:3px;">${money(rep.totals.out)}</div></div>
+          <div><div style="font-size:10.5px;color:#9fb3a6;">Difference</div>
+               <div style="font-size:16px;font-weight:700;margin-top:3px;">${money(rep.totals.net)}</div></div>
+        </div>
+      </div>
+
+      ${rep.records.length ? `
+        <div style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#7ee2a4;margin:0 0 8px;">
+          Investments on the books (${rep.records.length})
+        </div>
+        ${rep.records.map(r => `
+          <div class="card" style="padding:12px 14px;margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;gap:10px;">
+              <span style="font-size:13px;font-weight:700;">${esc(fullName(r))}</span>
+              <span style="font-size:13px;font-weight:700;">${money(r.investSum)}</span>
+            </div>
+            <div style="font-size:10.5px;color:#9fb3a6;margin-top:3px;">
+              pays back ${money(r.dueSum)} on ${esc(prettyDate(r.dueDate))}
+            </div>
+          </div>`).join('')}` : ''}
+
+      ${rep.months.length ? `
+        <div style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#7ee2a4;margin:16px 0 9px;">
+          Month by month
+        </div>
+        ${rep.months.map(m => `
+          <div style="margin-bottom:11px;">
+            <div style="font-size:11.5px;color:#c8d6cc;margin-bottom:5px;">${esc(prettyMonth(m.month))}</div>
+            ${m.in ? bar('in', m.in, maxMonth, 'rgba(57,135,229,.9)') : ''}
+            ${m.out ? bar('out', m.out, maxMonth, 'rgba(230,103,103,.9)') : ''}
+          </div>`).join('')}` : ''}
+
+      ${rep.categories.length ? `
+        <div style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#7ee2a4;margin:16px 0 9px;">
+          What it was
+        </div>
+        ${rep.categories.slice(0, 8).map(c =>
+          bar(`${c.category} (${c.count})`, c.in + c.out, maxCat, 'rgba(126,226,164,.75)')).join('')}` : ''}
+
+      ${rep.transactions.length ? `
+        <div style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#7ee2a4;margin:16px 0 9px;">
+          Every record (${rep.transactions.length})
+        </div>
+        ${rep.transactions.slice(0, 200).map(t => `
+          <div style="display:flex;justify-content:space-between;gap:10px;padding:9px 0;
+                      border-bottom:1px solid rgba(255,255,255,.06);">
+            <span style="min-width:0;">
+              <span style="display:block;font-size:12px;">${esc((t.counterparty || t.description || '—')).slice(0, 58)}</span>
+              <span style="display:block;font-size:10.5px;color:#9fb3a6;margin-top:2px;">
+                ${esc(prettyDate(t.date))} · ${esc(t.bank || '')}
+              </span>
+            </span>
+            <span style="font-size:12.5px;font-weight:700;white-space:nowrap;
+                         color:${t.direction === 'in' ? '#7ee2a4' : '#f0a5a5'};">
+              ${t.direction === 'in' ? '+' : '−'}${money(t.amount)}
+            </span>
+          </div>`).join('')}
+        ${rep.transactions.length > 200
+          ? `<div style="font-size:11.5px;color:#6d7f74;text-align:center;padding:10px 0;">
+               Showing the first 200. The spreadsheet has all ${rep.transactions.length}.
+             </div>` : ''}` : ''}
+    `;
+
+    $('reportSheet').classList.remove('hide');
+    $('repBody').scrollTop = 0;
+}
+
+$('repClose').addEventListener('click', () => $('reportSheet').classList.add('hide'));
+$('reportSheet').addEventListener('click', (e) => {
+    if (e.target === $('reportSheet')) $('reportSheet').classList.add('hide');
+});
+
+$('repExport').addEventListener('click', () => {
+    if (!currentReport) return;
+    const csv = reportToCSV(currentReport);
+    const safe = String(currentReport.term).replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'report';
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `prast-report-${safe}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    toast('Report saved to your files');
+});
 
 document.addEventListener('click', (e) => {
     if (e.target.closest('#moreRecords')) { showAllRecords = true;  renderList(); }
@@ -2490,8 +2806,106 @@ $('helpChips').addEventListener('click', (e) => {
     askHelp(c.textContent);
 });
 
+// ---- asking about the records ----
+//
+//  "everything with Obasi Johnson", "how much did we pay Michvin", "report on
+//  school fees". These are answered from the rows themselves rather than by the
+//  model, so the figures are the bank's. The model is good at wording and bad
+//  at remembering ten thousand numbers, so it is not asked to.
+
+const REPORT_PATTERNS = [
+    /(?:all|every|entire|complete)\s+(?:the\s+)?(?:transactions?|records?|dealings?|payments?)\s+(?:with|for|from|to|of)\s+(.+)/i,
+    /(?:transactions?|records?|dealings?|payments?|history)\s+(?:with|for|from|to|of)\s+(.+)/i,
+    /(?:everything|anything)\s+(?:with|for|about|from|on)\s+(.+)/i,
+    /(?:report|summary|statement|breakdown)\s+(?:on|for|about|of)\s+(.+)/i,
+    /how much (?:money )?(?:did|have|has|do|does)\s+(?:we\s+|i\s+|she\s+)?(?:pay|paid|send|sent|give|gave|receive|received|get|got)\s+(?:to\s+|from\s+)?(.+)/i,
+    // "how much has Njideka Nwora paid" — the name comes before the verb.
+    /how much (?:money )?(?:did|has|have|does|do)\s+(.+?)\s+(?:pay|paid|send|sent|give|gave|owe|owed|invest|invested)\b/i,
+    /show me\s+(?:all\s+)?(.+?)(?:'s|s')?\s+(?:transactions?|records?|history|dealings?)/i,
+    /(?:search|find|look up|lookup)\s+(?:for\s+)?(.+)/i,
+];
+
+/** The person or keyword she is asking about, or null if this is a normal question. */
+function detectReportIntent(text) {
+    const s = String(text || '').trim();
+    for (const re of REPORT_PATTERNS) {
+        const m = s.match(re);
+        if (m && m[1]) {
+            const term = m[1]
+                .replace(/[?.!,;:]+$/, '')
+                .replace(/^\s*(the|my|our|a|an)\s+/i, '')
+                .trim();
+            if (term.length >= 2) return term;
+        }
+    }
+    return null;
+}
+
+/** Answer a records question from the rows, and offer the full report. */
+async function answerFromRecords(term) {
+    const row = document.createElement('div'); row.style.display = 'flex';
+    row.innerHTML = '<div class="bubble b-ai dots"><span></span><span></span><span></span></div>';
+    $('helpScroll').appendChild(row);
+    $('helpScroll').scrollTop = $('helpScroll').scrollHeight;
+
+    try {
+        if (!searchReady()) await loadSearchCorpus();
+    } catch {
+        row.remove();
+        helpBubble('I could not reach the bank records just now.', 'err');
+        return;
+    }
+    row.remove();
+
+    const rep = buildReport(term, { records });
+    const n = rep.totals.count;
+
+    if (!n && !rep.records.length) {
+        helpBubble(`I could not find anything for "${term}". Try part of the name as it appears on the bank statement.`, 'ai');
+        return;
+    }
+
+    const bits = [];
+    if (n) {
+        bits.push(`${n} bank record${n === 1 ? '' : 's'}`
+            + (rep.first ? ` between ${prettyDate(rep.first)} and ${prettyDate(rep.last)}` : ''));
+        bits.push(`${naira(rep.totals.in)} in, ${naira(rep.totals.out)} out`);
+        bits.push(rep.totals.net >= 0
+            ? `${naira(rep.totals.net)} more in than out`
+            : `${naira(Math.abs(rep.totals.net))} more out than in`);
+    }
+    if (rep.records.length) {
+        bits.push(`${rep.records.length} investment${rep.records.length === 1 ? '' : 's'} on the books`);
+    }
+    helpBubble(`${term}: ${bits.join('. ')}.`, 'ai');
+
+    const btnRow = document.createElement('div');
+    btnRow.style.marginTop = '4px';
+    btnRow.innerHTML = `<button class="btn btn-gold tap" style="width:100%;padding:14px;font-size:14px;">
+        <i class="fas fa-file-lines" style="margin-right:8px;"></i>Open the full report</button>`;
+    btnRow.firstElementChild.addEventListener('click', () => {
+        $('helpPanel').classList.add('hide');
+        openReport(term);
+    });
+    $('helpScroll').appendChild(btnRow);
+    $('helpScroll').scrollTop = $('helpScroll').scrollHeight;
+}
+
 async function askHelp(text) {
     if (helpBusy) return;
+
+    // A question about the records is answered from the records.
+    const term = detectReportIntent(text);
+    if (term) {
+        helpBusy = true; $('helpSend').disabled = true;
+        $('helpChips').innerHTML = '';
+        helpBubble(text, 'me');
+        helpHistory.push({ role: 'user', content: text });
+        try { await answerFromRecords(term); }
+        finally { helpBusy = false; $('helpSend').disabled = false; $('helpInput').focus(); }
+        return;
+    }
+
     if (!isAssistantConfigured()) { helpBubble('Help chat is not switched on yet.', 'err'); return; }
     helpBusy = true; $('helpSend').disabled = true;
     $('helpChips').innerHTML = '';
