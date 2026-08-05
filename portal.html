@@ -4035,7 +4035,7 @@ $('revMore').addEventListener('click', async () => {
 // Words that are never a person. The bank writes its own branch address, the
 // channel and the account name into narrations, and stacking on those grouped
 // 368 unrelated rows under a street in Victoria Island.
-const NOISE_WORDS = /^(NIP|NFT|TNF|TRF|POS|PUR|MOB|UTU|IFO|FRM|FROM|TO|FIP|MB|IBPS|TRBPS|NIBSS|VIA|AT|BR|CDB|CHQ|REF|APP|TRSF|INSTANT|PAYMENT|OUTWARD|INWARD|TRANSFER|BETWEEN|CUSTOMERS|SELF|PLC|LTD|LIMITED|USSD|WEB|ATM|CARD|MOBILE|ONLINE|APPS?|CHANNEL|AKIN|ADESOLA|VICTORIA|ISLAND|LAGOS|ABUJA|BRANCH|STREET|ROAD|AVENUE|PRAST|FARM|FARMS|UBA|GTB|GTBANK|GTWORLD|FCMB|WEMA|ZENITH|ACCESS|FIRSTBANK|FBN|STERLING|POLARIS|KEYSTONE|UNION|OPAY|PALMPAY|MONIEPOINT|MONIEMFB|PAYCOM|TEAMAPT|INTERSWITCH|FLUTTERWAVE|PAYSTACK|REMITA|BAS|NXG|DE|COMMISSION|CHARGES|VAT|STAMP|DUTIES|LEVY|FEE|FEES|VALUE|ADDED|TAX|BALANCE|CONTRIBUTION|PURCHASE|TRANSACTION|WITHDRAWAL|DEPOSIT|FBNMOBILE|GTBMOBILE|UBAMOBILE|IBANK|EBANK|ALAT|KUDA|VBANK|SPARKLE|RUBIES|MONIE|MFB|MICROFINANCE)$/i;
+const NOISE_WORDS = /^(NIP|NFT|TNF|TRF|POS|PUR|MOB|UTU|IFO|FRM|FROM|TO|ON|IN|OF|BY|AND|THE|FOR|FIP|MB|IBPS|TRBPS|NIBSS|VIA|AT|BR|CDB|CHQ|REF|APP|TRSF|INSTANT|PAYMENT|OUTWARD|INWARD|TRANSFER|BETWEEN|CUSTOMERS|SELF|PLC|LTD|LIMITED|USSD|WEB|ATM|CARD|MOBILE|ONLINE|APPS?|CHANNEL|VICTORIA|ISLAND|LAGOS|ABUJA|BRANCH|STREET|ROAD|AVENUE|PRAST|FARM|FARMS|UBA|GTB|GTBANK|GTWORLD|FCMB|WEMA|ZENITH|ACCESS|FIRSTBANK|FBN|STERLING|POLARIS|KEYSTONE|UNION|OPAY|PALMPAY|MONIEPOINT|MONIEMFB|PAYCOM|TEAMAPT|INTERSWITCH|FLUTTERWAVE|PAYSTACK|REMITA|BAS|NXG|DE|COMMISSION|CHARGES|VAT|STAMP|DUTIES|LEVY|FEE|FEES|VALUE|ADDED|TAX|BALANCE|CONTRIBUTION|PURCHASE|TRANSACTION|WITHDRAWAL|DEPOSIT|FBNMOBILE|GTBMOBILE|UBAMOBILE|IBANK|EBANK|ALAT|KUDA|VBANK|SPARKLE|RUBIES|MONIE|MFB|MICROFINANCE)$/i;
 
 /**
  * The stored counterparty is blank for a lot of rows — the import's extraction
@@ -4043,27 +4043,45 @@ const NOISE_WORDS = /^(NIP|NFT|TNF|TRF|POS|PUR|MOB|UTU|IFO|FRM|FROM|TO|FIP|MB|IB
  * over a narration that plainly contains the name, pull it out here.
  */
 function nameOf(t) {
-    // The stored counterparty is not trusted: the import wrote things like
-    // "Akin Adesola Ussd From" — GTB's branch address plus the channel — and
-    // stacking on that gathered 368 unrelated rows under one heading.
-    // Whatever the source, it goes through the same filter.
+    // The stored counterparty is not trusted — the import wrote branch addresses
+    // and channel names into it — so every source goes through the same pass.
     let raw = String(t.counterparty || '').trim() || String(t.description || '');
 
+    // GTB stamps its own branch address on transfers: "635 AKIN ADESOLA".
+    // Blacklisting those two words would also lose Adesola as a given name,
+    // which it very often is, so the address is removed as a phrase.
+    raw = raw.replace(/\b\d{2,4}\s+AKIN\s+ADESOLA\b/gi, ' ');
     // Card terminals name the processor, not the merchant.
     raw = raw.replace(/\b(OPay|Moniepoint|Moniepola|Paycom|Teamapt|Interswitch|Flutterwave)\b/gi, ' ');
-    const after = raw.split(/\b(?:IFO|to|TO|FRM|FROM|@)\b/).pop() || raw;
+    // Terminal and session ids: "2214AOL7-", "2FBMD457-".
+    raw = raw.replace(/@?\s*\b\d[A-Z0-9]{5,}\b-?/gi, ' ');
+    // Fee rows glue the words together: "TransferCHARGES", "VATCHARGES".
+    raw = raw.replace(/(CHARGES|DUTIES|COMMISSION)/gi, ' ');
 
-    const words = after.split(/[^A-Za-z]+/)
-        .filter(x => x.length > 1 && !NOISE_WORDS.test(x));
+    /** A name out of one slash-separated piece, or '' if there is none in it. */
+    const fromPiece = (piece) => {
+        // "...FROM Wopara Stella TO Agu Paulinus" — the other party follows the
+        // last marker.
+        const after = piece.split(/\b(?:IFO|to|TO|FRM|FROM|@)\b/).pop() || piece;
+        const words = after.split(/[^A-Za-z]+/)
+            .filter(x => x.length > 1 && !NOISE_WORDS.test(x));
+        const name = words.slice(0, 4).join(' ')
+            .toLowerCase().replace(/\b[a-z]/g, ch => ch.toUpperCase()).trim();
+        if (!name) return '';
+        // A purpose is not a person.
+        if (/^(For|And|The|Of|With|Payment|School|Fees|Land|Rent|Salary|Loan|Gift)\b/i.test(name)) return '';
+        if (name.replace(/[^A-Za-z]/g, '').length < 4) return '';
+        return name;
+    };
 
-    const name = words.slice(0, 4).join(' ')
-        .toLowerCase().replace(/\b[a-z]/g, ch => ch.toUpperCase()).trim();
-
-    // "For Pullets" is a purpose, not a person — better to admit we do not know.
-    if (!name || /^(For|And|The|Of|With|Payment)\b/i.test(name)) return 'Not named';
-    // One short fragment is not a name either.
-    if (name.replace(/[^A-Za-z]/g, '').length < 4) return 'Not named';
-    return name;
+    // Banks lay these out differently: "TNF-OKE ADESOLA JOSEPHINE/school fees",
+    // but also "NIP/TRF IFO OKORO NGOZI/land". Take the first piece that
+    // actually holds a name rather than assuming which one it is.
+    for (const piece of raw.split('/')) {
+        const name = fromPiece(piece);
+        if (name) return name;
+    }
+    return 'Not named';
 }
 
 function optionsHTML(list, level, id) {
