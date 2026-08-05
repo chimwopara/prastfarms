@@ -1134,6 +1134,42 @@
 
 <script type="module">
 import { DEV_MODE, firebaseConfig } from './assets/js/firebase-config.js';
+
+// ---- keeping her on the current version ----
+//
+//  GitHub Pages tells browsers to hold this page for ten minutes, so for that
+//  long after a deploy she is still running the old one — a fixed bug looks
+//  unfixed and a new screen simply is not there. The stamp below is rewritten
+//  on every deploy; if the copy on the server carries a different one, the page
+//  offers to reload itself.
+const APP_VERSION = '__BUILD__';
+
+async function checkForUpdate() {
+    try {
+        const res = await fetch(`portal.html?v=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const text = await res.text();
+        const m = text.match(/const APP_VERSION = '([^']+)'/);
+        if (!m || m[1] === APP_VERSION || m[1] === '__BUILD__') return;
+
+        const bar = document.createElement('div');
+        bar.style.cssText = `position:fixed;left:12px;right:12px;bottom:14px;z-index:9999;
+            background:var(--gold);color:#0f2e1a;border-radius:16px;padding:14px 16px;
+            display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600;
+            box-shadow:0 10px 30px rgba(0,0,0,.4);`;
+        bar.innerHTML = `<span style="flex:1;">There is a newer version.</span>
+            <button style="background:#0f2e1a;color:#f4f1ea;border:0;border-radius:10px;
+                           padding:10px 16px;font-family:inherit;font-size:13px;
+                           font-weight:700;cursor:pointer;">Update</button>`;
+        bar.querySelector('button').addEventListener('click', () => location.reload(true));
+        document.body.appendChild(bar);
+    } catch { /* offline; nothing to do */ }
+}
+
+// On opening, whenever she comes back to the tab, and hourly if she leaves it up.
+addEventListener('load', () => setTimeout(checkForUpdate, 4000));
+addEventListener('focus', checkForUpdate);
+setInterval(checkForUpdate, 3600_000);
 import {
     isConfigured, listenRecords, createRecord, updateRecord, deleteRecord,
     markPaid, unmarkPaid, isPaid, renewRecord,
