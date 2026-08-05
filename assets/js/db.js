@@ -1483,13 +1483,18 @@ export function operatingSummary(rows) {
     t.cashOut += m.out;
     Object.entries(m.cats || {}).forEach(([name, v]) => {
       const inn = Number(v.in) || 0, out = Number(v.out) || 0;
+      // Every naira that landed in an account counts as revenue — the owner's
+      // instruction, and it is her business. The breakdown below is still kept
+      // so financing and internal transfers can be told apart when needed.
+      t.revenue += inn;
+
       switch (kindOf(name)) {
-        case "revenue":   t.revenue += inn; break;
+        case "revenue":   break;
         case "financing": t.financingIn += inn; t.financingOut += out; break;
         case "transfer":  t.transferIn += inn; t.transferOut += out; break;
         case "personal":  t.personal += out; break;
         case "unknown":   t.unknownIn += inn; t.unknownOut += out; break;
-        default:          t.expenses += out; if (inn) t.revenue += inn;
+        default:          t.expenses += out;
       }
     });
   });
