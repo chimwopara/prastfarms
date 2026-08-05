@@ -507,9 +507,6 @@
             </div>
         </div>
 
-        <input id="search" class="input" placeholder="Search a name…"
-               style="width:100%;padding:15px 17px;margin-bottom:14px;box-sizing:border-box;">
-
         <div id="list" style="display:flex;flex-direction:column;gap:11px;"></div>
 
         <!-- ---------- MONEY / BOOKKEEPING ---------- -->
@@ -1400,12 +1397,10 @@ function pillFor(r) {
 }
 
 function renderList() {
-    const term = $('search').value.trim().toLowerCase();
+    // Searching lives in the one box at the top of the dashboard, which covers
+    // investments and bank records together. This list just shows them all.
+    const term = '';
     let rows = records;
-    if (term) {
-        rows = rows.filter(r => fullName(r).toLowerCase().includes(term)
-                             || String(r.type || '').toLowerCase().includes(term));
-    }
 
     // Needs-attention first, then soonest due.
     const rank = (r) => ({ matured: 0, 'due-soon': 1, active: 2, paid: 3 })[statusOf(r)];
@@ -1453,8 +1448,6 @@ function renderList() {
                    Show fewer <i class="fas fa-chevron-up" style="margin-left:6px;font-size:11px;"></i>
                  </button>` : ''));
 }
-
-$('search').addEventListener('input', () => { showAllRecords = false; renderList(); });
 
 // ================= SEARCH EVERYTHING =================
 //
