@@ -4050,7 +4050,7 @@ function nameOf(t) {
     // GTB stamps its own branch address on transfers: "635 AKIN ADESOLA".
     // Blacklisting those two words would also lose Adesola as a given name,
     // which it very often is, so the address is removed as a phrase.
-    raw = raw.replace(/\b\d{2,4}\s+AKIN\s+ADESOLA\b/gi, ' ');
+    raw = raw.replace(/\bAKIN\s+ADESOLA\b/gi, ' ');
     // Card terminals name the processor, not the merchant.
     raw = raw.replace(/\b(OPay|Moniepoint|Moniepola|Paycom|Teamapt|Interswitch|Flutterwave)\b/gi, ' ');
     // Terminal and session ids: "2214AOL7-", "2FBMD457-".
