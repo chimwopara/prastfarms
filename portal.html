@@ -4032,7 +4032,10 @@ $('revMore').addEventListener('click', async () => {
     finally { btn.disabled = false; btn.textContent = 'Load more'; }
 });
 
-const NOISE_WORDS = /^(NIP|NFT|TNF|TRF|POS|PUR|MOB|UTU|IFO|FRM|FROM|TO|FIP|MB|IBPS|TRBPS|NIBSS|VIA|AT|BR|CDB|CHQ|REF|APP|TRSF|INSTANT|PAYMENT|OUTWARD|TRANSFER|BETWEEN|CUSTOMERS|SELF|PLC|LTD|LIMITED)$/i;
+// Words that are never a person. The bank writes its own branch address, the
+// channel and the account name into narrations, and stacking on those grouped
+// 368 unrelated rows under a street in Victoria Island.
+const NOISE_WORDS = /^(NIP|NFT|TNF|TRF|POS|PUR|MOB|UTU|IFO|FRM|FROM|TO|FIP|MB|IBPS|TRBPS|NIBSS|VIA|AT|BR|CDB|CHQ|REF|APP|TRSF|INSTANT|PAYMENT|OUTWARD|INWARD|TRANSFER|BETWEEN|CUSTOMERS|SELF|PLC|LTD|LIMITED|USSD|WEB|ATM|CARD|MOBILE|ONLINE|APPS?|CHANNEL|AKIN|ADESOLA|VICTORIA|ISLAND|LAGOS|ABUJA|BRANCH|STREET|ROAD|AVENUE|PRAST|FARM|FARMS|UBA|GTB|GTBANK|GTWORLD|FCMB|WEMA|ZENITH|ACCESS|FIRSTBANK|FBN|STERLING|POLARIS|KEYSTONE|UNION|OPAY|PALMPAY|MONIEPOINT|MONIEMFB|PAYCOM|TEAMAPT|INTERSWITCH|FLUTTERWAVE|PAYSTACK|REMITA|BAS|NXG|DE|COMMISSION|CHARGES|VAT|STAMP|DUTIES|LEVY|FEE|FEES|VALUE|ADDED|TAX|BALANCE|CONTRIBUTION|PURCHASE|TRANSACTION|WITHDRAWAL|DEPOSIT|FBNMOBILE|GTBMOBILE|UBAMOBILE|IBANK|EBANK|ALAT|KUDA|VBANK|SPARKLE|RUBIES|MONIE|MFB|MICROFINANCE)$/i;
 
 /**
  * The stored counterparty is blank for a lot of rows — the import's extraction
@@ -4040,16 +4043,26 @@ const NOISE_WORDS = /^(NIP|NFT|TNF|TRF|POS|PUR|MOB|UTU|IFO|FRM|FROM|TO|FIP|MB|IB
  * over a narration that plainly contains the name, pull it out here.
  */
 function nameOf(t) {
-    if (t.counterparty && t.counterparty.trim()) return t.counterparty.trim();
-    let raw = String(t.description || '');
+    // The stored counterparty is not trusted: the import wrote things like
+    // "Akin Adesola Ussd From" — GTB's branch address plus the channel — and
+    // stacking on that gathered 368 unrelated rows under one heading.
+    // Whatever the source, it goes through the same filter.
+    let raw = String(t.counterparty || '').trim() || String(t.description || '');
+
     // Card terminals name the processor, not the merchant.
     raw = raw.replace(/\b(OPay|Moniepoint|Moniepola|Paycom|Teamapt|Interswitch|Flutterwave)\b/gi, ' ');
     const after = raw.split(/\b(?:IFO|to|TO|FRM|FROM|@)\b/).pop() || raw;
-    const words = after.split(/[^A-Za-z]+/).filter(x => x.length > 1 && !NOISE_WORDS.test(x));
+
+    const words = after.split(/[^A-Za-z]+/)
+        .filter(x => x.length > 1 && !NOISE_WORDS.test(x));
+
     const name = words.slice(0, 4).join(' ')
         .toLowerCase().replace(/\b[a-z]/g, ch => ch.toUpperCase()).trim();
+
     // "For Pullets" is a purpose, not a person — better to admit we do not know.
     if (!name || /^(For|And|The|Of|With|Payment)\b/i.test(name)) return 'Not named';
+    // One short fragment is not a name either.
+    if (name.replace(/[^A-Za-z]/g, '').length < 4) return 'Not named';
     return name;
 }
 
@@ -4060,6 +4073,46 @@ function optionsHTML(list, level, id) {
                  data-label="${esc(o.label)}">
            <i class="fas fa-${esc(o.icon)}"></i>${esc(o.label)}
          </button>`).join('') + '</div>';
+}
+
+// ---- stacks ----
+//
+//  Everything from one person, in one direction, kept together and shown biggest
+//  first. Sorting a stack sorts every row in it, so the backlog goes down in
+//  people rather than in rows.
+
+let openStack = null;      // key of the stack she has opened
+
+/** A stable key for one person and one direction. */
+function stackKey(t) {
+    const raw = nameOf(t);
+    const n = raw.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    // A row whose narration has no usable name gets a stack of its own. Grouping
+    // those together would gather strangers under one heading and let a single
+    // tap mis-file all of them.
+    const words = n.split(' ').filter(w => w.length > 2);
+    if (raw === 'Not named' || words.length < 1) return `row:${t.id}`;
+    return `${n}|${t.direction}`;
+}
+
+function stacksFrom(rows) {
+    const map = new Map();
+    for (const t of rows) {
+        const k = stackKey(t);
+        let s = map.get(k);
+        if (!s) {
+            s = { key: k, name: nameOf(t), dir: t.direction, rows: [], total: 0,
+                  first: t.date, last: t.date, banks: new Set() };
+            map.set(k, s);
+        }
+        s.rows.push(t);
+        s.total += Number(t.amount) || 0;
+        if (t.date < s.first) s.first = t.date;
+        if (t.date > s.last) s.last = t.date;
+        if (t.bank) s.banks.add(t.bank);
+    }
+    // Biggest money first — that is where her time is worth most.
+    return [...map.values()].sort((a, b) => b.total - a.total);
 }
 
 function renderFeed() {
@@ -4088,125 +4141,184 @@ function renderFeed() {
     $('revDone').classList.toggle('hide', pending.length > 0);
     $('revFeed').classList.toggle('hide', pending.length === 0);
 
-    $('revFeed').innerHTML = inScope.map(t => {
-        const ch = revChoice[t.id] || {};
-        const inn = t.direction === 'in';
+    const stacks = stacksFrom(inScope);
 
-        if (ch.done) {
-            return `<div class="card revRow done" style="display:flex;align-items:center;gap:10px;">
-                <i class="fas fa-check" style="color:#7ee2a4;"></i>
-                <span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                  ${esc(nameOf(t))}${t.bank ? ` <span class="bankTag">${esc(t.bank)}</span>` : ''}</span>
-                <span style="font-size:12px;color:#9fb3a6;">${esc(ch.label)}</span>
-                <button class="revRedo" data-id="${esc(t.id)}"
-                        style="background:none;border:none;color:#7ee2a4;font-family:inherit;
-                               font-size:11px;cursor:pointer;padding:4px 6px;">Change</button>
-            </div>`;
+    $('revFeed').innerHTML = stacks.map(st => {
+        const inn = st.dir === 'in';
+        const left = st.rows.filter(t => !revChoice[t.id]?.done);
+        const leftTotal = left.reduce((n, t) => n + (Number(t.amount) || 0), 0);
+        const cleared = !left.length;
+        const isOpen = openStack === st.key;
+        const ch = revChoice[st.key] || {};
+
+        // The head of the stack: who, how many, how much.
+        const head = `
+          <button class="stackHead" data-key="${esc(st.key)}"
+                  style="width:100%;background:none;border:0;padding:0;font-family:inherit;
+                         color:inherit;text-align:left;cursor:pointer;display:flex;
+                         align-items:flex-start;justify-content:space-between;gap:12px;">
+            <span style="min-width:0;">
+              <span style="display:block;font-size:15px;font-weight:700;">
+                ${cleared ? '<i class="fas fa-check" style="color:#7ee2a4;margin-right:7px;"></i>' : ''}${esc(st.name)}
+              </span>
+              <span style="display:block;font-size:11px;color:#9fb3a6;margin-top:3px;">
+                ${st.rows.length} transaction${st.rows.length === 1 ? '' : 's'}
+                ${cleared ? '' : `· ${left.length} to sort`}
+                · ${esc(prettyDate(st.first))}${st.first !== st.last ? ` to ${esc(prettyDate(st.last))}` : ''}
+                ${[...st.banks].map(b => `<span class="bankTag">${esc(b)}</span>`).join('')}
+              </span>
+            </span>
+            <span style="text-align:right;flex-shrink:0;">
+              <span style="display:block;font-size:17px;font-weight:700;color:${inn ? '#7ee2a4' : 'var(--gold)'};">
+                ${inn ? '+' : '−'}${esc(naira(cleared ? st.total : leftTotal))}</span>
+              <span style="display:block;font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+                           color:#6d7f74;margin-top:2px;">
+                ${inn ? 'in' : 'out'} <i class="fas fa-chevron-${isOpen ? 'up' : 'down'}" style="margin-left:5px;"></i></span>
+            </span>
+          </button>`;
+
+        if (cleared) {
+            return `<div class="card revRow done" data-stack="${esc(st.key)}">
+                      ${head}
+                      <div style="font-size:11.5px;color:#7ee2a4;margin-top:9px;">
+                        ${esc(ch.label || 'sorted')}
+                        <button class="stackRedo" data-key="${esc(st.key)}"
+                                style="background:none;border:none;color:#7ee2a4;font-family:inherit;
+                                       font-size:11px;cursor:pointer;padding:4px 6px;">Change</button>
+                      </div>
+                    </div>`;
         }
 
-        const backBtn = () =>
-            `<button class="revBack" data-id="${esc(t.id)}"
-                     style="background:none;border:none;color:#7ee2a4;font-family:inherit;
-                            font-size:11px;padding:0;cursor:pointer;">
+        const backBtn = `<button class="stackBack" data-key="${esc(st.key)}"
+                 style="background:none;border:none;color:#7ee2a4;font-family:inherit;
+                        font-size:11px;padding:0;cursor:pointer;">
                <i class="fas fa-arrow-left" style="margin-right:5px;"></i>Back
              </button>`;
 
-        let body;
+        let choices;
         if (ch.category) {
-            // Only farm money worth splitting gets a second question.
-            body = `<div class="revCrumb" style="display:flex;align-items:center;gap:10px;">
-                      ${backBtn()}<span style="opacity:.8;">${esc(ch.label)} → which part?</span>
-                    </div>` + optionsHTML(SEGMENTS, 'seg', t.id);
+            choices = `<div class="revCrumb" style="display:flex;align-items:center;gap:10px;">
+                         ${backBtn}<span style="opacity:.8;">${esc(ch.label)} → which part?</span>
+                       </div>` + optionsHTML(SEGMENTS, 'seg', st.key);
         } else if (ch.more) {
-            body = `<div class="revCrumb" style="display:flex;align-items:center;gap:10px;">
-                      ${backBtn()}<span style="opacity:.8;">More</span>
-                    </div>` + optionsHTML(REV_MORE[t.direction] || [], 'cat', t.id);
+            choices = `<div class="revCrumb" style="display:flex;align-items:center;gap:10px;">
+                         ${backBtn}<span style="opacity:.8;">More</span>
+                       </div>` + optionsHTML(REV_MORE[st.dir] || [], 'cat', st.key);
         } else {
-            body = optionsHTML(REV_MAIN[t.direction] || [], 'cat', t.id);
+            choices = `<div style="font-size:11px;color:#9fb3a6;margin:11px 0 3px;">
+                         Sort all ${left.length} at once:
+                       </div>` + optionsHTML(REV_MAIN[st.dir] || [], 'cat', st.key);
         }
 
-        return `<div class="card revRow" data-row="${esc(t.id)}">
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
-              <div style="min-width:0;">
-                <div style="font-size:15px;font-weight:700;">${esc(nameOf(t))}</div>
-                <div style="font-size:11px;color:#9fb3a6;margin-top:3px;">
-                  ${esc(prettyDate(t.date))}
-                  ${t.bank ? `<span class="bankTag">${esc(t.bank)}${t.account && t.account !== 'PRAST FARM' ? ' ' + esc(t.account) : ''}</span>` : ''}
-                </div>
-              </div>
-              <div style="text-align:right;flex-shrink:0;">
-                <div style="font-size:17px;font-weight:700;color:${inn ? '#7ee2a4' : 'var(--gold)'};">
-                  ${inn ? '+' : '−'}${esc(naira(t.amount))}</div>
-                <div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#6d7f74;margin-top:2px;">
-                  ${inn ? 'in' : 'out'}</div>
-              </div>
-            </div>
-            <div style="font-size:10.5px;color:#6d7f74;margin-top:9px;line-height:1.45;
-                        word-break:break-word;max-height:44px;overflow:hidden;">${esc(t.description || '')}</div>
-            ${body}
-        </div>`;
+        // Opened: the individual lines behind the total.
+        const detail = isOpen ? `
+          <div style="margin-top:11px;border-top:1px solid rgba(255,255,255,.08);padding-top:9px;">
+            ${st.rows.slice(0, 40).map(t => `
+              <div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;
+                          ${revChoice[t.id]?.done ? 'opacity:.45;' : ''}">
+                <span style="min-width:0;">
+                  <span style="display:block;font-size:11.5px;">${esc(t.description || nameOf(t)).slice(0, 62)}</span>
+                  <span style="display:block;font-size:10px;color:#6d7f74;margin-top:2px;">
+                    ${esc(prettyDate(t.date))} · ${esc(t.bank || '')} ${esc(t.account || '')}</span>
+                </span>
+                <span style="font-size:12px;font-weight:700;white-space:nowrap;">
+                  ${esc(naira(t.amount))}</span>
+              </div>`).join('')}
+            ${st.rows.length > 40
+              ? `<div style="font-size:10.5px;color:#6d7f74;text-align:center;padding:6px 0;">
+                   …and ${st.rows.length - 40} more in this stack</div>` : ''}
+          </div>` : '';
+
+        return `<div class="card revRow" data-stack="${esc(st.key)}">
+                  ${head}${detail}${choices}
+                </div>`;
     }).join('');
 }
 
 $('revFeed').addEventListener('click', async (e) => {
-    // Going back has to be possible at every step — a wrong tap should cost a
-    // tap, not the whole entry.
-    const redo = e.target.closest('.revRedo');
-    if (redo) { revChoice[redo.dataset.id] = {}; return renderFeed(); }
+    // Opening a stack to look inside must never be mistaken for a choice.
+    const head = e.target.closest('.stackHead');
+    if (head) {
+        openStack = openStack === head.dataset.key ? null : head.dataset.key;
+        return renderFeed();
+    }
 
-    const back = e.target.closest('.revBack');
-    if (back) { revChoice[back.dataset.id] = {}; return renderFeed(); }
+    // Going back has to be possible at every step — a wrong tap should cost a
+    // tap, not the whole stack.
+    const redo = e.target.closest('.stackRedo');
+    if (redo) {
+        const st = stacksFrom(revQueue).find(x => x.key === redo.dataset.key);
+        revChoice[redo.dataset.key] = {};
+        if (st) st.rows.forEach(t => { revChoice[t.id] = {}; });
+        return renderFeed();
+    }
+    const back = e.target.closest('.stackBack');
+    if (back) { revChoice[back.dataset.key] = {}; return renderFeed(); }
 
     const b = e.target.closest('.revOpt');
     if (!b) return;
-    const id = b.dataset.id, lvl = b.dataset.lvl, val = b.dataset.val, label = b.dataset.label;
-    const t = revQueue.find(x => x.id === id);
-    if (!t) return;
-    const ch = revChoice[id] || {};
+    const key = b.dataset.id, lvl = b.dataset.lvl, val = b.dataset.val, label = b.dataset.label;
+    const st = stacksFrom(revQueue).find(x => x.key === key);
+    if (!st) return;
+    const ch = revChoice[key] || {};
 
-    if (b.dataset.more) { revChoice[id] = { more: true }; return renderFeed(); }
+    if (b.dataset.more) { revChoice[key] = { more: true }; return renderFeed(); }
 
     if (lvl === 'cat') {
         if (SEGMENT_CATS.has(val)) {          // ask which animal, then file
-            revChoice[id] = { category: val, label };
+            revChoice[key] = { category: val, label };
             return renderFeed();
         }
-        return commit(t, val, '', label);
+        return commitStack(st, val, '', label);
     }
-
-    return commit(t, ch.category, val, `${ch.label} · ${label}`);
+    return commitStack(st, ch.category, val, `${ch.label} · ${label}`);
 });
 
-/** Do two rows look like the same person, by the recovered name? */
-function sameParty(a, b) {
-    const t = nameOf(b).toLowerCase().split(/[^a-z]+/).filter(w => w.length > 2);
-    if (!t.length) return false;
-    const hay = `${a.description || ''} ${a.counterparty || ''}`.toLowerCase();
-    return a.direction === b.direction && t.every(w => new RegExp('\\b' + w).test(hay));
-}
+/**
+ * File every row in a stack under the same category.
+ *
+ * The first row is filed with learning on, which writes the rule for that person
+ * and sweeps up everything else of theirs still unsorted — so the rest are
+ * usually already done by the time we get to them, and filing them again would
+ * just be wasted writes. Anything the sweep missed is filed directly.
+ */
+async function commitStack(st, category, segment, label) {
+    const card = document.querySelector(`[data-stack="${CSS.escape(st.key)}"]`);
+    if (card) card.style.opacity = '.5';
 
-async function commit(txn, category, segment, label) {
-    const row = document.querySelector(`[data-row="${CSS.escape(txn.id)}"]`);
-    if (row) row.style.opacity = '.5';
+    const pending = st.rows.filter(t => !revChoice[t.id]?.done);
+    if (!pending.length) return;
+
     try {
-        // Learn against the recovered name, so the rule actually matches next time.
-        const res = await fileTransaction({ ...txn, counterparty: nameOf(txn) }, category, { segment });
-        const extra = res?.alsoFiled || 0;
-        revChoice[txn.id] = { ...(revChoice[txn.id] || {}), done: true,
-                              label: extra ? `${label} · +${extra} more` : label };
-        if (extra) {
-            toast(`Also sorted ${extra} more from ${nameOf(txn)}`);
-            // those rows are handled now, so take them out of the feed
-            revQueue = revQueue.filter(x => x.id === txn.id || !sameParty(x, txn));
+        const [first, ...rest] = pending;
+        const res = await fileTransaction({ ...first, counterparty: nameOf(first) },
+                                          category, { segment });
+        revChoice[first.id] = { done: true, label };
+        const swept = res?.alsoFiled || 0;
+
+        // Whatever the rule did not catch, file one by one.
+        let filed = 1;
+        for (const t of rest) {
+            try {
+                await fileTransaction({ ...t, counterparty: nameOf(t) }, category,
+                                      { segment, learn: false });
+                filed += 1;
+            } catch { /* leave it unsorted rather than lose the rest */ }
+            revChoice[t.id] = { done: true, label };
         }
+
+        revChoice[st.key] = { done: true, label: `${label} · ${filed} sorted` };
+        toast(swept
+            ? `Sorted ${filed} from ${st.name}, and ${swept} more elsewhere`
+            : `Sorted ${filed} from ${st.name}`);
+        openStack = null;
         renderFeed();
         refreshUnsortedBadge();
     } catch (err) {
         toast(friendlyError(err), true);
-        if (row) row.style.opacity = '1';
+        if (card) card.style.opacity = '1';
     }
 }
-
 
 // ---- attaching receipts ----
 //  Every record should carry the evidence for both halves: what the investor
