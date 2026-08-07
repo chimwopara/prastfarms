@@ -13,5 +13,88 @@
         "*.log"
       ]
     }
-  ]
+  ],
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      ".firebase/**",
+      ".git/**",
+      ".github/**",
+      "functions/**",
+      "scripts/**",
+      "statements/**",
+      "**/.DS_Store",
+      "**/*.md",
+      "**/*.pdf",
+      "!assets/**/*.pdf",
+      "**/*.docx",
+      "**/*.xlsx",
+      "firestore.rules",
+      "firestore.indexes.json"
+    ],
+    "cleanUrls": false,
+    "headers": [
+      {
+        "//": "The root is served as / , which no *.html pattern matches.",
+        "source": "/",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "//": "Pages and code carry no version in their names, so a cached copy cannot",
+        "//2": "be told from a new one. no-cache means revalidate, not never cache \u2014 the",
+        "//3": "ETag turns that into a 304 with no body. GitHub Pages forced max-age=600,",
+        "//4": "which is why a deployed fix could read as still broken for ten minutes.",
+        "source": "**/*.@(html|js|json)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "//": "Artwork is stable and its filename changes when the art does.",
+        "source": "**/*.@(png|jpg|jpeg|gif|svg|webp|ico|woff|woff2)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=604800"
+          }
+        ]
+      },
+      {
+        "//": "The portal holds client financial records.",
+        "source": "/portal.html",
+        "headers": [
+          {
+            "key": "X-Robots-Tag",
+            "value": "noindex, nofollow"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "DENY"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "same-origin"
+          }
+        ]
+      },
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          }
+        ]
+      }
+    ]
+  }
 }

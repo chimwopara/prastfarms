@@ -508,24 +508,20 @@
 
         <div id="list" style="display:flex;flex-direction:column;gap:11px;"></div>
 
-        <!-- ---------- MONEY / BOOKKEEPING ---------- -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin:30px 0 12px;">
-            <h2 class="sectionTitle">Transactions</h2>
-            <span id="txnCount" style="font-size:10px;color:#6d7f74;"></span>
-        </div>
-
+        <!-- The transactions list is not on the home page. It only ever showed
+             the most recent imported rows, which lag the bank by however long
+             it has been since a statement was imported — a figure that looks
+             live and is not. Charts, search and the sorter all read the same
+             data with the date range stated, which is honest about its age. -->
         <input type="file" id="stmtInput" accept="application/pdf,image/*" class="hide">
 
-        <!-- People asking to buy produce -->
-        <div id="buyAsks" class="hide" style="margin-bottom:16px;">
+        <!-- People asking to buy produce, straight from the website -->
+        <div id="buyAsks" class="hide" style="margin:26px 0 16px;">
             <div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:10px;">
                 <i class="fas fa-bell" style="margin-right:7px;"></i>New purchase requests
             </div>
             <div id="buyAskList" style="display:flex;flex-direction:column;gap:10px;"></div>
         </div>
-
-        <div id="moneyBanks" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px;"></div>
-        <div id="moneySummary" style="display:flex;flex-direction:column;gap:9px;"></div>
 
         <!-- ---------- FARMS SUBSCRIBED TO THE PORTAL ---------- -->
         <div id="farmSubs" class="hide">
@@ -1150,7 +1146,7 @@ import { DEV_MODE, firebaseConfig } from './assets/js/firebase-config.js';
 //  unfixed and a new screen simply is not there. The stamp below is rewritten
 //  on every deploy; if the copy on the server carries a different one, the page
 //  offers to reload itself.
-const APP_VERSION = '32e022d';
+const APP_VERSION = '46ea371';
 
 async function checkForUpdate() {
     try {
@@ -1219,7 +1215,6 @@ let records = [];
 // not signed in" apart from a genuine permissions fault — see start().
 let signedIn = false;
 let showAllRecords = false;   // the list previews three until she asks for more
-let showAllMoney = false;
 let unsub = null;
 let sheetRecord = null;
 let pendingDelete = null;
@@ -1368,7 +1363,7 @@ async function start() {
 
     if (unsubTxn) unsubTxn();
     unsubTxn = listenTransactions(
-        (rows) => { transactions = rows; renderMoney(); },
+        (rows) => { transactions = rows; },
         () => {}
     );
 
@@ -1765,7 +1760,6 @@ $('repExport').addEventListener('click', () => {
 document.addEventListener('click', (e) => {
     if (e.target.closest('#moreRecords')) { showAllRecords = true;  renderList(); }
     if (e.target.closest('#lessRecords')) { showAllRecords = false; renderList(); }
-    if (e.target.closest('#moreMoney'))   { showAllMoney = !showAllMoney; renderMoney(); }
 });
 
 $('list').addEventListener('click', (e) => {
@@ -2296,56 +2290,6 @@ function showStmt() {
 }
 
 // Money summary under the investments list
-function renderMoney() {
-    $('txnCount').textContent = transactions.length ? `${transactions.length} recorded` : '';
-    renderLifetime();
-    refreshUnsortedBadge();
-    // A per-bank line, so she can see which account the money actually moved in.
-    const byBank = {};
-    transactions.forEach(t => {
-        const k = `${t.bank || '?'}${t.account && t.account !== 'PRAST FARM' ? ' ' + t.account : ''}`;
-        const b = byBank[k] || (byBank[k] = { in: 0, out: 0, n: 0 });
-        b[t.direction] += Number(t.amount) || 0; b.n++;
-    });
-    const bankRow = Object.entries(byBank).sort((a, b) => (b[1].in + b[1].out) - (a[1].in + a[1].out))
-        .map(([k, v]) => `<span class="bankTag" style="font-size:9.5px;">${esc(k)} · +${esc(naira(v.in))} / −${esc(naira(v.out))}</span>`)
-        .join(' ');
-    $('moneyBanks').innerHTML = bankRow;
-
-    const allRows = summariseByCategory(transactions);
-    const rows = showAllMoney ? allRows : allRows.slice(0, 3);
-
-    if (!rows.length) {
-        $('moneySummary').innerHTML = `
-          <div style="text-align:center;padding:26px 18px;color:#6d7f74;font-size:13px;
-                      border:1px dashed rgba(255,255,255,.14);border-radius:16px;">
-            Upload a bank statement and it will sort the transactions for you.
-          </div>`;
-        return;
-    }
-
-    $('moneySummary').innerHTML = rows.map(r => {
-        const isIn = r.in > r.out;
-        const total = isIn ? r.in : r.out;
-        return `
-        <div class="card" style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-          <div style="min-width:0;">
-            <div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              ${esc(r.category)}
-            </div>
-            <div style="font-size:11px;color:#6d7f74;margin-top:2px;">${r.count} transaction${r.count===1?'':'s'}</div>
-          </div>
-          <div style="font-size:15px;font-weight:700;white-space:nowrap;color:${isIn ? '#7ee2a4' : '#f0d475'};">
-            ${isIn ? '+' : '−'}${esc(naira(total))}
-          </div>
-        </div>`;
-    }).join('') + (
-        allRows.length > 3
-          ? `<button id="moreMoney" class="btn btn-plain tap" style="width:100%;padding:13px;font-size:13px;">
-               ${showAllMoney ? 'Show fewer' : `More (${allRows.length - 3})`}
-               <i class="fas fa-chevron-${showAllMoney ? 'up' : 'down'}" style="margin-left:6px;font-size:11px;"></i>
-             </button>` : '');
-}
 
 /**
  * Lifetime money in and out. Read from the monthly summaries rather than the
