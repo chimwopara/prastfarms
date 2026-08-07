@@ -1150,11 +1150,13 @@ const APP_VERSION = '8eece0f';
 
 async function checkForUpdate() {
     try {
-        const res = await fetch(`portal.html?v=${Date.now()}`, { cache: 'no-store' });
+        // A few hundred bytes, and unchanged it comes back 304 with no body —
+        // so this costs nothing to ask. Fetching portal.html would have pulled
+        // 63KB every time the tab regained focus.
+        const res = await fetch('version.json');
         if (!res.ok) return;
-        const text = await res.text();
-        const m = text.match(/const APP_VERSION = '([^']+)'/);
-        if (!m || m[1] === APP_VERSION || m[1] === '__BUILD__') return;
+        const { build } = await res.json();
+        if (!build || build === APP_VERSION || APP_VERSION === '__BUILD__') return;
 
         const bar = document.createElement('div');
         bar.style.cssText = `position:fixed;left:12px;right:12px;bottom:14px;z-index:9999;
@@ -1165,7 +1167,7 @@ async function checkForUpdate() {
             <button style="background:#0f2e1a;color:#f4f1ea;border:0;border-radius:10px;
                            padding:10px 16px;font-family:inherit;font-size:13px;
                            font-weight:700;cursor:pointer;">Update</button>`;
-        bar.querySelector('button').addEventListener('click', () => location.reload(true));
+        bar.querySelector('button').addEventListener('click', () => location.reload());
         document.body.appendChild(bar);
     } catch { /* offline; nothing to do */ }
 }
