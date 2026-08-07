@@ -609,6 +609,107 @@ exports.readReceipt = onCall(
 //  accounts. Categorising and learning happen client-side against saved rules.
 // =============================================================================
 
+/**
+ * The date boxes in the portal are plain typing boxes. Almost everything she
+ * types is worked out in the browser; this is only for the phrasing those
+ * rules cannot place — "the friday before last", "two days after Sallah".
+ */
+const DATE_PROMPT = `Today is {{TODAY}}.
+
+A Nigerian farm administrator typed the text below into a date box. Work out
+which single calendar day she meant and return it.
+
+Text: "{{TEXT}}"
+
+Rules:
+- She is entering {{SIDE}}, so when the text is ambiguous choose the reading that lands {{SIDE_HINT}} today.
+- Numeric dates are DAY first, British style: 05/08/2026 is 5 August 2026.
+- A two-digit year is in the 2000s.
+- Nigerian public holidays and religious festivals count: Sallah, Eid, Christmas, Boxing Day, New Year, Independence Day (1 October), Democracy Day (12 June), Workers' Day (1 May).
+- If the text names a period rather than a day ("August", "last quarter"), you cannot answer.
+- If you genuinely cannot tell which day she meant, return an empty date rather than guessing.
+
+Return ONLY JSON: {"date":"YYYY-MM-DD","note":"a few words on how you read it"}
+Use {"date":"","note":"why not"} when it cannot be placed.`;
+
+exports.readDate = onCall(
+  {
+    secrets: [GEMINI_KEY],
+    region: REGION,
+    maxInstances: 2,
+    timeoutSeconds: 20,
+    cors: CORS_ORIGINS,
+  },
+  async (request) => {
+    if (REQUIRE_AUTH && !request.auth) {
+      throw new HttpsError("unauthenticated", "Please sign in first.");
+    }
+
+    const { text, today, prefer } = request.data || {};
+    const phrase = String(text || "").trim().slice(0, 120);
+    if (!phrase) throw new HttpsError("invalid-argument", "No date was sent.");
+
+    // The browser knows her calendar day; trust it over the server's clock,
+    // which is somewhere else in the world and can be a day out.
+    const day = /^\d{4}-\d{2}-\d{2}$/.test(String(today))
+      ? today
+      : new Date().toISOString().slice(0, 10);
+
+    const future = prefer === "future";
+    const prompt = DATE_PROMPT
+      .replace("{{TODAY}}", day)
+      .replace("{{TEXT}}", phrase.replace(/"/g, "'"))
+      .replace(/{{SIDE}}/g, future ? "a date a payment falls due" : "the date a payment was made")
+      .replace("{{SIDE_HINT}}", future ? "on or after" : "on or before");
+
+    const body = JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0,
+        responseMimeType: "application/json",
+        maxOutputTokens: 200,
+      },
+    });
+
+    let lastDetail = "";
+
+    for (const model of GEMINI_MODELS) {
+      try {
+        const res = await fetch(GEMINI_URL(model, GEMINI_KEY.value()), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+        });
+
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          lastDetail = `${model}: ${res.status} ${data?.error?.message || ""}`.slice(0, 300);
+          continue;
+        }
+
+        const out = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!out) { lastDetail = `${model}: empty response`; continue; }
+
+        let parsed;
+        try { parsed = JSON.parse(out); } catch { lastDetail = `${model}: not JSON`; continue; }
+
+        const iso = String(parsed?.date || "").slice(0, 10);
+        return {
+          date: /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : "",
+          note: String(parsed?.note || "").slice(0, 120),
+        };
+      } catch (err) {
+        lastDetail = `${model}: ${err.message}`.slice(0, 300);
+      }
+    }
+
+    // A date it could not reach reads the same to her as one it could not
+    // place: the box says so and she types the day out instead.
+    logger.warn("Date read failed on every model", { detail: lastDetail });
+    return { date: "", note: "" };
+  }
+);
+
 const STATEMENT_PROMPT = `You are reading a Nigerian bank statement for Prast Farms, a pig farming and real-estate investment business.
 
 Return ONLY JSON in this exact shape:

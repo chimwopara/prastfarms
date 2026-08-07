@@ -228,14 +228,13 @@
         .fIn  { width:100%; max-width:100%; min-width:0; padding:14px 13px;
                 font-size:16px;            /* 16px stops iOS zooming on focus */
                 box-sizing:border-box; margin-bottom:16px; }
-        /* A date input reports a wide intrinsic size on iOS and will not shrink
-           below it while min-width is auto — that is what pushes a phone into
-           sideways scrolling. */
-        input[type="date"].fIn { -webkit-appearance:none; appearance:none; }
-
-        /* The amount, read back in full so a misread shorthand is obvious. */
+        /* The amount and the dates, read back in full so a misread shorthand is
+           obvious before she saves it. */
         .fWords { font-size:13px; color:#7ee2a4; margin:0 0 16px; line-height:1.5;
                   padding-left:2px; }
+        /* Gold rather than green while a date is still being worked out or was
+           not understood at all — the colour alone says whether to look again. */
+        .fWords.warn { color:#f0d475; }
         .fType.on { background:rgba(41,158,82,.28); border-color:rgba(41,158,82,.6); color:#fff; }
         #micBtn.rec { background:rgba(185,28,28,.85); color:#fff; animation:pulse 1.2s infinite; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.55} }
@@ -648,8 +647,14 @@
                    style="margin-bottom:6px;">
             <div id="fAmountWords" class="fWords hide"></div>
 
+            <!-- Typed, not picked. The calendar pop-up was the part she got
+                 lost in, so this takes the date however she would say it and
+                 rewrites itself into a real one once she moves on. -->
             <label class="fLbl">Date they paid</label>
-            <input id="fStart" class="input fIn" type="date">
+            <input id="fStart" class="input fIn" type="text" autocomplete="off"
+                   enterkeyhint="done" placeholder="e.g. today, 5 aug, 12/03/2026"
+                   style="margin-bottom:6px;">
+            <div id="fStartWords" class="fWords hide"></div>
 
             <div id="fAuto" style="font-size:12.5px;color:#7ee2a4;background:rgba(41,158,82,.1);
                  border-radius:10px;padding:12px;margin:4px 0 14px;line-height:1.6;"></div>
@@ -660,7 +665,10 @@
             <div id="fPayoutWords" class="fWords hide"></div>
 
             <label class="fLbl">Due date</label>
-            <input id="fDue" class="input fIn" type="date">
+            <input id="fDue" class="input fIn" type="text" autocomplete="off"
+                   enterkeyhint="done" placeholder="e.g. in 12 months, 5 aug 2027"
+                   style="margin-bottom:6px;">
+            <div id="fDueWords" class="fWords hide"></div>
 
             <button id="fSave" class="btn btn-green tap" style="width:100%;padding:16px;font-size:15px;">
                 Save
@@ -1175,7 +1183,7 @@ import {
     markPaid, unmarkPaid, isPaid, renewRecord,
     saveReceiptImage, savePayoutProof, getReceiptImage, deleteReceiptImage, resizeImage,
     statusOf, computeStats, recordsToCSV, naira, fullName, prettyDate,
-    daysUntil, todayISO, addYearsISO, addMonthsISO,
+    daysUntil, todayISO, addYearsISO, addMonthsISO, parseDate, toISO,
     ensureCategories, fetchPayees, savePayee, applyPayeeRules, matchInvestor,
     saveTransactions, saveStatement, listenTransactions, summariseByCategory,
     setTransactionCategory, payeeKey, PAYEE_ROLES, fetchCategories,
@@ -1966,6 +1974,7 @@ function startChat(mode, record) {
     setFormFullscreen(false);          // a fresh conversation starts as a conversation
     talkTarget = 'chat';
     ['fFirst','fLast','fAmount','fPayout'].forEach(id => { $(id).value = ''; });
+    ['fStart','fDue'].forEach(id => setDateField(id, ''));
     ['fAmountWords','fPayoutWords'].forEach(id => {
         $(id).textContent = ''; $(id).classList.add('hide');
     });
@@ -2039,7 +2048,7 @@ document.addEventListener('paste', (e) => {
 async function handleReceiptFile(file) {
     showChoices(false);
     $('formPanel').classList.remove('hide');
-    $('fStart').value = $('fStart').value || todayISO();
+    if (!dateISO('fStart')) setDateField('fStart', todayISO());
     setFormFullscreen(true);
     setFormNote('<span class="spin" style="margin-right:8px;vertical-align:-2px;"></span>'
                 + 'Reading the receipt…', 'busy');
@@ -3545,7 +3554,7 @@ $('formBtn').addEventListener('click', () => {
     // conversation it reads as one rather than the app talking to itself.
     bubble('Fill a form', 'me');
     $('formPanel').classList.remove('hide');
-    $('fStart').value = todayISO();
+    setDateField('fStart', todayISO());
     recalcForm();
     setFormFullscreen(true);
 });
@@ -3557,7 +3566,10 @@ document.addEventListener('click', (e) => {
     document.querySelectorAll('.fType').forEach(x => x.classList.toggle('on', x === b));
 });
 
-['fAmount', 'fStart'].forEach(id => $(id).addEventListener('input', recalcForm));
+// The amount recalculates as she types. The date waits until she leaves the
+// box: half-typed words are not dates, and recalculating on each keystroke
+// made the payout line flicker through nonsense on the way to "5 aug".
+$('fAmount').addEventListener('input', recalcForm);
 
 // Spell the figure out as she types, and tidy it into commas once she moves on.
 ['fAmount', 'fPayout'].forEach(id => {
@@ -3581,7 +3593,7 @@ function fillFormFromDraft() {
     if (draftFields.firstName) $('fFirst').value = draftFields.firstName;
     if (draftFields.lastName)  $('fLast').value  = draftFields.lastName;
     if (draftFields.investSum) setAmountField('fAmount', draftFields.investSum);
-    if (draftFields.investDate) $('fStart').value = draftFields.investDate;
+    if (draftFields.investDate) setDateField('fStart', draftFields.investDate);
 
     // "touched" must mean SHE typed in the box, never that we filled it. A
     // figure we worked out ourselves is left free to follow the amount —
@@ -3594,7 +3606,7 @@ function fillFormFromDraft() {
             (amt && Number(draftFields.dueSum) !== liveExpectedPayout(amt)) ? '1' : '';
     }
     if (draftFields.dueDate) {
-        $('fDue').value = draftFields.dueDate;
+        setDateField('fDue', draftFields.dueDate);
         const derived = (amt && draftFields.investDate)
             ? addMonthsISO(draftFields.investDate, liveTermMonthsFor(amt)) : null;
         $('fDue').dataset.touched = (derived && draftFields.dueDate !== derived) ? '1' : '';
@@ -3679,6 +3691,362 @@ function setAmountField(id, value) {
     showAmountWords(id);
 }
 
+// ---- date boxes ----
+//
+//  The calendar pop-up was the part she got lost in, so the date boxes are
+//  plain typing boxes now. She writes the date the way she would say it —
+//  "today", "5 aug", "12/03/26", "last friday", "3 days ago" — and the box
+//  rewrites itself into a real date as soon as she moves on, with the day of
+//  the week spelled out underneath so a wrong guess is obvious.
+//
+//  Nearly all of it is worked out here in the browser: instant, free, and it
+//  still works with no signal. Only a phrase these rules cannot place is sent
+//  to the model, so a slow connection never stands between her and an ordinary
+//  date.
+
+const MONTH_FULL = ['january','february','march','april','may','june','july',
+                    'august','september','october','november','december'];
+const WEEKDAYS = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+const COUNT_WORDS = { a:1, an:1, one:1, two:2, three:3, four:4, five:5, six:6,
+                      seven:7, eight:8, nine:9, ten:10, eleven:11, twelve:12 };
+
+/** Shift a 'YYYY-MM-DD' by whole days, staying on the local calendar. */
+function addDaysISO(iso, days) {
+    const d = parseDate(iso);
+    if (!d) return '';
+    d.setDate(d.getDate() + days);
+    return toISO(d);
+}
+
+/** 'YYYY-MM-DD' from three numbers, or '' if that day does not exist. */
+function validISO(y, m, d) {
+    if (!y || !m || !d || m < 1 || m > 12 || d < 1) return '';
+    if (y < 1900 || y > 2200) return '';
+    if (d > new Date(y, m, 0).getDate()) return '';     // 31 Feb, 29 Feb in a common year
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+/** "26" means 2026. Anything already four digits is left alone. */
+const fullYear = (n) => (n >= 100 ? n : 2000 + n);
+
+/** Which month a word names, by its opening letters. 0 when it names none. */
+function monthNumber(word) {
+    const w = String(word).replace(/\.$/, '');
+    if (w.length < 3) return 0;                          // "ma" could be either
+    const i = MONTH_FULL.findIndex(m => m.startsWith(w));
+    return i < 0 ? 0 : i + 1;
+}
+
+/** Which weekday a word names, allowing "tues", "weds", "thurs". -1 for none. */
+function weekdayNumber(word) {
+    const w = String(word);
+    if (w.length < 3) return -1;
+    let i = WEEKDAYS.findIndex(d => d.startsWith(w));
+    if (i < 0 && w.endsWith('s')) i = WEEKDAYS.findIndex(d => d.startsWith(w.slice(0, -1)));
+    return i;
+}
+
+/**
+ * A day and month with no year: pick the year that puts it on the side of
+ * today she meant. A payment was made in the past, a payout falls due ahead.
+ */
+function nearestYear(m, d, prefer) {
+    const today = todayISO();
+    const y = Number(today.slice(0, 4));
+    const options = [y - 1, y, y + 1].map(yy => validISO(yy, m, d)).filter(Boolean);
+    if (!options.length) return '';
+    return prefer === 'future'
+        ? (options.find(o => o >= today) || options[options.length - 1])
+        : ([...options].reverse().find(o => o <= today) || options[0]);
+}
+
+/** Step forward or back to the next named weekday. */
+function stepToWeekday(iso, want, dir, includeToday) {
+    const d = parseDate(iso);
+    if (!d) return '';
+    if (includeToday && d.getDay() === want) return iso;
+    for (let i = 0; i < 7; i++) {
+        d.setDate(d.getDate() + dir);
+        if (d.getDay() === want) return toISO(d);
+    }
+    return '';
+}
+
+/**
+ * What she meant by a date. '' when these rules cannot place it, which is the
+ * signal to go and ask the model.
+ *
+ *   "today", "yesterday", "tomorrow"
+ *   "5 aug", "august 5th 2027", "5th of august"
+ *   "12/03/2026", "5-8-25", "2026-08-05"
+ *   "3 days ago", "in 2 weeks", "last month", "last friday"
+ *   "end of month", "start of august"
+ *   "5"                       the 5th of the month she means
+ *
+ * `prefer` decides which side of today an unqualified date falls on.
+ */
+function parseDateText(raw, prefer = 'past') {
+    const s = String(raw ?? '').trim().toLowerCase()
+        .replace(/,/g, ' ')
+        .replace(/\b(on|the|of)\b/g, ' ')            // "on the 5th of aug" -> "5 aug"
+        .replace(/(\d+)(st|nd|rd|th)\b/g, '$1')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!s) return '';
+
+    const today = todayISO();
+
+    // ---- the handful of days that have their own names ----
+    const NAMED = new Map([
+        ['today', 0], ['now', 0], ['tod', 0],
+        ['tomorrow', 1], ['tmr', 1], ['tmw', 1], ['tomo', 1],
+        ['yesterday', -1], ['yday', -1],
+    ]);
+    if (NAMED.has(s)) return addDaysISO(today, NAMED.get(s));
+
+    // ---- already written out in full ----
+    const iso = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+    if (iso) return validISO(+iso[1], +iso[2], +iso[3]);
+
+    // ---- 12/03/2026, 5-8-25, 5.8 ----
+    //  Day first, the way she writes it and the way the app prints it back.
+    //  A number over 12 can only be a day, so a date written the American way
+    //  round is still read correctly rather than landing in the wrong month.
+    const num = s.match(/^(\d{1,2})[-/.](\d{1,2})(?:[-/.](\d{2}|\d{4}))?$/);
+    if (num) {
+        let d = +num[1], m = +num[2];
+        if (d <= 12 && m > 12) [d, m] = [m, d];
+        return num[3] !== undefined
+            ? validISO(fullYear(+num[3]), m, d)
+            : nearestYear(m, d, prefer);
+    }
+
+    // ---- end of month, start of august ----
+    //  Ahead of the month names below, which would otherwise see "august" in
+    //  "end of august", find no day beside it and give up. "of" was stripped
+    //  above, so this reads "end month" and "start august".
+    const edge = s.match(/^(end|last day|start|beginning|first day) ([a-z]+)$/)
+              || (/^month end$/.test(s) ? [s, 'end', 'month'] : null);
+    if (edge) {
+        const wantsLast = edge[1] === 'end' || edge[1] === 'last day';
+        let y = 0, m = 0;
+        if (edge[2] === 'month') {
+            [y, m] = today.split('-').map(Number);
+        } else {
+            m = monthNumber(edge[2]);
+            const anchor = m ? nearestYear(m, 1, prefer) : '';
+            y = anchor ? Number(anchor.slice(0, 4)) : 0;
+        }
+        if (y && m) return validISO(y, m, wantsLast ? new Date(y, m, 0).getDate() : 1);
+    }
+
+    const words = s.split(' ');
+
+    // ---- 5 aug, august 5 2027, aug 25 ----
+    let mNum = 0, mAt = -1;
+    words.forEach((w, i) => {
+        if (mNum) return;
+        const n = monthNumber(w);
+        if (n) { mNum = n; mAt = i; }
+    });
+    if (mNum) {
+        let day = 0, year = 0;
+        words.forEach((w, i) => {
+            if (i === mAt || !/^\d+$/.test(w)) return;
+            const n = +w;
+            // A four-digit number is a year. Otherwise the day comes first,
+            // so "aug 25" is the 25th of August, not the year 2025.
+            if (w.length === 4) year = n;
+            else if (!day && n >= 1 && n <= 31) day = n;
+            else if (!year) year = fullYear(n);
+        });
+        if (!day) return '';                          // a bare month is not a date
+        return year ? validISO(year, mNum, day) : nearestYear(mNum, day, prefer);
+    }
+
+    // ---- 3 days ago, in 2 weeks, next month, last year ----
+    const rel = s.match(
+        /^(in |next |last |past |coming )?(\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)? ?(day|week|fortnight|month|year)s?( ago| back| time| later| ahead| from now)?$/
+    );
+    if (rel && (rel[1] || rel[2] || rel[4])) {
+        const n = rel[2] === undefined ? 1
+                : /^\d+$/.test(rel[2]) ? +rel[2] : (COUNT_WORDS[rel[2]] || 0);
+        const lead = (rel[1] || '').trim();
+        const tail = (rel[4] || '').trim();
+        const back    = tail === 'ago' || tail === 'back' || lead === 'last' || lead === 'past';
+        const forward = lead === 'in' || lead === 'next' || lead === 'coming'
+                        || ['time', 'later', 'ahead', 'from now'].includes(tail);
+        // With no direction given, lean the way the box does.
+        const dir = back ? -1 : forward ? 1 : (prefer === 'past' ? -1 : 1);
+        if (n) {
+            const k = n * dir;
+            if (rel[3] === 'day')       return addDaysISO(today, k);
+            if (rel[3] === 'week')      return addDaysISO(today, k * 7);
+            if (rel[3] === 'fortnight') return addDaysISO(today, k * 14);
+            if (rel[3] === 'month')     return addMonthsISO(today, k);
+            return addYearsISO(today, k);
+        }
+    }
+
+    // ---- friday, last friday, next tuesday ----
+    const wd = s.match(/^(last |past |next |this |coming )?([a-z]+)$/);
+    if (wd) {
+        const want = weekdayNumber(wd[2]);
+        if (want >= 0) {
+            const lead = (wd[1] || '').trim();
+            const dir = (lead === 'next' || lead === 'coming') ? 1
+                      : (lead === 'last' || lead === 'past') ? -1
+                      : (prefer === 'future' ? 1 : -1);
+            return stepToWeekday(today, want, dir, lead === '' || lead === 'this');
+        }
+    }
+
+    // ---- a bare day: "5", "21st" ----
+    const bareDay = s.match(/^(\d{1,2})$/);
+    if (bareDay) {
+        const d = +bareDay[1];
+        const [y, m] = today.split('-').map(Number);
+        const here = validISO(y, m, d);
+        if (!here) return '';
+        // The 5th, in the month where that day sits on the right side of today.
+        if (prefer === 'past'   && here > today) return addMonthsISO(here, -1);
+        if (prefer === 'future' && here < today) return addMonthsISO(here, 1);
+        return here;
+    }
+
+    return '';
+}
+
+/** A payment was made in the past; a payout falls due ahead. */
+const datePrefer = (id) => (id === 'fDue' ? 'future' : 'past');
+
+/**
+ * What a date box currently means, as 'YYYY-MM-DD'. '' when it says nothing
+ * we can make sense of. The reading is stamped on the box, so asking again
+ * costs nothing until she changes the text.
+ */
+function dateISO(id) {
+    const el = $(id);
+    const raw = String(el.value || '').trim();
+    if (!raw) { el.dataset.raw = ''; el.dataset.iso = ''; return ''; }
+    if (el.dataset.raw === raw) return el.dataset.iso || '';
+    const iso = parseDateText(raw, datePrefer(id));
+    el.dataset.raw = raw;
+    el.dataset.iso = iso;
+    return iso;
+}
+
+/** Put a real date into a date box, written the way the app writes it. */
+function setDateField(id, iso) {
+    const el = $(id);
+    el.value = iso ? prettyDate(iso) : '';
+    el.dataset.raw = el.value;
+    el.dataset.iso = iso || '';
+    showDateWords(id);
+}
+
+/** "Wednesday, 5 August 2026" — long enough that a wrong day is unmissable. */
+function longDate(iso) {
+    const d = parseDate(iso);
+    if (!d) return prettyDate(iso);
+    return d.toLocaleDateString('en-GB',
+        { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+/** How far off it is, in the words she would use. */
+function relativeDay(iso) {
+    const n = daysUntil(iso);
+    if (n === null) return '';
+    if (n === 0)  return 'today';
+    if (n === 1)  return 'tomorrow';
+    if (n === -1) return 'yesterday';
+    const away = Math.abs(n);
+    const span = away < 14  ? `${away} days`
+               : away < 60  ? `${Math.round(away / 7)} weeks`
+               : away < 730 ? `${Math.round(away / 30.44)} months`
+               : `${(away / 365.25).toFixed(1)} years`;
+    return n < 0 ? `${span} ago` : `in ${span}`;
+}
+
+/**
+ * The line under a date box. Green once it has landed on a real day, gold
+ * while it is still being worked out or could not be placed at all.
+ */
+function showDateWords(id, state) {
+    const el = $(`${id}Words`);
+    if (!el) return;
+
+    if (state === 'busy') {
+        el.className = 'fWords warn';
+        el.innerHTML = '<span class="spin" style="margin-right:7px;vertical-align:-2px;"></span>'
+                     + 'Working out that date…';
+        return;
+    }
+    if (!String($(id).value || '').trim()) {
+        el.className = 'fWords hide';
+        el.textContent = '';
+        return;
+    }
+
+    const iso = dateISO(id);
+    if (!iso) {
+        el.className = 'fWords warn';
+        el.textContent = 'Not sure which day that is — try 5 Aug 2026, or 05/08/2026.';
+        return;
+    }
+    el.className = 'fWords';
+    el.textContent = `${longDate(iso)} — ${relativeDay(iso)}`;
+}
+
+/**
+ * Hand an unusual phrase to the model, with today's date so it has something
+ * to count from. Returns '' rather than throwing: a date it cannot place is
+ * the same to her as one it never reached.
+ */
+async function askForDate(text, prefer) {
+    const { getFunctions, httpsCallable } =
+        await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-functions.js');
+    const { initializeApp, getApps } =
+        await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js');
+    const app = getApps()[0] || initializeApp(firebaseConfig);
+    const read = httpsCallable(getFunctions(app, 'us-central1'), 'readDate');
+
+    const res = await read({ text: String(text).slice(0, 120), today: todayISO(), prefer });
+    const iso = String(res?.data?.date || '');
+    return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : '';
+}
+
+/**
+ * Settle a box onto a real date and rewrite it in place — the rules first,
+ * and only what they cannot place goes to the model.
+ *
+ * The same words are never sent twice: Save waits on whatever leaving the box
+ * already started rather than asking a second time.
+ */
+async function resolveDateField(id) {
+    const el = $(id);
+    const raw = String(el.value || '').trim();
+    if (!raw) { setDateField(id, ''); return ''; }
+
+    const local = dateISO(id);
+    if (local) { setDateField(id, local); return local; }
+
+    if (el.dateJob && el.dateJob.raw === raw) return el.dateJob.job;
+
+    const job = (async () => {
+        showDateWords(id, 'busy');
+        let iso = '';
+        try { iso = await askForDate(raw, datePrefer(id)); } catch { iso = ''; }
+        // She may have carried on typing while it was thinking. Leave her be.
+        if (String(el.value || '').trim() !== raw) return '';
+        if (iso) setDateField(id, iso); else showDateWords(id);
+        return iso;
+    })();
+
+    el.dateJob = { raw, job };
+    return job;
+}
+
 /** The line under a money box: the figure in full, spelled out. */
 function showAmountWords(id) {
     const el = $(`${id}Words`);
@@ -3691,7 +4059,7 @@ function showAmountWords(id) {
 
 function recalcForm() {
     const amt = parseAmount($('fAmount').value);
-    const start = $('fStart').value;
+    const start = dateISO('fStart');
     if (!amt || !start) {
         // Clearing a refused amount must release the button again.
         setSaveBlocked(false);
@@ -3728,11 +4096,16 @@ function recalcForm() {
 
     // Only overwrite while she has not typed her own figures.
     if (!$('fPayout').dataset.touched) setAmountField('fPayout', payout);
-    if (!$('fDue').dataset.touched) $('fDue').value = due;
+    if (!$('fDue').dataset.touched) setDateField('fDue', due);
 
+    // The profit spelled out beside the capital. The total on its own never
+    // showed her what the farm is actually giving away on this one.
     const pct = Math.round((Number(getSettings().roiMultiplier) || 1.4) * 100);
-    $('fAuto').innerHTML = `At ${pct}% over ${months} months this pays back
-        <strong style="color:#f4f1ea">${esc(naira(payout))}</strong> on
+    const extra = payout - amt;
+    $('fAuto').innerHTML = `At ${pct}% over ${months} months you pay them back their
+        <strong style="color:#f4f1ea">${esc(naira(amt))}</strong> plus
+        <strong style="color:#f4f1ea">${esc(naira(extra))}</strong> extra —
+        <strong style="color:#f4f1ea">${esc(naira(payout))}</strong> in all, on
         <strong style="color:#f4f1ea">${esc(prettyDate(due))}</strong>. Change either below if it differs.`;
 }
 
@@ -3746,10 +4119,29 @@ function setSaveBlocked(on) {
 $('fPayout').addEventListener('input', () => { $('fPayout').dataset.touched = '1'; });
 $('fDue').addEventListener('input', () => { $('fDue').dataset.touched = '1'; });
 
+// Read the date back as she types, tidy it into a real one when she leaves the
+// box, and treat Enter as leaving it — on a phone the keyboard's Done key is
+// the natural way out and should settle the box just the same.
+['fStart', 'fDue'].forEach(id => {
+    $(id).addEventListener('input', () => showDateWords(id));
+    $(id).addEventListener('blur', async () => {
+        await resolveDateField(id);
+        recalcForm();
+    });
+    $(id).addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); $(id).blur(); }
+    });
+});
+
 $('fSave').addEventListener('click', async () => {
+    // A date she typed in words may still be with the model. Wait for both
+    // boxes to settle, then let the payout follow whatever they landed on.
+    await Promise.all([resolveDateField('fStart'), resolveDateField('fDue')]);
+    recalcForm();
+
     const first = $('fFirst').value.trim(), last = $('fLast').value.trim();
     const amt = parseAmount($('fAmount').value);
-    const start = $('fStart').value, due = $('fDue').value;
+    const start = dateISO('fStart'), due = dateISO('fDue');
     const payout = parseAmount($('fPayout').value);
 
     if (!first || !last) { toast('Please enter both names', true); return; }
@@ -3886,7 +4278,7 @@ $('tmplList').addEventListener('click', (e) => {
     document.querySelectorAll('.fType').forEach(x => x.classList.toggle('on', x.dataset.t === formType));
     $('fFirst').value = r.firstName || '';
     $('fLast').value  = r.lastName || '';
-    $('fStart').value = todayISO();
+    setDateField('fStart', todayISO());
     setAmountField('fAmount', r.investSum || 0);
     $('fPayout').dataset.touched = ''; $('fDue').dataset.touched = '';
     recalcForm();
@@ -3920,7 +4312,7 @@ function startTalking(mode) {
     showComposer(true);
 
     if (mode === 'form') {
-        $('fStart').value = todayISO();
+        setDateField('fStart', todayISO());
         recalcForm();
         $('formPanel').classList.remove('hide');
         // Full screen, but the typing box stays — she is dictating into it.
@@ -4520,7 +4912,7 @@ document.addEventListener('click', async (e) => {
         $('fFirst').value = parts[0] || '';
         $('fLast').value  = parts.slice(1).join(' ') || '';
         setAmountField('fAmount', q.amount || 0);
-        $('fStart').value = todayISO();
+        setDateField('fStart', todayISO());
         $('fPayout').dataset.touched = ''; $('fDue').dataset.touched = '';
         recalcForm();
         $('formPanel').classList.remove('hide');
